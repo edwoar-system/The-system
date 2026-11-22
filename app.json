@@ -1,13 +1,14 @@
 {
   "expo": {
-    "name": "the-system",
+    "name": "The System",
     "slug": "the-system",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.edwardapps.thesystem"
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +19,17 @@
       }
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar"
+    ],
+    "scheme": "thesystem",
+    "backgroundColor": "#07090d",
+    "experiments": {
+      "baseUrl": "/The-system"
     }
   }
 }

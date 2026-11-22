@@ -39,3 +39,11 @@ Docs: https://docs.expo.dev/eas/index.md
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+
+## Project rules (The System)
+
+- All UI text is English and lives in `src/i18n/` (never hard-code strings in components). Other languages are added as extra language files.
+- Build room by room (see README). Finish and test a room before starting the next one.
+- Firestore: each player owns `players/{uid}`. Rules are in `firestore.rules` and must be pasted into the Firebase console when they change.
+- The website is served from `/The-system` on GitHub Pages (`experiments.baseUrl` in app.json).
+- Expo CLI here runs with `EXPO_OFFLINE=1` when api.expo.dev is unreachable.
