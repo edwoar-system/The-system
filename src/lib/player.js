@@ -10,7 +10,15 @@ export function useAuthUser() {
   return user;
 }
 
-// Live player document: players/{uid}. Created on first login.
+export function createPlayer(uid, name) {
+  return setDoc(
+    doc(db, "players", uid),
+    { name: name || null, coins: 0, xp: 0, level: 1, createdAt: serverTimestamp() },
+    { merge: true }
+  );
+}
+
+// Live player document: players/{uid}. Created on first login if missing.
 export function usePlayer(uid) {
   const [state, setState] = useState({ player: null, error: null, synced: false });
   useEffect(() => {
@@ -21,7 +29,7 @@ export function usePlayer(uid) {
       { includeMetadataChanges: true },
       async (snap) => {
         if (!snap.exists()) {
-          await setDoc(ref, { coins: 0, xp: 0, level: 1, createdAt: serverTimestamp() });
+          await createPlayer(uid, null);
           return;
         }
         setState({ player: snap.data(), error: null, synced: !snap.metadata.hasPendingWrites });
@@ -34,4 +42,8 @@ export function usePlayer(uid) {
 
 export function addCoins(uid, amount) {
   return updateDoc(doc(db, "players", uid), { coins: increment(amount), updatedAt: serverTimestamp() });
+}
+
+export function setPlayerName(uid, name) {
+  return updateDoc(doc(db, "players", uid), { name, updatedAt: serverTimestamp() });
 }
