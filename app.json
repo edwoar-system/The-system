@@ -2,7 +2,7 @@
   "expo": {
     "name": "The System",
     "slug": "the-system",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -28,7 +28,14 @@
     "plugins": [
       "expo-router",
       "expo-status-bar",
-      "expo-font"
+      "expo-font",
+      [
+        "react-native-device-activity",
+        {
+          "appleTeamId": "SFFU7RW25F",
+          "appGroup": "group.com.edwardapps.thesystem"
+        }
+      ]
     ],
     "scheme": "thesystem",
     "backgroundColor": "#07090d",

@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth } from "../lib/firebase";
 import { addCoins, setPlayerName, usePlayer } from "../lib/player";
 import { Button, Field, Panel, glow } from "./ui";
+import AppLock from "./AppLock";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
@@ -82,6 +83,8 @@ export default function Home({ user }) {
               </Text>
             </View>
           </Panel>
+
+          <AppLock uid={user.uid} coins={player.coins ?? 0} />
 
           <Panel title={t.home.testTitle}>
             <Text style={{ fontFamily: font.body, fontSize: 15, lineHeight: 22, color: color.muted }}>{t.home.testText}</Text>

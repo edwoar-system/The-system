@@ -47,3 +47,5 @@ Docs: https://docs.expo.dev/eas/index.md
 - Firestore: each player owns `players/{uid}`. Rules are in `firestore.rules` and must be pasted into the Firebase console when they change.
 - The website is served from `/The-system` on GitHub Pages (`experiments.baseUrl` in app.json).
 - Expo CLI here runs with `EXPO_OFFLINE=1` when api.expo.dev is unreachable.
+- Native changes (new native modules, config plugins, entitlements): bump `expo.version` in app.json so the runtime version changes and over-the-air updates never reach an older binary that lacks the native code. Merge to `main` only together with a new EAS build.
+- Room 1 (app lock) uses react-native-device-activity. Screen Time data never leaves the phone (Apple's Family Controls terms); only coins and unlock times go to Firestore.
