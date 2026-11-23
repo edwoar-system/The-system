@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Platform, ScrollView, Text, View } from "react-native";
+import * as Updates from "expo-updates";
 import { signOut } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth } from "../lib/firebase";
@@ -92,6 +93,12 @@ export default function Home({ user }) {
           </Panel>
         </>
       )}
+
+      {Platform.OS !== "web" ? (
+        <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>
+          {Updates.isEmbeddedLaunch ? t.home.builtIn : t.home.overTheAir}
+        </Text>
+      ) : null}
 
       <Button kind="text" label={t.home.logout} onPress={() => signOut(auth)} style={{ alignSelf: "flex-start", paddingHorizontal: 0 }} />
     </ScrollView>

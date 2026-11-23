@@ -46,5 +46,7 @@ export default {
     setName: "Set your player name",
     saveName: "Save name",
     logout: "Log out",
+    builtIn: "App version: built-in",
+    overTheAir: "App version: updated over the air",
   },
 };
