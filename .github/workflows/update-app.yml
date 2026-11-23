@@ -1,0 +1,35 @@
+name: Update iPhone app
+
+# Every push to main sends the new code to the installed iPhone app (over-the-air update).
+# Needs the repository secret EXPO_TOKEN (expo.dev → Account settings → Access tokens).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for Expo token
+        id: token
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then echo "No EXPO_TOKEN secret yet, skipping."; echo "ok=false" >> "$GITHUB_OUTPUT"; else echo "ok=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@v4
+        if: steps.token.outputs.ok == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.token.outputs.ok == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - uses: expo/expo-github-action@v8
+        if: steps.token.outputs.ok == 'true'
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+        if: steps.token.outputs.ok == 'true'
+      - run: eas update --channel preview --platform ios --message "${{ github.event.head_commit.message || 'Manual update' }}" --non-interactive
+        if: steps.token.outputs.ok == 'true'
