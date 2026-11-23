@@ -30,6 +30,9 @@
     "backgroundColor": "#07090d",
     "experiments": {
       "baseUrl": "/The-system"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
 }
