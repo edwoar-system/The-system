@@ -8,7 +8,10 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.edwardapps.thesystem"
+      "bundleIdentifier": "com.edwardapps.thesystem",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -34,6 +37,20 @@
     },
     "runtimeVersion": {
       "policy": "appVersion"
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "8615b925-7af6-44be-83f5-714fad1b7d66"
+      }
+    },
+    "owner": "edwoar",
+    "updates": {
+      "url": "https://u.expo.dev/8615b925-7af6-44be-83f5-714fad1b7d66"
     }
   }
 }
