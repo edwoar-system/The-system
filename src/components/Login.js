@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-na
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../lib/firebase";
 import { createPlayer } from "../lib/player";
-import { Button, Field } from "./ui";
+import { Button, Field, Panel } from "./ui";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
@@ -43,15 +43,15 @@ export default function Login() {
         contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 28 }}>
         <View style={{ width: "100%", maxWidth: 400, alignSelf: "center", gap: 40 }}>
           <View style={{ gap: 12 }}>
-            <Text style={{ fontFamily: font.displayHeavy, fontSize: 40, lineHeight: 44, color: color.text, letterSpacing: -1 }}>
+            <Text style={{ fontFamily: font.displayHeavy, fontSize: 44, lineHeight: 48, color: color.text, letterSpacing: 0.5 }}>
               {t.appName}
             </Text>
             <Text style={{ fontFamily: font.body, fontSize: 17, color: color.muted }}>{t.tagline}</Text>
           </View>
 
-          <View style={{ gap: 18 }}>
-            <Text style={{ fontFamily: font.display, fontSize: 18, color: color.text }}>
-              {signup ? t.login.signupTitle : t.login.loginTitle}
+          <Panel title={t.login.windowTitle} style={{ gap: 18 }}>
+            <Text style={{ fontFamily: font.bodyMedium, fontSize: 17, lineHeight: 24, color: color.text }}>
+              {signup ? t.login.signupMsg : t.login.loginMsg}
             </Text>
             {signup ? (
               <Field testID="name" label={t.login.name} placeholder={t.login.namePlaceholder}
@@ -69,7 +69,7 @@ export default function Login() {
               onPress={submit} disabled={busy} style={{ marginTop: 6 }} />
             <Button kind="text" label={signup ? t.login.toLogin : t.login.toSignup}
               onPress={() => { setMode(signup ? "login" : "signup"); setError(""); }} />
-          </View>
+          </Panel>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

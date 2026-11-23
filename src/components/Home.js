@@ -4,7 +4,7 @@ import { signOut } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth } from "../lib/firebase";
 import { addCoins, setPlayerName, usePlayer } from "../lib/player";
-import { Button, Field } from "./ui";
+import { Button, Field, Panel, glow } from "./ui";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
@@ -16,28 +16,41 @@ function greeting() {
   return t.home.evening;
 }
 
+const XP_PER_LEVEL = 100; // placeholder until the economy (room 2) is designed
+
 // Room 0: who you are, your coins, and proof that the save file syncs.
 export default function Home({ user }) {
   const theme = useTheme();
-  const { color, font, radius } = theme;
+  const { color, font } = theme;
   const insets = useSafeAreaInsets();
   const { player, error, synced } = usePlayer(user.uid);
   const [nameDraft, setNameDraft] = useState("");
+  const xp = (player?.xp ?? 0) % XP_PER_LEVEL;
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: color.bg }}
       contentContainerStyle={{ padding: 24, paddingTop: insets.top + 32, paddingBottom: insets.bottom + 32,
-        gap: 28, maxWidth: 480, width: "100%", alignSelf: "center" }}>
+        gap: 24, maxWidth: 480, width: "100%", alignSelf: "center" }}>
 
       <View style={{ gap: 4 }}>
         <Text style={{ fontFamily: font.body, fontSize: 17, color: color.muted }}>{greeting()}</Text>
-        <Text testID="player-name" style={{ fontFamily: font.displayHeavy, fontSize: 34, lineHeight: 40, color: color.text, letterSpacing: -0.5 }}>
+        <Text testID="player-name" style={{ fontFamily: font.displayHeavy, fontSize: 38, lineHeight: 44, color: color.text, letterSpacing: 0.5 }}>
           {player?.name || t.home.defaultName}
         </Text>
         {player ? (
-          <Text style={{ fontFamily: font.bodyMedium, fontSize: 15, color: color.muted, marginTop: 4 }}>
-            {t.home.level} {player.level ?? 1}
-          </Text>
+          <View style={{ gap: 8, marginTop: 10 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              <Text style={{ fontFamily: font.display, fontSize: 16, color: color.accent }}>
+                {t.home.level} {player.level ?? 1}
+              </Text>
+              <Text style={{ fontFamily: font.display, fontSize: 14, color: color.muted, fontVariant: ["tabular-nums"] }}>
+                {xp} / {XP_PER_LEVEL} {t.home.xp}
+              </Text>
+            </View>
+            <View style={{ height: 6, backgroundColor: color.line, borderRadius: 3, overflow: "hidden" }}>
+              <View style={{ width: `${Math.max(xp, 2)}%`, height: "100%", backgroundColor: color.accent, borderRadius: 3 }} />
+            </View>
+          </View>
         ) : null}
       </View>
 
@@ -48,39 +61,35 @@ export default function Home({ user }) {
       ) : (
         <>
           {!player.name ? (
-            <View style={{ gap: 12 }}>
-              <Field label={t.home.setName} value={nameDraft} onChangeText={setNameDraft} autoCapitalize="words" />
-              <Button kind="secondary" label={t.home.saveName} disabled={!nameDraft.trim()}
+            <Panel title={t.home.setName}>
+              <Field label={t.login.name} value={nameDraft} onChangeText={setNameDraft} autoCapitalize="words" />
+              <Button label={t.home.saveName} disabled={!nameDraft.trim()}
                 onPress={() => setPlayerName(user.uid, nameDraft.trim())} />
-            </View>
+            </Panel>
           ) : null}
 
-          <View style={{ backgroundColor: color.surface, borderRadius: radius.card, padding: 24, gap: 6 }}>
-            <View style={{ flexDirection: "row", alignItems: "baseline", gap: 10 }}>
-              <Text testID="coins" style={{ fontFamily: font.displayHeavy, fontSize: 72, lineHeight: 80, color: color.text,
-                letterSpacing: -2, fontVariant: ["tabular-nums"] }}>
-                {player.coins}
-              </Text>
-              <Text style={{ fontFamily: font.display, fontSize: 18, color: color.muted }}>{t.home.coins}</Text>
-            </View>
+          <Panel title={t.home.coinsTitle}>
+            <Text testID="coins" style={{ fontFamily: font.displayHeavy, fontSize: 76, lineHeight: 84, color: color.reward,
+              fontVariant: ["tabular-nums"], ...glow(theme, "rgba(245,201,106,0.45)") }}>
+              {player.coins}
+            </Text>
             <Text style={{ fontFamily: font.body, fontSize: 15, color: color.muted }}>{t.home.coinsHint}</Text>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14 }}>
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: synced ? color.accent : color.muted }} />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 }}>
+              <View style={{ width: 7, height: 7, backgroundColor: synced ? color.accent : color.muted }} />
               <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: synced ? color.accent : color.muted }}>
                 {synced ? t.home.synced : t.home.syncing}
               </Text>
             </View>
-          </View>
+          </Panel>
 
-          <View style={{ gap: 12 }}>
-            <Text style={{ fontFamily: font.display, fontSize: 16, color: color.text }}>{t.home.testTitle}</Text>
+          <Panel title={t.home.testTitle}>
             <Text style={{ fontFamily: font.body, fontSize: 15, lineHeight: 22, color: color.muted }}>{t.home.testText}</Text>
-            <View style={{ flexDirection: "row", gap: 10 }}>
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
               <Button testID="plus" label="+1" style={{ flex: 1 }} onPress={() => addCoins(user.uid, 1)} />
               <Button testID="plus10" label="+10" style={{ flex: 1 }} onPress={() => addCoins(user.uid, 10)} />
               <Button kind="secondary" label="−1" style={{ flex: 1 }} onPress={() => addCoins(user.uid, -1)} />
             </View>
-          </View>
+          </Panel>
         </>
       )}
 
