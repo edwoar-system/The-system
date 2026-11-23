@@ -4,7 +4,8 @@ import * as Updates from "expo-updates";
 import { signOut } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth } from "../lib/firebase";
-import { addCoins, setPlayerName, usePlayer } from "../lib/player";
+import { setPlayerName } from "../lib/player";
+import { levelFromXp } from "../game/economy";
 import { Button, Field, Panel, glow } from "./ui";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
@@ -17,20 +18,17 @@ function greeting() {
   return t.home.evening;
 }
 
-const XP_PER_LEVEL = 100; // placeholder until the economy (room 2) is designed
-
 // Room 0: who you are, your coins, and proof that the save file syncs.
-export default function Home({ user }) {
+export default function Home({ user, player, error, synced }) {
   const theme = useTheme();
   const { color, font } = theme;
   const insets = useSafeAreaInsets();
-  const { player, error, synced } = usePlayer(user.uid);
   const [nameDraft, setNameDraft] = useState("");
-  const xp = (player?.xp ?? 0) % XP_PER_LEVEL;
+  const lvl = levelFromXp(player?.xp ?? 0);
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: color.bg }}
-      contentContainerStyle={{ padding: 24, paddingTop: insets.top + 32, paddingBottom: insets.bottom + 32,
+      contentContainerStyle={{ padding: 24, paddingTop: insets.top + 32, paddingBottom: 40,
         gap: 24, maxWidth: 480, width: "100%", alignSelf: "center" }}>
 
       <View style={{ gap: 4 }}>
@@ -42,14 +40,14 @@ export default function Home({ user }) {
           <View style={{ gap: 8, marginTop: 10 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
               <Text style={{ fontFamily: font.display, fontSize: 16, color: color.accent }}>
-                {t.home.level} {player.level ?? 1}
+                {t.home.level} {lvl.level}
               </Text>
               <Text style={{ fontFamily: font.display, fontSize: 14, color: color.muted, fontVariant: ["tabular-nums"] }}>
-                {xp} / {XP_PER_LEVEL} {t.home.xp}
+                {lvl.xpIntoLevel} / {lvl.xpForLevel} {t.home.xp}
               </Text>
             </View>
             <View style={{ height: 6, backgroundColor: color.line, borderRadius: 3, overflow: "hidden" }}>
-              <View style={{ width: `${Math.max(xp, 2)}%`, height: "100%", backgroundColor: color.accent, borderRadius: 3 }} />
+              <View style={{ width: `${Math.max((lvl.xpIntoLevel / lvl.xpForLevel) * 100, 2)}%`, height: "100%", backgroundColor: color.accent, borderRadius: 3 }} />
             </View>
           </View>
         ) : null}
@@ -83,14 +81,6 @@ export default function Home({ user }) {
             </View>
           </Panel>
 
-          <Panel title={t.home.testTitle}>
-            <Text style={{ fontFamily: font.body, fontSize: 15, lineHeight: 22, color: color.muted }}>{t.home.testText}</Text>
-            <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
-              <Button testID="plus" label="+1" style={{ flex: 1 }} onPress={() => addCoins(user.uid, 1)} />
-              <Button testID="plus10" label="+10" style={{ flex: 1 }} onPress={() => addCoins(user.uid, 10)} />
-              <Button kind="secondary" label="−1" style={{ flex: 1 }} onPress={() => addCoins(user.uid, -1)} />
-            </View>
-          </Panel>
         </>
       )}
 

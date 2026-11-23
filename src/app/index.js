@@ -1,7 +1,7 @@
 import { ActivityIndicator, View } from "react-native";
 import { useAuthUser } from "../lib/player";
 import Login from "../components/Login";
-import Home from "../components/Home";
+import Shell from "../components/Shell";
 import { useTheme } from "../theme";
 
 export default function Index() {
@@ -14,5 +14,5 @@ export default function Index() {
       </View>
     );
   }
-  return user ? <Home user={user} /> : <Login />;
+  return user ? <Shell user={user} /> : <Login />;
 }
