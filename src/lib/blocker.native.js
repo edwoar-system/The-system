@@ -4,14 +4,16 @@
 // - "Block-all mode" shields every app except the ones on your allowed list (and Apple's essentials like Phone).
 // - Unlocking turns block-all mode off and starts a one-off Screen Time schedule that ends after X minutes.
 //   When it ends, the Screen Time extension turns block-all mode back on, even if The System is closed.
-// - Apple requires a schedule of at least 15 minutes, so unlocks come in blocks of 15 minutes or more.
+// - Apple requires a schedule of at least 15 minutes. For shorter unlocks the schedule starts in the past,
+//   so it is still 15 minutes long but ends exactly X minutes from now (same trick other blockers use).
 // - Screen Time data never leaves the phone. Only coins and the unlock end time are saved to the database.
 import { useCallback, useEffect, useState } from "react";
 import * as RNDA from "react-native-device-activity";
 import { t } from "../i18n";
 
 export const blockerAvailable = true;
-export const MIN_UNLOCK_MINUTES = 15;
+export const MIN_UNLOCK_MINUTES = 1;
+const APPLE_MIN_SCHEDULE_MINUTES = 15;
 
 const ALLOWED_ID = "always_allowed";
 const UNLOCK_ACTIVITY = "coin_unlock";
@@ -121,8 +123,8 @@ export function useBlocker() {
   // Opens the apps for `minutes`. Throws if Screen Time refuses the schedule; then everything stays locked.
   const unlockFor = useCallback(async (minutes) => {
     const m = Math.max(MIN_UNLOCK_MINUTES, Math.round(minutes));
-    const start = new Date(Date.now() + 2000);
-    const end = new Date(start.getTime() + m * 60000);
+    const end = new Date(Date.now() + m * 60000);
+    const start = new Date(end.getTime() - Math.max(m, APPLE_MIN_SCHEDULE_MINUTES) * 60000);
     RNDA.stopMonitoring([UNLOCK_ACTIVITY]);
     RNDA.configureActions({
       activityName: UNLOCK_ACTIVITY,

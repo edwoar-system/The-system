@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Text, View } from "react-native";
-import { AppPicker, blockerAvailable, MIN_UNLOCK_MINUTES, useBlocker } from "../lib/blocker";
+import { AppPicker, blockerAvailable, useBlocker } from "../lib/blocker";
 import { addCoins, spendCoins } from "../lib/player";
 import { Button, Panel } from "./ui";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
 const COINS_PER_MINUTE = 1; // placeholder until the economy formula (room 2)
-const UNLOCK_OPTIONS = [MIN_UNLOCK_MINUTES, 30, 60];
+const UNLOCK_OPTIONS = [5, 15, 30, 60];
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.replace(`{${k}}`, v), s);
 
 export default function AppLock({ uid, coins }) {

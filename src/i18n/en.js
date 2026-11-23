@@ -44,7 +44,7 @@ export default {
     locked: "Your apps are locked.",
     unlockedFor: "Apps open for {m} more min.",
     unlockTitle: "Unlock",
-    unlockHint: "1 coin per minute. Apple's minimum is 15 minutes.",
+    unlockHint: "1 coin per minute. The lock comes back by itself when the time is up.",
     unlockButton: "{m} min · {c} coins",
     lockEarly: "Lock again now",
     notEnough: "Not enough coins for that.",
