@@ -31,5 +31,8 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
       - run: npm ci
         if: steps.token.outputs.ok == 'true'
-      - run: eas update --channel preview --platform ios --message "${{ github.event.head_commit.message || 'Manual update' }}" --non-interactive
+      - name: Publish update
         if: steps.token.outputs.ok == 'true'
+        env:
+          MSG: ${{ github.event.head_commit.message || 'Manual update' }}
+        run: eas update --channel preview --platform ios --message "$(echo "$MSG" | head -n1)" --non-interactive
