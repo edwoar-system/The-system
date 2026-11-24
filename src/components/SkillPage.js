@@ -9,6 +9,7 @@ import { dayNum, isHabit, skillView, trialParts, trialQuestId, trialState } from
 import { startTrial, stopTrial } from "../lib/skills";
 import QuestSheet from "./QuestSheet";
 import { BodyReport } from "./Body";
+import { needsProof } from "../game/proof";
 import CheckIn from "./CheckIn";
 import { getQuest } from "../lib/day";
 import RankUp from "./RankUp";
@@ -115,7 +116,7 @@ export default function SkillPage({ user, player, id, onBack, onRequest }) {
     try { await stopTrial(user.uid, id); } catch { setError(t.skills.failed); } finally { setBusy(false); }
   }
   function onResult(r) {
-    if (r.logId && sheet?.id) setCheck({ logId: r.logId, title: getQuest(sheet.id)?.title ?? "" });
+    if (r.logId && sheet?.id) setCheck({ logId: r.logId, title: getQuest(sheet.id)?.title ?? "", proof: needsProof(player, "trial"), ask: true });
     if (r.muscles) setBody(r.muscles);
     if (r.levelUp) setLevelUp({ level: r.levelUp, xp: (player.xp ?? 0) + r.xp });
     if (r.skillUp) setRankUp({ letter: RANKS[r.skillUp.rank], name: skill.name, xp: r.skillUp.xp });

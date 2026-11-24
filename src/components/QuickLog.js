@@ -6,6 +6,7 @@ import { quickLog, quickUndo } from "../lib/quick";
 import { Frame, Label, nativeDriver } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
+import { doneFeel, tapFeel } from "../lib/haptics";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 
@@ -27,6 +28,7 @@ export default function QuickLog({ user, player, day, onCompleted, style }) {
     setBusy(item.id);
     try {
       const r = await quickLog(user.uid, item.id);
+      if (r.completed) doneFeel(); else tapFeel();
       const target = r.target;
       say(target ? `${fill(t.quick.added, { label: item.label })} · ${fill(t.quick.progress, { a: Math.min(r.count, target.goal), b: target.goal })}` : fill(t.quick.added, { label: item.label }));
       if (r.completed) onCompleted?.(r.completed, r.completedQuest);

@@ -1,11 +1,13 @@
 // Settings tab: profile, Tune the System (questionnaire), quotes, the System settings, reminders, quest history and the account.
 import { useEffect, useState } from "react";
-import { Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
+import { Image, Modal, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
 import * as Updates from "expo-updates";
 import { signOut } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth } from "../lib/firebase";
-import { setNotify, setPlayerName, setReminders } from "../lib/player";
+import { setNotify, setPlayerName, setProof, setReminders } from "../lib/player";
+import { loadProof } from "../lib/proof";
+import { PROOF_KINDS, proofSettings } from "../game/proof";
 import { askNotifyPermission, notifyPermission, notifySupported } from "../lib/notify";
 import { NOTIFY_KINDS, notifySettings } from "../game/notify";
 import { setUrgentPerDay } from "../lib/urgent";
@@ -132,12 +134,46 @@ function Reminders({ user, player }) {
   );
 }
 
+// Which kinds of quest ask for proof.
+function ProofChoice({ user, player }) {
+  const { color, font } = useTheme();
+  const on = proofSettings(player);
+  return (
+    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+      {PROOF_KINDS.map((k) => (
+        <Pressable key={k} accessibilityRole="switch" accessibilityState={{ checked: on[k] }} onPress={() => setProof(user.uid, k, !on[k])}
+          style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: "center", borderWidth: 1, borderColor: on[k] ? color.frame : "rgba(159,203,255,0.22)", backgroundColor: on[k] ? "rgba(159,203,255,0.16)" : "transparent" }}>
+          <Text style={{ fontFamily: font.bold, fontSize: 13, color: on[k] ? "#FFFFFF" : color.muted }}>{t.proof.kinds[k]}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+// A proof photo from the quest log, full screen.
+function ProofView({ uid, logId, onClose }) {
+  const { color, font } = useTheme();
+  const [img, setImg] = useState(undefined);
+  useEffect(() => { loadProof(uid, logId).then(setImg).catch(() => setImg(null)); }, [uid, logId]);
+  return (
+    <Modal transparent animationType="fade" visible onRequestClose={onClose}>
+      <Pressable accessibilityRole="button" accessibilityLabel={t.proof.close} onPress={onClose} style={{ flex: 1, backgroundColor: "rgba(1,4,10,0.95)", alignItems: "center", justifyContent: "center", padding: 16 }}>
+        {img ? <Image source={{ uri: img }} resizeMode="contain" style={{ width: "100%", height: "80%" }} /> : (
+          <Text style={{ fontFamily: font.body, fontSize: 14, color: color.muted }}>{img === null ? t.proof.missing : t.settings.loading}</Text>
+        )}
+        <Text style={{ marginTop: 14, fontFamily: font.bodyBold, fontSize: 14, color: color.accent }}>{t.proof.close}</Text>
+      </Pressable>
+    </Modal>
+  );
+}
+
 function History({ uid, honesty }) {
   const { color, font } = useTheme();
   const summary = honesty?.checked
     ? fill(t.settings.honesty, { n: honesty.checked, c: honesty.cheated ?? 0 })
     : t.settings.honestyNone;
   const { items, error } = useHistory(uid);
+  const [view, setView] = useState(null);
   const head = <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: honesty?.cheated ? "#F6B45A" : color.muted }}>{summary}</Text>;
   if (!items) return <View style={{ gap: 8 }}>{head}<Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{t.settings.loading}</Text></View>;
   if (error) return <Text style={{ fontFamily: font.body, fontSize: 13, color: color.dangerSoft }}>{t.settings.historyError}</Text>;
@@ -162,11 +198,17 @@ function History({ uid, honesty }) {
                   </Text>
                 ) : null}
               </View>
+              {it.proof === "photo" ? (
+                <Pressable accessibilityRole="button" onPress={() => setView(it.id)} style={{ minHeight: 36, justifyContent: "center", paddingHorizontal: 6 }}>
+                  <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: color.accent }}>{t.proof.photo}</Text>
+                </Pressable>
+              ) : it.proof === "none" ? <Text style={{ fontFamily: font.body, fontSize: 12, color: "#F6B45A" }}>{t.proof.none}</Text> : null}
               <Coins value={(it.coins ?? 0) + (it.bonus ?? 0)} sign="+" size={14} />
             </View>
           </View>
         );
       })}
+      {view ? <ProofView uid={uid} logId={view} onClose={() => setView(null)} /> : null}
     </View>
   );
 }
@@ -222,6 +264,10 @@ export default function Settings({ user, player, synced }) {
           <SeverityChips value={pendingSeverity ?? severity} onChange={(s) => scheduleSeverity(user.uid, s)} />
           {pendingSeverity ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: color.frame }}>{fill(t.settings.severityNext, { sev: t.penalty.severities[pendingSeverity] })}</Text> : null}
         </View>
+      </Section>
+
+      <Section title={t.proof.title} sub={t.proof.sub}>
+        <ProofChoice user={user} player={player} />
       </Section>
 
       <Section title={t.reminders.title} sub={t.reminders.sub}>

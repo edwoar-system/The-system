@@ -9,6 +9,8 @@ import {
 import { acceptUrgent, checkUrgent, chooseFollowUp, dismissUrgent, finishFollowUp, finishUrgent, skipUrgent } from "../lib/urgent";
 import { Coins, Frame, Label, SysButton, hexPoints, nativeDriver } from "./sys";
 import LevelUp from "./LevelUp";
+import CheckIn from "./CheckIn";
+import { needsProof } from "../game/proof";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
@@ -58,6 +60,7 @@ export default function Urgent({ user, player }) {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null); // { kind: "done" | "skipped", ... }
   const [levelUp, setLevelUp] = useState(null);
+  const [check, setCheck] = useState(null); // proof and check-in after a finished urgent quest
   const checking = useRef(false);
   const u = player?.urgent;
 
@@ -84,7 +87,7 @@ export default function Urgent({ user, player }) {
   }, [timedOut, user.uid]);
 
   const live = u && (["offered", "active", "followup"].includes(u.status) || (u.status === "failed" && !u.seen));
-  const visible = !!(live || result || levelUp);
+  const visible = !!(live || result || levelUp || check);
   useEffect(() => {
     if (!visible) return;
     const loop = Animated.loop(Animated.sequence([
@@ -95,6 +98,7 @@ export default function Urgent({ user, player }) {
     return () => loop.stop();
   }, [visible, pulse]);
   if (!visible) return null;
+  if (check && !live && !result) return <CheckIn uid={user.uid} data={check} onClose={() => setCheck(null)} />;
   if (levelUp && !live && !result) return <LevelUp data={levelUp} onClose={() => setLevelUp(null)} />;
 
   const act = async (fn, after) => {
@@ -113,7 +117,11 @@ export default function Urgent({ user, player }) {
         <Svg width={80} height={88}><Polygon points={hexPoints(80, 88, 2)} fill={color.frame} /></Svg>
         <Label tone={color.hi} style={{ letterSpacing: 5, fontSize: 12 }}>{t.urgent.clear}</Label>
         <Reward r={result} size={28} />
-        <SysButton label={t.urgent.ok} onPress={() => { setResult(null); if (result.levelUp) setLevelUp({ level: result.levelUp, xp: player.xp ?? 0 }); }} style={{ alignSelf: "stretch", marginTop: 20 }} />
+        <SysButton label={t.urgent.ok} onPress={() => {
+          setResult(null);
+          if (result.levelUp) setLevelUp({ level: result.levelUp, xp: player.xp ?? 0 });
+          if (result.logId) setCheck({ logId: result.logId, title: result.title ?? "", proof: needsProof(player, "urgent"), ask: true });
+        }} style={{ alignSelf: "stretch", marginTop: 20 }} />
       </View>
     );
   } else if (result?.kind === "skipped") {

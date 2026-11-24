@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { setPlayerName } from "../lib/player";
 import { currentDay, currentStreak } from "../lib/day";
 import { levelFromXp, statValue } from "../game/economy";
-import { questById, STATS } from "../game/quests";
+import { questById, STATS, todayKey } from "../game/quests";
 import { Button, Field } from "./ui";
 import { Coins, Frame, Glow, Label, hexPoints } from "./sys";
 import StatShape from "./StatShape";
@@ -15,7 +15,6 @@ import { BodyCard } from "./Body";
 import QuoteLibrary from "./QuoteLibrary";
 import { quoteOfDay } from "../game/quotes";
 import { PARTS, partsDone } from "../game/profile";
-import { todayKey } from "../game/quests";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 

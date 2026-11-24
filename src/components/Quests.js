@@ -18,10 +18,12 @@ import QuickLog from "./QuickLog";
 import { QUICK, goalFor, quickToday } from "../game/quick";
 import { dayNum, trialQuestId, trialState, weekNum } from "../game/skills";
 import { dutiesToday } from "../game/profile";
+import { ASK_SLOTS, needsProof } from "../game/proof";
 import { RANKS, ladderById as ladders } from "../game/ladders";
 import { skillById } from "../game/guild";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
+import { doneFeel } from "../lib/haptics";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 const DEADLINE_HOUR = 21;
@@ -147,7 +149,9 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
     showToast({ coins: r.coins + r.bonus, bonus: r.bonus, xp: r.xp });
     if (r.levelUp) setLevelUp({ level: r.levelUp, xp: (player.xp ?? 0) + r.xp, coins: r.coins + r.bonus });
     const q = getQuest(questId);
-    if ((r.slot === "main" || r.slot === "trial") && r.logId) setCheck({ logId: r.logId, title: q?.title ?? "" });
+    const proof = needsProof(player, r.slot);
+    const ask = ASK_SLOTS.includes(r.slot);
+    if ((proof || ask) && r.logId) setCheck({ logId: r.logId, title: q?.title ?? "", proof, ask });
     if (r.muscles) setBody({ ...r.muscles, skillId: q?.skill, skillName: skillById[q?.skill]?.name ?? "" });
     if (r.skillUp) setRankUp({ letter: RANKS[r.skillUp.rank], name: skillById[r.skillUp.id]?.name ?? "", xp: r.skillUp.xp });
     else if (r.trialDone && q?.skill) setRankUp({ letter: RANKS[q.trial.rank], name: skillById[q.skill]?.name ?? "", xp: 0, restored: true });
@@ -157,6 +161,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
     setBusy(true);
     try {
       const r = await completeQuest(user.uid, questId, slot);
+      doneFeel();
       onResult(r, questId);
     } catch (e) {
       if (e.message !== "already-done") showToast({ error: true });

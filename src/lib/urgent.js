@@ -1,5 +1,5 @@
 // Urgent quests in Firestore: offer, accept, skip, finish, follow-up, and time-outs. Lives in players/{uid}.urgent.
-import { addDoc, collection, doc, runTransaction, serverTimestamp } from "firebase/firestore";
+import { collection, doc, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import { levelFromXp } from "../game/economy";
 import { todayKey } from "../game/quests";
@@ -25,8 +25,11 @@ function rewardFields(player, r) {
   };
 }
 
+// Writes a quest log entry and returns its id (for proof and the check-in).
 function log(uid, entry) {
-  addDoc(collection(db, "players", uid, "log"), { ...entry, slot: "urgent", date: todayKey(), at: serverTimestamp() }).catch(() => {});
+  const ref = doc(collection(db, "players", uid, "log"));
+  setDoc(ref, { ...entry, slot: "urgent", date: todayKey(), at: serverTimestamp() }).catch(() => {});
+  return ref.id;
 }
 
 function countToday(player) {
@@ -128,11 +131,12 @@ export const finishUrgent = (uid) => update(uid, (p, u) => {
   const rest = u.choice === "rest";
   const r = rest ? restReward(restById[u.rest], taskById[u.task]) : taskReward(taskById[u.task]);
   const { fields, levelUp } = rewardFields(p, r);
-  log(uid, { questId: `urgent:${rest ? u.rest : u.task}`, title: rest ? restById[u.rest].title : taskById[u.task].title, coins: r.coins, xp: r.xp, stat: r.stat });
+  const title = rest ? restById[u.rest].title : taskById[u.task].title;
+  const logId = log(uid, { questId: `urgent:${rest ? u.rest : u.task}`, title, coins: r.coins, xp: r.xp, stat: r.stat });
   const next = rest
     ? { ...u, status: "followup", followDeadline: Date.now() + URGENT.followUpMinutes * 60000, earned: r }
     : { ...u, status: "done", earned: r };
-  return { write: { ...fields, urgent: next }, result: { ...r, levelUp, followUp: rest } };
+  return { write: { ...fields, urgent: next }, result: { ...r, levelUp, followUp: rest, logId, title } };
 });
 
 export const chooseFollowUp = (uid, followId) => update(uid, (p, u) => {
@@ -146,8 +150,8 @@ export const finishFollowUp = (uid) => update(uid, (p, u) => {
   const f = followById[u.follow];
   const r = followReward(f);
   const { fields, levelUp } = rewardFields(p, r);
-  log(uid, { questId: `urgent:follow:${f.id}`, title: f.title, coins: r.coins, xp: r.xp, stat: r.stat });
-  return { write: { ...fields, urgent: { ...u, status: "done", earned: r } }, result: { ...r, levelUp } };
+  const logId = log(uid, { questId: `urgent:follow:${f.id}`, title: f.title, coins: r.coins, xp: r.xp, stat: r.stat });
+  return { write: { ...fields, urgent: { ...u, status: "done", earned: r } }, result: { ...r, levelUp, logId, title: f.title } };
 });
 
 // Closes a result screen (failed) so it doesn't show again.

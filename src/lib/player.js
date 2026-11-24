@@ -58,6 +58,11 @@ export function setProfile(uid, profile) {
   return updateDoc(doc(db, "players", uid), { profile, updatedAt: serverTimestamp() });
 }
 
+// Turns proof on or off for one kind of quest ("trial", "urgent", "main", "guild").
+export function setProof(uid, kind, on) {
+  return updateDoc(doc(db, "players", uid), { [`proof.${kind}`]: on, updatedAt: serverTimestamp() });
+}
+
 // Saves one part of the questionnaire: only the given fields change (null removes one).
 export function patchProfile(uid, patch) {
   const fields = Object.fromEntries(Object.entries(patch).map(([k, v]) => [`profile.${k}`, v ?? deleteField()]));

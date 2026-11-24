@@ -9,6 +9,7 @@ import { skillView } from "../game/skills";
 import { Coins, Frame, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
+import { doneFeel } from "../lib/haptics";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 const ROMAN = ["I", "II", "III"];
@@ -85,6 +86,7 @@ export default function QuestSheet({ user, player, questId, slot, done, onClose,
     const log = mode === "count" && count > 0 ? { value: count, unit: "reps" } : mode === "timer" && seconds >= 1 ? { value: Math.round(seconds), unit: "seconds" } : null;
     try {
       const r = await completeQuest(user.uid, questId, slot, log);
+      doneFeel();
       onResult?.(r);
       onClose();
     } catch (e) {

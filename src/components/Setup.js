@@ -12,6 +12,7 @@ import { Frame, Label, SysButton, hexPoints, nativeDriver } from "./sys";
 import { SeverityChips, UrgentChips } from "./systemChoices";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
+import { lockFeel } from "../lib/haptics";
 
 function LockMark({ shackle }) {
   const { color } = useTheme();
@@ -43,6 +44,7 @@ export default function Setup({ user, player, onLocking, onDone }) {
     setError(false);
     setLocking(true);
     onLocking?.();
+    lockFeel();
     a.setValue(0);
     // After the lock-in, ask once for notifications (urgent quests and the deadline need them).
     Animated.timing(a, { toValue: 1, duration: 2200, easing: Easing.linear, useNativeDriver: nativeDriver }).start(({ finished }) => {
