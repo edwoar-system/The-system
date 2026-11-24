@@ -23,21 +23,9 @@ export const QUESTS = [
   { id: "kindness", type: "social", title: "Do something kind for someone", stat: "CHA", minutes: 10, difficulty: "normal" },
   { id: "callsomeone", type: "social", title: "Call or meet a friend or family member", stat: "CHA", minutes: 20, difficulty: "normal" },
   { id: "journal", type: "journal", title: "Evening journal: 3 lines about today", stat: "WIL", minutes: 10, difficulty: "easy" },
-
-  // Side quests: you pick these yourself.
-  { id: "read20", type: "reading", title: "Read 20 minutes", stat: "INT", minutes: 20, difficulty: "normal", side: true },
-  { id: "chess", type: "chess", title: "Play or study chess, 20 minutes", stat: "INT", minutes: 20, difficulty: "normal", side: true },
-  { id: "boulder", type: "sport", title: "Bouldering session", stat: "STR", minutes: 90, difficulty: "hard", side: true },
-  { id: "gym", type: "sport", title: "Gym session", stat: "STR", minutes: 60, difficulty: "hard", side: true },
-  { id: "golf", type: "sport", title: "Golf practice", stat: "AGI", minutes: 60, difficulty: "normal", side: true },
-  { id: "tidy", type: "chores", title: "Tidy your room, 15 minutes", stat: "VIT", minutes: 15, difficulty: "easy", side: true },
-  { id: "healthysnack", type: "health", title: "Eat vegetables or fruit with two meals", stat: "VIT", minutes: 5, difficulty: "easy", side: true },
-  { id: "philosophy", type: "reading", title: "Read philosophy, 20 minutes", stat: "WIL", minutes: 20, difficulty: "normal", side: true },
-  { id: "extrastudy", type: "study", title: "Extra study block, 30 minutes", stat: "INT", minutes: 30, difficulty: "normal", side: true },
 ];
 
 export const questById = Object.fromEntries(QUESTS.map((q) => [q.id, q]));
-export const SIDE_QUESTS = QUESTS.filter((q) => q.side);
 
 export function todayKey(d = new Date()) {
   const p = (n) => String(n).padStart(2, "0");

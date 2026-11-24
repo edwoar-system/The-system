@@ -2,6 +2,14 @@ import { addDoc, collection, doc, runTransaction, serverTimestamp } from "fireba
 import { db } from "./firebase";
 import { allMainsBonus, levelFromXp, questCoins, questXp } from "../game/economy";
 import { pickMainQuests, questById, todayKey } from "../game/quests";
+import { guildQuest } from "../game/guild";
+
+export const MAX_GUILD_QUESTS = 6;
+
+// Any quest by id: the fixed catalogue, or a guild quest ("g:...").
+export function getQuest(id) {
+  return questById[id] ?? guildQuest(id);
+}
 
 // Today's quest board lives in the player document as `day`. A new board is made the first time you open the app each day.
 export function newDay(player, uid) {
@@ -11,6 +19,7 @@ export function newDay(player, uid) {
     start: { id: "start", done: false },
     mains: pickMainQuests({ date, uid, lastDoneByStat: player?.lastDoneByStat ?? {}, mainSlots: player?.mainSlots ?? 3 })
       .map((id) => ({ id, done: false })),
+    guild: [],
     typeCounts: {},
     mainCoins: 0,
     bonusPaid: false,
@@ -30,21 +39,37 @@ export function currentStreak(player) {
 }
 
 export function currentDay(player, uid) {
-  return player?.day?.date === todayKey() ? player.day : newDay(player, uid);
+  const day = player?.day?.date === todayKey() ? player.day : newDay(player, uid);
+  return day.guild ? day : { ...day, guild: [] };
+}
+
+// Puts a guild quest on today's board.
+export async function acceptQuest(uid, questId) {
+  if (!getQuest(questId)) throw new Error("unknown-quest");
+  const ref = doc(db, "players", uid);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    const player = snap.data() ?? {};
+    const day = JSON.parse(JSON.stringify(currentDay(player, uid)));
+    if (day.guild.some((g) => g.id === questId && !g.done)) throw new Error("already-on-board");
+    if (day.guild.filter((g) => !g.done).length >= MAX_GUILD_QUESTS) throw new Error("board-full");
+    day.guild.push({ id: questId, done: false });
+    tx.set(ref, { day, updatedAt: serverTimestamp() }, { merge: true });
+  });
 }
 
 // Preview of what a quest pays right now (diminishing returns included).
 export function rewardPreview(day, questId) {
-  const q = questById[questId];
+  const q = getQuest(questId);
   const times = day?.typeCounts?.[q.type] ?? 0;
   return { coins: questCoins({ ...q, timesAlreadyToday: times }), xp: questXp({ ...q, timesAlreadyToday: times }) };
 }
 
 // Completes a quest: coins, XP, stat XP and the all-mains bonus in one transaction.
-// slot: "start" | "main" | "side"
+// slot: "start" | "main" | "guild"
 export async function completeQuest(uid, questId, slot) {
   const ref = doc(db, "players", uid);
-  const q = questById[questId];
+  const q = getQuest(questId);
   const result = await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     const player = snap.data() ?? {};
@@ -57,6 +82,10 @@ export async function completeQuest(uid, questId, slot) {
       const m = day.mains.find((x) => x.id === questId && !x.done);
       if (!m) throw new Error("already-done");
       m.done = true;
+    } else if (slot === "guild") {
+      const g = day.guild.find((x) => x.id === questId && !x.done);
+      if (!g) throw new Error("already-done");
+      g.done = true;
     }
 
     const times = day.typeCounts[q.type] ?? 0;
@@ -89,6 +118,8 @@ export async function completeQuest(uid, questId, slot) {
       lastDoneByStat: { ...(player.lastDoneByStat ?? {}), [q.stat]: day.date },
       streak,
       lastAllMainsDate,
+      ...(q.skill ? { lastDoneBySkill: { ...(player.lastDoneBySkill ?? {}), [q.skill]: day.date } } : {}),
+      ...(q.school ? { philosophy: { ...(player.philosophy ?? {}), [q.school]: Math.max(player.philosophy?.[q.school] ?? 0, q.reading + 1) } } : {}),
       updatedAt: serverTimestamp(),
     }, { merge: true });
 

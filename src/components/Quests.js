@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, ScrollView, Text, View } from "react-native";
 import Svg, { Polygon } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { completeQuest, currentDay, rewardPreview } from "../lib/day";
-import { questById, SIDE_QUESTS } from "../game/quests";
+import { completeQuest, currentDay, getQuest, rewardPreview } from "../lib/day";
+import { questById } from "../game/quests";
+import Guild from "./Guild";
 import { ECONOMY } from "../game/economy";
 import { Coins, Frame, Glow, HexBadge, HexCheck, Label, SysButton, nativeDriver } from "./sys";
 import LevelUp from "./LevelUp";
@@ -51,7 +52,7 @@ function QuestHex({ stat, done }) {
 
 function GoalRow({ questId, done, busy, onDone, last }) {
   const { color, font } = useTheme();
-  const q = questById[questId];
+  const q = getQuest(questId);
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, paddingLeft: 14, paddingRight: 8,
       borderBottomWidth: last ? 0 : 1, borderBottomColor: color.line, opacity: done ? 0.55 : 1 }}>
@@ -83,6 +84,8 @@ export default function Quests({ user, player }) {
   const countdown = useDeadline();
   const [busy, setBusy] = useState(false);
   const [guild, setGuild] = useState(false);
+  const guildOpen = day.guild.filter((g) => !g.done);
+  const guildDone = day.guild.filter((g) => g.done);
   const [toast, setToast] = useState(null);
   const [levelUp, setLevelUp] = useState(null);
   const toastAnim = useRef(new Animated.Value(0)).current;
@@ -116,6 +119,8 @@ export default function Quests({ user, player }) {
       setBusy(false);
     }
   }
+
+  if (guild) return <Guild user={user} player={player} onClose={() => setGuild(false)} />;
 
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>
@@ -191,31 +196,41 @@ export default function Quests({ user, player }) {
         </Frame>
 
         <View style={{ marginTop: 18, marginHorizontal: 14, gap: 12 }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-            <Text style={{ flex: 1, fontFamily: font.body, fontSize: 14, color: color.muted }}>{t.board.guildTitle}</Text>
-            <SysButton label={guild ? t.board.guildClose : t.board.guildButton} onPress={() => setGuild((g) => !g)} />
-          </View>
-          {guild ? (
-            <Frame contentStyle={{ paddingVertical: 4 }}>
-              <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted, paddingHorizontal: 14, paddingTop: 10 }}>{t.board.guildHint}</Text>
-              {SIDE_QUESTS.map((q, i) => {
-                const r = rewardPreview(day, q.id);
+          {day.guild.length ? (
+            <Frame cut={12}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", paddingHorizontal: 14, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: color.line }}>
+                <Label tone={color.hi}>{t.board.guildQuests}</Label>
+                <Text style={{ fontFamily: font.num, fontSize: 16, color: color.frame }}>{guildDone.length}<Text style={{ fontSize: 13, color: color.muted }}> / {day.guild.length}</Text></Text>
+              </View>
+              {[...guildOpen, ...guildDone].map((g, i, all) => {
+                const q = getQuest(g.id);
+                if (!q) return null;
+                const r = rewardPreview(day, g.id);
                 return (
-                  <View key={q.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8, paddingLeft: 14, paddingRight: 8, borderBottomWidth: i === SIDE_QUESTS.length - 1 ? 0 : 1, borderBottomColor: color.line }}>
+                  <View key={g.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 14, paddingRight: 8, opacity: g.done ? 0.55 : 1,
+                    borderBottomWidth: i === all.length - 1 ? 0 : 1, borderBottomColor: color.line }}>
                     <HexBadge w={30} h={34} label={q.stat} labelSize={9} />
-                    <View style={{ flex: 1, gap: 3 }}>
-                      <Text style={{ fontFamily: font.bodyMedium, fontSize: 15, color: color.text }}>{q.title}</Text>
-                      <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-                        <Coins value={r.coins} sign="+" size={15} />
-                        <Text style={{ fontFamily: font.num, fontSize: 15, color: color.accent }}>+{r.xp} {t.status.exp}</Text>
-                      </View>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Text style={{ fontFamily: font.bold, fontSize: 15, lineHeight: 20, color: "#FFFFFF" }}>{q.title}</Text>
+                      {g.done ? null : (
+                        <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+                          <Coins value={r.coins} sign="+" size={15} />
+                          <Text style={{ fontFamily: font.num, fontSize: 15, color: color.accent }}>+{r.xp} {t.status.exp}</Text>
+                        </View>
+                      )}
                     </View>
-                    <HexCheck size={32} disabled={busy} onPress={() => complete(q.id, "side")} label={fill(t.board.markDone, { title: q.title })} />
+                    <HexCheck size={34} done={g.done} disabled={busy} onPress={() => complete(g.id, "guild")}
+                      label={fill(g.done ? t.board.isDone : t.board.markDone, { title: q.title })} />
                   </View>
                 );
               })}
+              <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted, paddingHorizontal: 14, paddingBottom: 10 }}>{t.board.guildHint}</Text>
             </Frame>
           ) : null}
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+            <Text style={{ flex: 1, fontFamily: font.body, fontSize: 14, color: color.muted }}>{t.board.guildTitle}</Text>
+            <SysButton label={t.board.guildButton.toUpperCase()} onPress={() => setGuild(true)} />
+          </View>
         </View>
       </ScrollView>
 

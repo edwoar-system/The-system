@@ -86,7 +86,7 @@ export function Coins({ value, size = 18, sign = "" }) {
 }
 
 // A hexagon badge with a label inside (stat, rank, level).
-export function HexBadge({ w = 36, h = 40, label, sub, labelSize = 11, tone, lit = false, fill }) {
+export function HexBadge({ w = 36, h = 40, label, sub, labelSize = 11, tone, lit = false, fill, ink }) {
   const { color, font } = useTheme();
   const t = tone ?? color.frame;
   return (
@@ -95,7 +95,7 @@ export function HexBadge({ w = 36, h = 40, label, sub, labelSize = 11, tone, lit
         <Polygon points={hexPoints(w, h, 1)} fill={fill ?? "rgba(159,203,255,0.08)"} stroke={t} strokeOpacity={0.8} strokeWidth={1.2} />
         {lit ? <Path d={`M1.5 ${h / 4} L${w / 2} 1.5 L${w - 1.5} ${h / 4}`} stroke="#FFFFFF" strokeOpacity={0.5} strokeWidth={1.2} fill="none" /> : null}
       </Svg>
-      <Text style={{ fontFamily: font.bold, fontSize: labelSize, letterSpacing: 1, color: color.hi }}>{label}</Text>
+      <Text style={{ fontFamily: font.bold, fontSize: labelSize, letterSpacing: 1, color: ink ?? color.hi }}>{label}</Text>
       {sub ? <Text style={{ fontFamily: font.num, fontSize: labelSize + 2, color: color.hi }}>{sub}</Text> : null}
     </View>
   );
