@@ -1,5 +1,7 @@
+import { GYM_TIER_BANDS, TIERS } from "./tiers";
+
 // The guild: extra quests you request yourself. Stat -> skill -> quest.
-// Content follows "The System — Quest catalog v0.1" (starting band F–D). Rank bands per skill arrive in room 3.
+// Content follows "The System — Quest catalog v0.1" (tier I, ranks F–D). Harder tiers live in tiers.js.
 
 // [id, name, quest, what counts, minutes, difficulty, type]
 const RAW = {
@@ -158,15 +160,16 @@ export const PHILOSOPHY = [
 ];
 const schoolById = Object.fromEntries(PHILOSOPHY.map((p) => [p.id, p]));
 
-// Quest ids: "g:<skill>", "g:gym:<session>:<minutes>", "g:philo:<school>:<reading index>".
+// Quest ids: "g:<skill>[:<tier>]", "g:gym:<session>:<minutes>[:<tier>]", "g:philo:<school>:<reading index>". Tier 0–2.
 export function guildQuest(id) {
   const parts = id.split(":");
   if (parts[0] !== "g") return null;
   if (parts[1] === "gym") {
     const s = GYM_SESSIONS[Number(parts[2])];
     const minutes = Number(parts[3]);
-    if (!s || !minutes) return null;
-    return { id, skill: "gym", stat: "STR", type: "gym", difficulty: "hard", minutes, title: `Gym: ${s.name}, ${minutes} min`, counts: GYM_COUNTS };
+    const tier = Number(parts[4] ?? 0);
+    if (!s || !minutes || !GYM_TIER_BANDS[tier]) return null;
+    return { id, skill: "gym", stat: "STR", type: "gym", difficulty: "hard", minutes, tier, title: `Gym: ${s.name}, ${minutes} min`, counts: `${GYM_TIER_BANDS[tier]} ${s.plan} ${GYM_COUNTS}` };
   }
   if (parts[1] === "philo") {
     const p = schoolById[parts[2]];
@@ -177,7 +180,11 @@ export function guildQuest(id) {
   }
   const s = skillById[parts[1]];
   if (!s || s.kind !== "simple") return null;
-  return { id, skill: s.id, stat: s.stat, type: s.type, difficulty: s.difficulty, minutes: s.minutes, title: `${s.name}: ${s.quest}`, counts: s.counts };
+  const tier = Number(parts[2] ?? 0);
+  if (tier === 0) return { id, skill: s.id, stat: s.stat, type: s.type, difficulty: s.difficulty, minutes: s.minutes, tier, title: `${s.name}: ${s.quest}`, counts: s.counts };
+  const tq = TIERS[s.id]?.[tier - 1];
+  if (!tq) return null;
+  return { id, skill: s.id, stat: s.stat, type: s.type, difficulty: tq[2], minutes: tq[1], tier, title: `${s.name}: ${tq[0]}`, counts: s.counts };
 }
 
 // Three suggestions: skills you haven't trained for the longest first, shuffled by the reroll seed.

@@ -45,6 +45,7 @@ export default function Shell({ user }) {
   const state = usePlayer(user.uid);
   const [tab, setTab] = useState("status");
   const [penaltyView, setPenaltyView] = useState(null); // null | "intro" | "manual"
+  const [focus, setFocus] = useState(null); // a quest to open on the board: { id, slot }
   const checking = useRef(false);
   const player = state.player;
   const inPenalty = isInPenalty(player);
@@ -69,8 +70,8 @@ export default function Shell({ user }) {
     <View style={{ flex: 1, backgroundColor: color.bg }}>
       <View style={{ flex: 1 }}>
         {tab === "status" ? <Status user={user} {...state} onOpenQuests={() => setTab("quests")} /> : null}
-        {tab === "quests" ? (state.player ? <Quests user={user} player={state.player} /> : <Status user={user} {...state} />) : null}
-        {tab === "skills" ? (state.player ? <Skills user={user} player={state.player} /> : <Status user={user} {...state} />) : null}
+        {tab === "quests" ? (state.player ? <Quests user={user} player={state.player} focus={focus} onFocusDone={() => setFocus(null)} /> : <Status user={user} {...state} />) : null}
+        {tab === "skills" ? (state.player ? <Skills user={user} player={state.player} onGoToQuest={(f) => { setFocus(f); setTab("quests"); }} /> : <Status user={user} {...state} />) : null}
         {tab === "shop" ? <Soon text={t.soon.shop} /> : null}
       </View>
       {player && !penaltyView ? <Urgent user={user} player={player} /> : null}

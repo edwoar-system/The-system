@@ -5,8 +5,9 @@ import Svg, { Defs, LinearGradient, Path, Polygon, Stop } from "react-native-svg
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { skillById } from "../game/guild";
 import { HABIT_LADDER, RANKS } from "../game/ladders";
-import { dayNum, isHabit, skillView, trialItems } from "../game/skills";
-import { setAchievement, takeTrial } from "../lib/skills";
+import { dayNum, isHabit, skillView, trialParts, trialQuestId, trialState } from "../game/skills";
+import { startTrial, stopTrial } from "../lib/skills";
+import QuestSheet from "./QuestSheet";
 import RankUp from "./RankUp";
 import LevelUp from "./LevelUp";
 import { AMBER, StepBar, fill, skillStatus } from "./skillParts";
@@ -20,6 +21,7 @@ function Chevron({ c }) {
 
 // A trial line you tick yourself (or that ticks itself, for counted things).
 function TrialRow({ kind, text, done, onPress, auto, extra }) {
+  // auto = counted by itself or not tappable yet
   const { color, font } = useTheme();
   const w = 26, h = 29;
   return (
@@ -51,7 +53,7 @@ function Tile({ k, v, u, tone }) {
 }
 
 function Info({ title, text }) {
-  const { color, font } = useTheme();
+  const { font } = useTheme();
   return (
     <View style={{ gap: 4 }}>
       <Label>{title.toUpperCase()}</Label>
@@ -70,63 +72,46 @@ export default function SkillPage({ user, player, id, onBack, onRequest }) {
   const st = skillStatus(v);
 
   const [placement, setPlacement] = useState(null); // a higher target rank
-  const [checked, setChecked] = useState({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [rankUp, setRankUp] = useState(null);
   const [levelUp, setLevelUp] = useState(null);
+  const [sheet, setSheet] = useState(null); // a trial part opened as a quest
 
-  // What the trial asks: a retest of the earned rank when rusty, otherwise the next rank (or a placement).
-  const retest = v.rusty;
-  const target = retest ? v.earned : placement ?? v.rank + 1;
-  const atTop = !retest && v.rank >= v.max;
+  // The trial: a running one, a retest when rusty, otherwise the next rank (or a higher one: placement).
+  const active = trialState(player.trials?.[id], L, v.ticks);
+  const retest = !active && v.rusty;
+  const target = active ? active.rank : retest ? v.earned : placement ?? v.rank + 1;
+  const atTop = !active && !retest && v.rank >= v.max;
 
   const items = [];
-  if (retest) {
-    items.push({ key: "main", kind: t.skills.mainTest, text: habit ? HABIT_LADDER[L.freq][target] : `${L.col}: ${L.ranks[target]}` });
-  } else if (!atTop) {
+  if (!atTop) {
     if (habit) {
       items.push({ key: "days", kind: t.skills.habitDays, text: HABIT_LADDER[L.freq][target], auto: true,
         done: v.next.count >= v.next.need, extra: `${v.next.count} / ${v.next.need}` });
-    } else {
-      items.push({ key: "main", kind: t.skills.mainTest, text: `${L.col}: ${L.ranks[target]}` });
     }
-    trialItems(L, target).forEach((it) => items.push({
-      key: it.key, kind: `${t.skills.achievement} · ${RANKS[it.rank]}`, text: it.text, saved: !!v.ticks[it.key],
+    const parts = active ? active.parts : trialParts(L, target, v.ticks).filter((p) => !retest || p.main);
+    parts.forEach((p) => items.push({
+      key: p.key, kind: p.main ? t.skills.mainTest : `${t.skills.achievement} · ${RANKS[p.rank]}`, text: p.text,
+      done: !!p.done, extra: p.value != null ? String(p.value) : null, questId: trialQuestId(id, target, p.key),
     }));
   }
-  const isDone = (it) => it.auto ? it.done : it.saved || !!checked[it.key];
-  const met = items.filter(isDone).length;
-  const canPass = !habit || retest ? items.length > 0 && met === items.length : false;
+  const met = items.filter((it) => it.done).length;
+  const needsQuests = items.some((it) => it.questId);
 
-  async function toggle(it) {
-    setError(null);
-    if (habit && !retest) {
-      // Habit achievements are saved right away; the rank follows by itself.
-      try {
-        const r = await setAchievement(user.uid, id, it.key, !it.saved);
-        if (r.gained > 0) setRankUp({ letter: RANKS[r.rank], name: skill.name, xp: 0 });
-      } catch { setError(t.skills.failed); }
-      return;
-    }
-    if (it.saved) return;
-    setChecked((c) => ({ ...c, [it.key]: !c[it.key] }));
-  }
-
-  async function pass() {
+  async function start() {
     setBusy(true);
     setError(null);
-    try {
-      const r = await takeTrial(user.uid, id, target);
-      setChecked({});
-      setPlacement(null);
-      if (r.gained > 0 || retest) setRankUp({ letter: RANKS[r.rank], name: skill.name, xp: r.xp });
-      if (r.levelUp) setLevelUp({ level: r.levelUp, xp: (player.xp ?? 0) + r.xp });
-    } catch {
-      setError(t.skills.failed);
-    } finally {
-      setBusy(false);
-    }
+    try { await startTrial(user.uid, id, target); setPlacement(null); } catch { setError(t.skills.failed); } finally { setBusy(false); }
+  }
+  async function stop() {
+    setBusy(true);
+    try { await stopTrial(user.uid, id); } catch { setError(t.skills.failed); } finally { setBusy(false); }
+  }
+  function onResult(r) {
+    if (r.levelUp) setLevelUp({ level: r.levelUp, xp: (player.xp ?? 0) + r.xp });
+    if (r.skillUp) setRankUp({ letter: RANKS[r.skillUp.rank], name: skill.name, xp: r.skillUp.xp });
+    else if (r.trialDone) setRankUp({ letter: RANKS[target], name: skill.name, xp: 0, restored: true });
   }
 
   const unlock = !retest && !atTop ? (L.trials?.[RANKS[target]] ?? "").match(/Unlocks ([^.]+)/)?.[1] : null;
@@ -202,27 +187,38 @@ export default function SkillPage({ user, player, id, onBack, onRequest }) {
         </View>
 
         {/* Rank trial */}
-        {!atTop || retest ? (
+        {!atTop ? (
           <Frame kind="premium" cut={16} style={{ marginTop: 22 }} contentStyle={{ padding: 16, gap: 6 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
-              <Label tone={retest ? AMBER : "#EEF0FF"}>{fill(retest ? t.skills.retest : t.skills.trial, { rank: RANKS[target] })}</Label>
-              <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{fill(t.skills.met, { a: met, b: items.length })}</Text>
+              <Label tone={retest || v.rusty ? AMBER : "#EEF0FF"}>{fill(v.rusty && target === v.earned ? t.skills.retest : t.skills.trial, { rank: RANKS[target] })}</Label>
+              <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>
+                {active ? (active.daysLeft != null ? fill(t.skills.trialActive, { n: active.daysLeft }) : t.skills.trialWaiting) : fill(t.skills.met, { a: met, b: items.length })}
+              </Text>
             </View>
-            <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{habit && !retest ? t.skills.habitAuto : t.skills.confirm}</Text>
-            {items.map((it) => <TrialRow key={it.key} kind={it.kind} text={it.text} done={isDone(it)} auto={it.auto} extra={it.extra} onPress={() => toggle(it)} />)}
+            <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>
+              {active ? t.skills.trialPartHint : needsQuests ? t.skills.trialIntro : t.skills.habitAuto}
+            </Text>
+            {active?.expired ? <Text style={{ fontFamily: font.body, fontSize: 13, color: AMBER }}>{t.skills.trialExpired}</Text> : null}
+            {items.map((it) => (
+              <TrialRow key={it.key} kind={it.kind} text={it.text} done={it.done} extra={it.extra}
+                auto={it.auto || !active || it.done} onPress={() => setSheet({ id: it.questId, done: it.done })} />
+            ))}
             {unlock ? <Text style={{ fontFamily: font.body, fontSize: 13, color: "#CAD6EC" }}>{fill(t.skills.unlocks, { name: unlock })}</Text> : null}
             <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{fill(t.skills.proof, { type: t.skills.proofTypes[L.proof] })}</Text>
             {error ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: color.dangerSoft }}>{error}</Text> : null}
-            {!habit || retest ? (
-              <SysButton label={retest ? t.skills.passRetest : t.skills.pass} onPress={pass} disabled={!canPass || busy} style={{ marginTop: 6 }} />
+            {!active && needsQuests ? <SysButton label={t.skills.trialStart} onPress={start} disabled={busy} style={{ marginTop: 6 }} /> : null}
+            {active ? (
+              <Pressable accessibilityRole="button" onPress={stop} disabled={busy} style={{ minHeight: 44, alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ fontFamily: font.bodyBold, fontSize: 14, color: color.muted }}>{t.skills.trialStop}</Text>
+              </Pressable>
             ) : null}
-            {!habit && !retest && v.rank + 2 <= v.max ? (
+            {!active && !retest && !habit && v.rank + 2 <= v.max ? (
               <View style={{ marginTop: 10, paddingTop: 12, borderTopWidth: 1, borderTopColor: color.line, gap: 8 }}>
                 <Label>{t.skills.placementTitle}</Label>
                 <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{t.skills.placementSub}</Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
                   {RANKS.map((r, i) => i > v.rank && i <= v.max ? (
-                    <Pressable key={r} accessibilityRole="button" accessibilityState={{ selected: target === i }} onPress={() => { setPlacement(i === v.rank + 1 ? null : i); setChecked({}); }}
+                    <Pressable key={r} accessibilityRole="button" accessibilityState={{ selected: target === i }} onPress={() => setPlacement(i === v.rank + 1 ? null : i)}
                       style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", backgroundColor: target === i ? "rgba(168,126,255,0.18)" : "rgba(5,10,24,0.7)", borderWidth: 1, borderColor: target === i ? color.purple : "rgba(159,203,255,0.22)" }}>
                       <Text style={{ fontFamily: font.num, fontSize: 18, color: target === i ? "#FFFFFF" : "#B8C7E3" }}>{r}</Text>
                     </Pressable>
@@ -280,6 +276,7 @@ export default function SkillPage({ user, player, id, onBack, onRequest }) {
 
         <SysButton label={t.skills.request} onPress={onRequest} style={{ marginTop: 18 }} />
       </ScrollView>
+      {sheet ? <QuestSheet user={user} player={player} questId={sheet.id} slot="trial" done={sheet.done} onClose={() => setSheet(null)} onResult={onResult} /> : null}
       <RankUp data={rankUp} onClose={() => setRankUp(null)} />
       <LevelUp data={rankUp ? null : levelUp} onClose={() => setLevelUp(null)} />
     </View>

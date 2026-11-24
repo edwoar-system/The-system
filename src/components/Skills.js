@@ -31,14 +31,14 @@ function Row({ v, name, onPress }) {
   );
 }
 
-export default function Skills({ user, player }) {
+export default function Skills({ user, player, onGoToQuest }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(null);
   const [guildFor, setGuildFor] = useState(null);
   const [stat, setStat] = useState("STR");
 
-  if (guildFor) return <Guild user={user} player={player} initialSkill={guildFor} onClose={() => setGuildFor(null)} />;
+  if (guildFor) return <Guild user={user} player={player} initialSkill={guildFor} onClose={() => setGuildFor(null)} onAccepted={(id) => { setGuildFor(null); onGoToQuest?.({ id, slot: "guild" }); }} />;
   if (open) return <SkillPage user={user} player={player} id={open} onBack={() => setOpen(null)} onRequest={() => setGuildFor(open)} />;
 
   const today = dayNum();

@@ -8,6 +8,7 @@ export const ECONOMY = {
   choiceMultiplier: 1.2,
   allMainsBonus: 0.2, // +20% of the day's main-quest coins when all mains are done
   repeatFalloff: [1, 0.7, 0.4, 0.2], // same quest type again on one day pays less
+  tierBonus: 0.05, // harder quest tiers (unlocked by skill rank) pay +5% per tier
   xpPerEffortMinute: 1,
   dailyScreenTimeTarget: 60, // minutes; tune after 1–2 weeks of real data
 };
@@ -18,8 +19,8 @@ export function repeatFactor(timesAlreadyToday) {
 }
 
 // Coins for finishing a quest.
-export function questCoins({ minutes, difficulty = "normal", urgent = false, choice = false, timesAlreadyToday = 0 }) {
-  let c = minutes * ECONOMY.coinsPerEffortMinute * (ECONOMY.difficulty[difficulty] ?? 1);
+export function questCoins({ minutes, difficulty = "normal", urgent = false, choice = false, timesAlreadyToday = 0, tier = 0 }) {
+  let c = minutes * ECONOMY.coinsPerEffortMinute * (ECONOMY.difficulty[difficulty] ?? 1) * (1 + tier * ECONOMY.tierBonus);
   if (urgent) c *= ECONOMY.urgentMultiplier;
   if (choice) c *= ECONOMY.choiceMultiplier;
   c *= repeatFactor(timesAlreadyToday);

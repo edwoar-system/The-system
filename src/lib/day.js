@@ -1,17 +1,24 @@
-import { addDoc, collection, doc, runTransaction, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, deleteField, doc, runTransaction, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
 import { allMainsBonus, levelFromXp, questCoins, questXp } from "../game/economy";
 import { pickMainQuests, questById, todayKey } from "../game/quests";
 import { guildQuest } from "../game/guild";
 import { ladderById } from "../game/ladders";
-import { dayNum, habitRank, isHabit, recordTraining, SKILL_RULES } from "../game/skills";
+import { dayNum, habitRank, isHabit, passTrial, recordTraining, skillView, SKILL_RULES, trialQuest, trialState } from "../game/skills";
+import { tierForRank } from "../game/tiers";
 
 export const MAX_GUILD_QUESTS = 6;
 
-// Any quest by id: the fixed catalogue, or a guild quest ("g:...").
+// Any quest by id: the fixed catalogue, a guild quest ("g:...") or a rank-trial part ("t:...").
 export function getQuest(id) {
-  return questById[id] ?? guildQuest(id);
+  return questById[id] ?? (id.startsWith("t:") ? trialQuest(id) : guildQuest(id));
 }
+
+const rankXp = (from, to) => {
+  let xp = 0;
+  for (let r = from + 1; r <= to; r++) xp += SKILL_RULES.rankUpXp * r;
+  return xp;
+};
 
 // Today's quest board lives in the player document as `day`. A new board is made the first time you open the app each day.
 export function newDay(player, uid) {
@@ -47,11 +54,13 @@ export function currentDay(player, uid) {
 
 // Puts a guild quest on today's board.
 export async function acceptQuest(uid, questId) {
-  if (!getQuest(questId)) throw new Error("unknown-quest");
+  const q = getQuest(questId);
+  if (!q) throw new Error("unknown-quest");
   const ref = doc(db, "players", uid);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     const player = snap.data() ?? {};
+    if (q.tier && q.tier > tierForRank(skillView(q.skill, player.skills?.[q.skill]).rank)) throw new Error("tier-locked");
     const day = JSON.parse(JSON.stringify(currentDay(player, uid)));
     if (day.guild.some((g) => g.id === questId && !g.done)) throw new Error("already-on-board");
     if (day.guild.filter((g) => !g.done).length >= MAX_GUILD_QUESTS) throw new Error("board-full");
@@ -68,14 +77,16 @@ export function rewardPreview(day, questId) {
 }
 
 // Completes a quest: coins, XP, stat XP and the all-mains bonus in one transaction.
-// slot: "start" | "main" | "guild"
-export async function completeQuest(uid, questId, slot) {
+// slot: "start" | "main" | "guild" | "trial". log: optional { value, unit } ("reps" or "seconds").
+export async function completeQuest(uid, questId, slot, log = null) {
   const ref = doc(db, "players", uid);
   const q = getQuest(questId);
   const result = await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     const player = snap.data() ?? {};
     const day = JSON.parse(JSON.stringify(currentDay(player, uid)));
+    const today = dayNum(day.date);
+    let trial = null; // the updated trial when this is a trial part
 
     if (slot === "start") {
       if (day.start.done) throw new Error("already-done");
@@ -88,6 +99,16 @@ export async function completeQuest(uid, questId, slot) {
       const g = day.guild.find((x) => x.id === questId && !x.done);
       if (!g) throw new Error("already-done");
       g.done = true;
+    } else if (slot === "trial") {
+      const ladder = ladderById[q.skill];
+      const st = trialState(player.trials?.[q.skill], ladder, player.skills?.[q.skill]?.ticks, today);
+      if (!st || st.rank !== q.trial.rank) throw new Error("no-trial");
+      const part = st.parts.find((p) => p.key === q.trial.key);
+      if (!part || part.done) throw new Error("already-done");
+      const need = q.trial.need;
+      if (need && log?.value != null && (need.kind === "min" ? log.value < need.value : log.value > need.value)) throw new Error("below-test");
+      const done = { ...(st.expired ? {} : player.trials[q.skill].done ?? {}), [part.key]: { day: today, value: log?.value ?? null } };
+      trial = { rank: st.rank, started: st.started ?? today, done, complete: st.parts.every((p) => p.done || p.key === part.key) };
     }
 
     const times = day.typeCounts[q.type] ?? 0;
@@ -112,13 +133,12 @@ export async function completeQuest(uid, questId, slot) {
     let skillUp = null;
     if (q.skill && ladderById[q.skill]) {
       const ladder = ladderById[q.skill];
-      let entry = recordTraining(player.skills?.[q.skill], q.minutes, dayNum(day.date));
-      if (isHabit(ladder)) {
-        const rank = habitRank(entry, ladder, dayNum(day.date));
-        const best = player.skillBest?.[q.skill] ?? 0;
-        if (rank > (entry.rank ?? 0)) skillUp = { id: q.skill, rank, xp: rank > best ? SKILL_RULES.rankUpXp * rank : 0 };
-        entry = { ...entry, rank };
-      }
+      const skillBefore = player.skills?.[q.skill]?.rank ?? 0;
+      let entry = recordTraining(player.skills?.[q.skill], q.minutes, today);
+      if (trial?.complete) entry = passTrial(entry, ladder, trial.rank).entry;
+      if (isHabit(ladder)) entry = { ...entry, rank: habitRank({ ...entry, rank: skillBefore }, ladder, today) };
+      const best = player.skillBest?.[q.skill] ?? 0;
+      if (entry.rank > skillBefore) skillUp = { id: q.skill, rank: entry.rank, xp: rankXp(Math.max(best, skillBefore), entry.rank) };
       skills = { ...(player.skills ?? {}), [q.skill]: entry };
     }
 
@@ -139,16 +159,17 @@ export async function completeQuest(uid, questId, slot) {
       ...(q.skill ? { lastDoneBySkill: { ...(player.lastDoneBySkill ?? {}), [q.skill]: day.date } } : {}),
       ...(skills ? { skills } : {}),
       ...(skillUp?.xp ? { skillBest: { ...(player.skillBest ?? {}), [q.skill]: skillUp.rank } } : {}),
+      ...(trial ? { trials: { [q.skill]: trial.complete ? deleteField() : { rank: trial.rank, started: trial.started, done: trial.done } } } : {}),
       ...(q.school ? { philosophy: { ...(player.philosophy ?? {}), [q.school]: Math.max(player.philosophy?.[q.school] ?? 0, q.reading + 1) } } : {}),
       updatedAt: serverTimestamp(),
     }, { merge: true });
 
-    return { coins, xp, bonus, levelUp: after > before ? after : null, stat: q.stat, streak, skillUp };
+    return { coins, xp, bonus, levelUp: after > before ? after : null, stat: q.stat, streak, skillUp, trialDone: trial?.complete ?? false };
   });
 
   // Quest log for balancing later. Separate write: if it fails, the reward still counts.
   addDoc(collection(db, "players", uid, "log"), {
-    questId, slot, title: q.title, type: q.type, stat: q.stat,
+    questId, slot, title: q.title, type: q.type, stat: q.stat, ...(log?.value != null ? { value: log.value, unit: log.unit ?? null } : {}),
     coins: result.coins, xp: result.xp, bonus: result.bonus, date: todayKey(), at: serverTimestamp(),
   }).catch(() => {});
 

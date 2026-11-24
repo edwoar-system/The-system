@@ -4,8 +4,10 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { acceptQuest, currentDay, rewardPreview, MAX_GUILD_QUESTS } from "../lib/day";
-import { GUILD, GYM_BAND, GYM_COUNTS, GYM_LENGTHS, GYM_SESSIONS, PHILOSOPHY, skillById, suggestSkills } from "../game/guild";
-import { rankLetter } from "../game/skills";
+import { GUILD, GYM_COUNTS, GYM_LENGTHS, GYM_SESSIONS, PHILOSOPHY, guildQuest, skillById, suggestSkills } from "../game/guild";
+import { rankLetter, skillView } from "../game/skills";
+import { GYM_TIER_BANDS, TIERS, TIER_RANKS, tierForRank } from "../game/tiers";
+import { RANKS } from "../game/ladders";
 import { STATS } from "../game/quests";
 import { statValue } from "../game/economy";
 import { Coins, Frame, Glow, HexBadge, Label, SysButton } from "./sys";
@@ -31,7 +33,7 @@ function Choice({ label, on, onPress, num }) {
   );
 }
 
-export default function Guild({ user, player, onClose, initialSkill }) {
+export default function Guild({ user, player, onClose, initialSkill, onAccepted }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const day = currentDay(player, user.uid);
@@ -49,11 +51,14 @@ export default function Guild({ user, player, onClose, initialSkill }) {
   const [accepted, setAccepted] = useState(null);
 
   const rankOf = (id) => rankLetter(player, id);
-  const openSkill = (s) => { setSkill(s); setError(null); setScreen(s.kind === "gym" ? "gym" : s.kind === "philo" ? "philo" : "quest"); };
+  const maxTier = (id) => tierForRank(skillView(id, player.skills?.[id]).rank);
+  // Quest tier: harder quests unlock with your rank in the skill. Starts at your highest unlocked tier.
+  const [tier, setTier] = useState(() => (start ? maxTier(start.id) : 0));
+  const openSkill = (s) => { setSkill(s); setTier(maxTier(s.id)); setError(null); setScreen(s.kind === "gym" ? "gym" : s.kind === "philo" ? "philo" : "quest"); };
 
   let questId = null;
-  if (screen === "quest" && skill) questId = `g:${skill.id}`;
-  if (screen === "gym") questId = `g:gym:${session}:${GYM_LENGTHS[len]}`;
+  if (screen === "quest" && skill) questId = tier ? `g:${skill.id}:${tier}` : `g:${skill.id}`;
+  if (screen === "gym") questId = `g:gym:${session}:${GYM_LENGTHS[len]}${tier ? `:${tier}` : ""}`;
   const path = school ? PHILOSOPHY.find((p) => p.id === school) : null;
   const readIdx = path ? player.philosophy?.[path.id] ?? 0 : 0;
   const reading = path?.readings[readIdx];
@@ -65,10 +70,11 @@ export default function Guild({ user, player, onClose, initialSkill }) {
     setError(null);
     try {
       await acceptQuest(user.uid, questId);
+      if (onAccepted) { onAccepted(questId); return; }
       setAccepted(screen === "gym" ? `${GYM_SESSIONS[session].name}, ${GYM_LENGTHS[len]} min` : screen === "reading" ? reading[0] : `${skill.name}: ${skill.quest}`);
       setScreen("done");
     } catch (e) {
-      setError(e.message === "board-full" ? fill(t.guild.boardFull, { n: MAX_GUILD_QUESTS }) : e.message === "already-on-board" ? t.guild.alreadyOn : t.guild.failed);
+      setError(e.message === "board-full" ? fill(t.guild.boardFull, { n: MAX_GUILD_QUESTS }) : e.message === "already-on-board" ? t.guild.alreadyOn : e.message === "tier-locked" ? t.guild.tierLockedError : t.guild.failed);
     } finally {
       setBusy(false);
     }
@@ -111,6 +117,25 @@ export default function Guild({ user, player, onClose, initialSkill }) {
       <SysButton label={t.guild.accept} onPress={accept} disabled={busy || !questId} />
     </View>
   );
+  const TierPicker = () => {
+    const unlocked = skill ? maxTier(skill.id) : 0;
+    const next = unlocked + 1;
+    return (
+      <View style={{ gap: 8 }}>
+        <Label>{t.guild.tiers}</Label>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          {["I", "II", "III"].map((r, i) => (
+            <Pressable key={r} accessibilityRole="button" accessibilityState={{ selected: tier === i, disabled: i > unlocked }} disabled={i > unlocked} onPress={() => setTier(i)}
+              style={{ flex: 1, minHeight: 44, alignItems: "center", justifyContent: "center", opacity: i > unlocked ? 0.35 : 1,
+                backgroundColor: tier === i ? "rgba(168,126,255,0.18)" : "rgba(5,10,24,0.7)", borderWidth: 1, borderColor: tier === i ? color.purple : "rgba(159,203,255,0.22)" }}>
+              <Text style={{ fontFamily: font.num, fontSize: 18, color: tier === i ? "#FFFFFF" : "#B8C7E3" }}>{r}</Text>
+            </Pressable>
+          ))}
+        </View>
+        {next <= 2 ? <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{fill(t.guild.tierLocked, { n: ["I", "II", "III"][next], rank: RANKS[TIER_RANKS[next]] })}</Text> : null}
+      </View>
+    );
+  };
   const Counts = ({ text, title = t.guild.whatCounts }) => (
     <View style={{ gap: 4 }}>
       <Label>{title}</Label>
@@ -210,8 +235,10 @@ export default function Guild({ user, player, onClose, initialSkill }) {
 
         {screen === "quest" ? (
           <Frame style={{ marginTop: 20 }} contentStyle={{ padding: 16, gap: 12 }}>
+            <TierPicker />
             <Label tone={color.accent}>{skill.name.toUpperCase()}</Label>
-            <Text style={{ fontFamily: font.bold, fontSize: 20, lineHeight: 26, color: "#FFFFFF" }}>{skill.quest}</Text>
+            <Text style={{ fontFamily: font.bold, fontSize: 20, lineHeight: 26, color: "#FFFFFF" }}>{tier ? TIERS[skill.id]?.[tier - 1]?.[0] : skill.quest}</Text>
+            <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{fill(t.guild.min, { n: guildQuest(questId)?.minutes ?? skill.minutes })}</Text>
             <Counts text={skill.counts} />
             <RewardRow />
             <AcceptBlock />
@@ -228,7 +255,8 @@ export default function Guild({ user, player, onClose, initialSkill }) {
             <View style={{ flexDirection: "row", gap: 8 }}>
               {GYM_LENGTHS.map((m, i) => <Choice key={m} num label={fill(t.guild.min, { n: m })} on={len === i} onPress={() => setLen(i)} />)}
             </View>
-            <Counts title={fill(t.guild.yourSession, { rank: rankOf("gym") })} text={`${GYM_BAND} ${GYM_SESSIONS[session].plan}`} />
+            <TierPicker />
+            <Counts title={fill(t.guild.yourSession, { rank: rankOf("gym") })} text={`${GYM_TIER_BANDS[tier]} ${GYM_SESSIONS[session].plan}`} />
             <Counts text={GYM_COUNTS} />
             <RewardRow />
             <AcceptBlock />

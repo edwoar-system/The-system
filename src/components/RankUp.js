@@ -43,7 +43,7 @@ export default function RankUp({ data, onClose }) {
         </Animated.View>
 
         <Animated.Text style={{ marginTop: 24, fontFamily: font.displayHeavy, fontSize: 34, letterSpacing: 6, color: "#FFFFFF", opacity: at(0.32, 0.46) }}>
-          {t.skills.rankUp}
+          {data.restored ? t.skills.restored : t.skills.rankUp}
         </Animated.Text>
         <Animated.Text style={{ marginTop: 6, fontFamily: font.body, fontSize: 14, color: color.muted, opacity: at(0.4, 0.54) }}>
           {fill(t.skills.rankUpSub, { name: data.name, rank: data.letter })}

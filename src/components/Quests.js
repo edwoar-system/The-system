@@ -11,7 +11,9 @@ import { ECONOMY } from "../game/economy";
 import { Coins, Frame, Glow, HexBadge, HexCheck, Label, SysButton, nativeDriver } from "./sys";
 import LevelUp from "./LevelUp";
 import RankUp from "./RankUp";
-import { RANKS } from "../game/ladders";
+import QuestSheet from "./QuestSheet";
+import { trialQuestId, trialState } from "../game/skills";
+import { RANKS, ladderById as ladders } from "../game/ladders";
 import { skillById } from "../game/guild";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
@@ -54,14 +56,14 @@ function QuestHex({ stat, done }) {
   );
 }
 
-function GoalRow({ questId, done, busy, onDone, last }) {
+function GoalRow({ questId, done, busy, onDone, onOpen, last }) {
   const { color, font } = useTheme();
   const q = getQuest(questId);
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, paddingLeft: 14, paddingRight: 8,
       borderBottomWidth: last ? 0 : 1, borderBottomColor: color.line, opacity: done ? 0.55 : 1 }}>
       <HexBadge w={34} h={38} label={q.stat} labelSize={10} />
-      <View style={{ flex: 1, gap: 5 }}>
+      <Pressable accessibilityRole="button" accessibilityHint={t.board.openHint} onPress={onOpen} style={({ pressed }) => ({ flex: 1, gap: 5, opacity: pressed ? 0.7 : 1 })}>
         <Text style={{ fontFamily: font.bold, fontSize: 16, lineHeight: 21, color: "#FFFFFF" }}>{q.title}</Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <View style={{ flex: 1, height: 3, backgroundColor: "rgba(159,203,255,0.12)" }}>
@@ -74,14 +76,14 @@ function GoalRow({ questId, done, busy, onDone, last }) {
         <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>
           {t.stats[q.stat]} · {t.quests.difficulty[q.difficulty]}
         </Text>
-      </View>
+      </Pressable>
       <HexCheck done={done} disabled={busy} onPress={onDone}
         label={fill(done ? t.board.isDone : t.board.markDone, { title: q.title })} />
     </View>
   );
 }
 
-export default function Quests({ user, player }) {
+export default function Quests({ user, player, focus, onFocusDone }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const day = currentDay(player, user.uid);
@@ -94,6 +96,17 @@ export default function Quests({ user, player }) {
   const [toast, setToast] = useState(null);
   const [levelUp, setLevelUp] = useState(null);
   const [rankUp, setRankUp] = useState(null);
+  // Opened from somewhere else (a quest just accepted in the guild): start with that quest open.
+  const [sheet, setSheet] = useState(focus ?? null); // { id, slot, done }
+  useEffect(() => {
+    if (focus) onFocusDone?.();
+  }, [focus, onFocusDone]);
+
+  // Active rank trials, with the parts still to do.
+  const trials = Object.entries(player.trials ?? {}).map(([skillId, tr]) => {
+    const st = ladders[skillId] ? trialState(tr, ladders[skillId], player.skills?.[skillId]?.ticks) : null;
+    return st ? { skillId, ...st } : null;
+  }).filter(Boolean);
   const toastAnim = useRef(new Animated.Value(0)).current;
 
   const mainsDone = day.mains.filter((m) => m.done).length;
@@ -113,13 +126,19 @@ export default function Quests({ user, player }) {
     ]).start(({ finished }) => finished && setToast(null));
   }
 
+  function onResult(r, questId) {
+    showToast({ coins: r.coins + r.bonus, bonus: r.bonus, xp: r.xp });
+    if (r.levelUp) setLevelUp({ level: r.levelUp, xp: (player.xp ?? 0) + r.xp, coins: r.coins + r.bonus });
+    const q = getQuest(questId);
+    if (r.skillUp) setRankUp({ letter: RANKS[r.skillUp.rank], name: skillById[r.skillUp.id]?.name ?? "", xp: r.skillUp.xp });
+    else if (r.trialDone && q?.skill) setRankUp({ letter: RANKS[q.trial.rank], name: skillById[q.skill]?.name ?? "", xp: 0, restored: true });
+  }
+
   async function complete(questId, slot) {
     setBusy(true);
     try {
       const r = await completeQuest(user.uid, questId, slot);
-      showToast({ coins: r.coins + r.bonus, bonus: r.bonus, xp: r.xp });
-      if (r.levelUp) setLevelUp({ level: r.levelUp, xp: (player.xp ?? 0) + r.xp, coins: r.coins + r.bonus });
-      if (r.skillUp) setRankUp({ letter: RANKS[r.skillUp.rank], name: skillById[r.skillUp.id]?.name ?? "", xp: r.skillUp.xp });
+      onResult(r, questId);
     } catch (e) {
       if (e.message !== "already-done") showToast({ error: true });
     } finally {
@@ -127,7 +146,7 @@ export default function Quests({ user, player }) {
     }
   }
 
-  if (guild) return <Guild user={user} player={player} onClose={() => setGuild(false)} />;
+  if (guild) return <Guild user={user} player={player} onClose={() => setGuild(false)} onAccepted={(id) => { setGuild(false); setSheet({ id, slot: "guild" }); }} />;
 
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>
@@ -169,7 +188,7 @@ export default function Quests({ user, player }) {
           </View>
           {day.mains.map((m, i) => (
             <GoalRow key={m.id} questId={m.id} done={m.done} busy={busy} last={i === day.mains.length - 1}
-              onDone={() => complete(m.id, "main")} />
+              onDone={() => complete(m.id, "main")} onOpen={() => setSheet({ id: m.id, slot: "main", done: m.done })} />
           ))}
           <View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 8, borderTopWidth: 1, borderTopColor: color.line }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -203,6 +222,35 @@ export default function Quests({ user, player }) {
         </Frame>
 
         <View style={{ marginTop: 18, marginHorizontal: 14, gap: 12 }}>
+          {trials.length ? (
+            <Frame cut={12} tone={color.purple}>
+              <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: color.line }}>
+                <Label tone={color.hi}>{t.board.trials}</Label>
+              </View>
+              {trials.map((tr) => (
+                <View key={tr.skillId} style={{ paddingTop: 10 }}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 14 }}>
+                    <Text style={{ fontFamily: font.bold, fontSize: 11, letterSpacing: 1.5, color: color.purple }}>{fill(t.board.trialOf, { skill: skillById[tr.skillId].name.toUpperCase(), rank: RANKS[tr.rank] })}</Text>
+                    <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{tr.daysLeft != null ? fill(t.skills.trialActive, { n: tr.daysLeft }) : t.skills.trialWaiting}</Text>
+                  </View>
+                  {tr.parts.map((p) => {
+                    const id = trialQuestId(tr.skillId, tr.rank, p.key);
+                    return (
+                      <View key={p.key} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8, paddingLeft: 14, paddingRight: 8, opacity: p.done ? 0.55 : 1 }}>
+                        <Pressable accessibilityRole="button" accessibilityHint={t.board.openHint} onPress={() => setSheet({ id, slot: "trial", done: p.done })}
+                          style={({ pressed }) => ({ flex: 1, opacity: pressed ? 0.7 : 1 })}>
+                          <Text style={{ fontFamily: font.bold, fontSize: 15, lineHeight: 20, color: "#FFFFFF" }}>{p.text}</Text>
+                          {p.value != null ? <Text style={{ fontFamily: font.num, fontSize: 14, color: color.accent }}>{p.value}</Text> : null}
+                        </Pressable>
+                        <HexCheck size={30} done={p.done} disabled={busy} onPress={() => complete(id, "trial")} label={fill(p.done ? t.board.isDone : t.board.markDone, { title: p.text })} />
+                      </View>
+                    );
+                  })}
+                </View>
+              ))}
+              <View style={{ height: 6 }} />
+            </Frame>
+          ) : null}
           {day.guild.length ? (
             <Frame cut={12}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", paddingHorizontal: 14, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: color.line }}>
@@ -217,7 +265,8 @@ export default function Quests({ user, player }) {
                   <View key={g.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 14, paddingRight: 8, opacity: g.done ? 0.55 : 1,
                     borderBottomWidth: i === all.length - 1 ? 0 : 1, borderBottomColor: color.line }}>
                     <HexBadge w={30} h={34} label={q.stat} labelSize={9} />
-                    <View style={{ flex: 1, gap: 4 }}>
+                    <Pressable accessibilityRole="button" accessibilityHint={t.board.openHint} onPress={() => setSheet({ id: g.id, slot: "guild", done: g.done })}
+                      style={({ pressed }) => ({ flex: 1, gap: 4, opacity: pressed ? 0.7 : 1 })}>
                       <Text style={{ fontFamily: font.bold, fontSize: 15, lineHeight: 20, color: "#FFFFFF" }}>{q.title}</Text>
                       {g.done ? null : (
                         <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
@@ -225,7 +274,7 @@ export default function Quests({ user, player }) {
                           <Text style={{ fontFamily: font.num, fontSize: 15, color: color.accent }}>+{r.xp} {t.status.exp}</Text>
                         </View>
                       )}
-                    </View>
+                    </Pressable>
                     <HexCheck size={34} done={g.done} disabled={busy} onPress={() => complete(g.id, "guild")}
                       label={fill(g.done ? t.board.isDone : t.board.markDone, { title: q.title })} />
                   </View>
@@ -267,6 +316,7 @@ export default function Quests({ user, player }) {
         </Animated.View>
       ) : null}
 
+      {sheet ? <QuestSheet user={user} player={player} questId={sheet.id} slot={sheet.slot} done={sheet.done} onClose={() => setSheet(null)} onResult={(r) => onResult(r, sheet.id)} /> : null}
       <RankUp data={rankUp} onClose={() => setRankUp(null)} />
       <LevelUp data={rankUp ? null : levelUp} onClose={() => setLevelUp(null)} />
     </View>

@@ -2,6 +2,7 @@
 // Rules: "The System — Skill database v0.2" (Trials, rust and proof v0.3; Habit ladder).
 import { RANKS, ladderById } from "./ladders";
 import { todayKey } from "./quests";
+import { skillById } from "./guild";
 
 export const SKILL_RULES = {
   rustPhysicalDays: 10, // STR, AGI and VIT skills start to rust after 10 days without training
@@ -99,7 +100,8 @@ export function skillView(id, entry = {}, today = dayNum()) {
   const since = last == null ? null : today - last;
   const rustAfter = PHYSICAL.includes(ladder.stat) ? SKILL_RULES.rustPhysicalDays : SKILL_RULES.rustKnowledgeDays;
   const earned = isHabit(ladder) ? habitRank(entry, ladder, today) : entry.rank ?? 0;
-  const rusty = earned > 0 && (entry.rusty || (since != null && since > SKILL_RULES.rankDropDays));
+  // Habit skills don't get a rusty rank: their ladder already counts the days you missed.
+  const rusty = !isHabit(ladder) && earned > 0 && (entry.rusty || (since != null && since > SKILL_RULES.rankDropDays));
   const rank = rusty ? earned - 1 : earned;
   const hours = (entry.minutes ?? 0) / 60;
 
@@ -172,3 +174,66 @@ export function tickAchievement(entry = {}, key, on = true) {
 }
 
 export const rankLetter = (player, id) => (ladderById[id] ? skillView(id, player?.skills?.[id]).letter : "F");
+
+// ───────────── Rank trials as quests ─────────────
+// A trial = the main test plus every open achievement up to the target rank, each done as a quest.
+// All parts must be done within 7 days of the first one; after that the done parts expire.
+export const TRIAL_DAYS = 7;
+
+export function trialParts(ladder, target, ticks = {}) {
+  // Habit skills have no main test: their days are checked by themselves.
+  const parts = isHabit(ladder) ? [] : [{ key: "main", text: `${ladder.col}: ${ladder.ranks[target]}`, main: true }];
+  trialItems(ladder, target).forEach((it) => { if (!ticks[it.key]) parts.push({ key: it.key, text: it.text, rank: it.rank }); });
+  return parts;
+}
+
+// A main test as a number to check a logged result against (only when you log one).
+// "40–56" -> at least 40; "Under 24:00" or "Under 12.5 s" -> at most that many seconds.
+export function testNeed(text = "") {
+  const under = text.match(/^Under (\d+):(\d\d)/);
+  if (under) return { kind: "max", value: Number(under[1]) * 60 + Number(under[2]) };
+  const underS = text.match(/^Under (\d+(?:\.\d+)?) s/);
+  if (underS) return { kind: "max", value: Number(underS[1]) };
+  const min = text.match(/^(\d[\d,]*)(?:[–+ ]|$)/);
+  if (min) return { kind: "min", value: Number(min[1].replace(/,/g, "")) };
+  return null;
+}
+
+// The trial as it stands today: which parts are done, and how many days are left.
+export function trialState(trial, ladder, ticks = {}, today = dayNum()) {
+  if (!trial) return null;
+  const expired = trial.started != null && today - trial.started >= TRIAL_DAYS;
+  const done = expired ? {} : trial.done ?? {};
+  const parts = trialParts(ladder, trial.rank, ticks).map((p) => ({ ...p, done: !!done[p.key], value: done[p.key]?.value ?? null }));
+  return {
+    rank: trial.rank, parts, expired,
+    started: expired ? null : trial.started ?? null,
+    daysLeft: !expired && trial.started != null ? TRIAL_DAYS - (today - trial.started) : null,
+    complete: parts.every((p) => p.done),
+  };
+}
+
+export function trialQuestId(skillId, rank, key) {
+  return `t:${skillId}:${rank}:${key}`;
+}
+
+// A trial part as a quest: "t:<skill>:<rank>:<key>".
+export function trialQuest(id) {
+  const [kind, skillId, rankStr, key] = id.split(":");
+  const ladder = ladderById[skillId];
+  const skill = skillById[skillId];
+  const rank = Number(rankStr);
+  if (kind !== "t" || !ladder || !skill || !RANKS[rank] || !key) return null;
+  let text;
+  if (key === "main") text = `${ladder.col}: ${ladder.ranks[rank]}`;
+  else {
+    const [letter, k] = key.split(".");
+    text = ladder.trials?.[letter]?.split(/;\s*/)[Number(k)]?.replace(/\.$/, "");
+  }
+  if (!text) return null;
+  return {
+    id, skill: skillId, stat: skill.stat, type: "trial", difficulty: "hard", minutes: skill.minutes, tier: 0,
+    trial: { rank, key, need: key === "main" ? testNeed(ladder.ranks[rank]) : null },
+    title: text, counts: key === "main" ? ladder.test : skill.counts,
+  };
+}
