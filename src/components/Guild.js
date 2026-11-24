@@ -4,7 +4,8 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { acceptQuest, currentDay, rewardPreview, MAX_GUILD_QUESTS } from "../lib/day";
-import { GUILD, GYM_BAND, GYM_COUNTS, GYM_LENGTHS, GYM_SESSIONS, PHILOSOPHY, suggestSkills } from "../game/guild";
+import { GUILD, GYM_BAND, GYM_COUNTS, GYM_LENGTHS, GYM_SESSIONS, PHILOSOPHY, skillById, suggestSkills } from "../game/guild";
+import { rankLetter } from "../game/skills";
 import { STATS } from "../game/quests";
 import { statValue } from "../game/economy";
 import { Coins, Frame, Glow, HexBadge, Label, SysButton } from "./sys";
@@ -30,13 +31,15 @@ function Choice({ label, on, onPress, num }) {
   );
 }
 
-export default function Guild({ user, player, onClose }) {
+export default function Guild({ user, player, onClose, initialSkill }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const day = currentDay(player, user.uid);
-  const [screen, setScreen] = useState("stats");
-  const [stat, setStat] = useState("STR");
-  const [skill, setSkill] = useState(null);
+  // Opened from a skill page: go straight to that skill's quest.
+  const start = initialSkill ? skillById[initialSkill] : null;
+  const [screen, setScreen] = useState(start ? (start.kind === "gym" ? "gym" : start.kind === "philo" ? "philo" : "quest") : "stats");
+  const [stat, setStat] = useState(start?.stat ?? "STR");
+  const [skill, setSkill] = useState(start);
   const [seed, setSeed] = useState(0);
   const [session, setSession] = useState(0);
   const [len, setLen] = useState(1);
@@ -45,7 +48,7 @@ export default function Guild({ user, player, onClose }) {
   const [error, setError] = useState(null);
   const [accepted, setAccepted] = useState(null);
 
-  const rankOf = (id) => player.skillRanks?.[id] ?? "F";
+  const rankOf = (id) => rankLetter(player, id);
   const openSkill = (s) => { setSkill(s); setError(null); setScreen(s.kind === "gym" ? "gym" : s.kind === "philo" ? "philo" : "quest"); };
 
   let questId = null;
@@ -71,16 +74,18 @@ export default function Guild({ user, player, onClose }) {
     }
   }
 
+  const toSkills = start ? onClose : () => setScreen("skills");
   const back = {
     stats: null,
     skills: () => setScreen("stats"),
-    quest: () => setScreen("skills"),
-    gym: () => setScreen("skills"),
-    philo: () => setScreen("skills"),
+    quest: toSkills,
+    gym: toSkills,
+    philo: toSkills,
     reading: () => setScreen("philo"),
     done: null,
   }[screen];
-  const backLabel = { skills: t.guild.stats, quest: t.stats[stat], gym: t.stats[stat], philo: t.stats[stat], reading: t.guild.schools }[screen];
+  const fromLabel = start ? start.name : t.stats[stat];
+  const backLabel = { skills: t.guild.stats, quest: fromLabel, gym: fromLabel, philo: fromLabel, reading: t.guild.schools }[screen];
 
   let kicker = t.guild.kicker, heading = t.guild.title, sub = t.guild.pickStat;
   if (screen === "skills") { kicker = `${stat} · ${statValue(player.statXp?.[stat] ?? 0)}`; heading = t.stats[stat]; sub = t.guild.pickSkill; }

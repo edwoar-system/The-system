@@ -90,7 +90,7 @@ export const GUILD = Object.fromEntries(
     list.map(([id, name, quest, counts, minutes, difficulty, type, kind]) => ({ id, stat, name, quest, counts, minutes, difficulty, type, kind: kind ?? "simple" })),
   ])
 );
-const skillById = Object.fromEntries(Object.values(GUILD).flat().map((s) => [s.id, s]));
+export const skillById = Object.fromEntries(Object.values(GUILD).flat().map((s) => [s.id, s]));
 
 export const GYM_SESSIONS = [
   { name: "Push day", plan: "Chest, shoulders, triceps: bench press or dips first." },

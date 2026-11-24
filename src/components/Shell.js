@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usePlayer } from "../lib/player";
 import Status from "./Status";
 import Quests from "./Quests";
+import Skills from "./Skills";
 import Urgent from "./Urgent";
 import PenaltyZone, { PenaltyBar, ShieldNotice } from "./PenaltyZone";
 import { checkPenalty, dismissNotice } from "../lib/penalty";
@@ -69,7 +70,7 @@ export default function Shell({ user }) {
       <View style={{ flex: 1 }}>
         {tab === "status" ? <Status user={user} {...state} onOpenQuests={() => setTab("quests")} /> : null}
         {tab === "quests" ? (state.player ? <Quests user={user} player={state.player} /> : <Status user={user} {...state} />) : null}
-        {tab === "skills" ? <Soon text={t.soon.skills} /> : null}
+        {tab === "skills" ? (state.player ? <Skills user={user} player={state.player} /> : <Status user={user} {...state} />) : null}
         {tab === "shop" ? <Soon text={t.soon.shop} /> : null}
       </View>
       {player && !penaltyView ? <Urgent user={user} player={player} /> : null}

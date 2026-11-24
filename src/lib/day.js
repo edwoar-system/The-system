@@ -3,6 +3,8 @@ import { db } from "./firebase";
 import { allMainsBonus, levelFromXp, questCoins, questXp } from "../game/economy";
 import { pickMainQuests, questById, todayKey } from "../game/quests";
 import { guildQuest } from "../game/guild";
+import { ladderById } from "../game/ladders";
+import { dayNum, habitRank, isHabit, recordTraining, SKILL_RULES } from "../game/skills";
 
 export const MAX_GUILD_QUESTS = 6;
 
@@ -105,7 +107,22 @@ export async function completeQuest(uid, questId, slot) {
       lastAllMainsDate = day.date;
     }
 
-    const totalXp = (player.xp ?? 0) + xp;
+    // Skill progress: the quest's minutes count toward its skill.
+    let skills = null;
+    let skillUp = null;
+    if (q.skill && ladderById[q.skill]) {
+      const ladder = ladderById[q.skill];
+      let entry = recordTraining(player.skills?.[q.skill], q.minutes, dayNum(day.date));
+      if (isHabit(ladder)) {
+        const rank = habitRank(entry, ladder, dayNum(day.date));
+        const best = player.skillBest?.[q.skill] ?? 0;
+        if (rank > (entry.rank ?? 0)) skillUp = { id: q.skill, rank, xp: rank > best ? SKILL_RULES.rankUpXp * rank : 0 };
+        entry = { ...entry, rank };
+      }
+      skills = { ...(player.skills ?? {}), [q.skill]: entry };
+    }
+
+    const totalXp = (player.xp ?? 0) + xp + (skillUp?.xp ?? 0);
     const before = levelFromXp(player.xp ?? 0).level;
     const after = levelFromXp(totalXp).level;
 
@@ -120,11 +137,13 @@ export async function completeQuest(uid, questId, slot) {
       lastAllMainsDate,
       lastQuestAt: Date.now(),
       ...(q.skill ? { lastDoneBySkill: { ...(player.lastDoneBySkill ?? {}), [q.skill]: day.date } } : {}),
+      ...(skills ? { skills } : {}),
+      ...(skillUp?.xp ? { skillBest: { ...(player.skillBest ?? {}), [q.skill]: skillUp.rank } } : {}),
       ...(q.school ? { philosophy: { ...(player.philosophy ?? {}), [q.school]: Math.max(player.philosophy?.[q.school] ?? 0, q.reading + 1) } } : {}),
       updatedAt: serverTimestamp(),
     }, { merge: true });
 
-    return { coins, xp, bonus, levelUp: after > before ? after : null, stat: q.stat, streak };
+    return { coins, xp, bonus, levelUp: after > before ? after : null, stat: q.stat, streak, skillUp };
   });
 
   // Quest log for balancing later. Separate write: if it fails, the reward still counts.

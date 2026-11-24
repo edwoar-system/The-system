@@ -10,6 +10,9 @@ import { requestUrgent } from "../lib/urgent";
 import { ECONOMY } from "../game/economy";
 import { Coins, Frame, Glow, HexBadge, HexCheck, Label, SysButton, nativeDriver } from "./sys";
 import LevelUp from "./LevelUp";
+import RankUp from "./RankUp";
+import { RANKS } from "../game/ladders";
+import { skillById } from "../game/guild";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
@@ -90,6 +93,7 @@ export default function Quests({ user, player }) {
   const urgentOpen = ["offered", "active", "followup"].includes(player.urgent?.status);
   const [toast, setToast] = useState(null);
   const [levelUp, setLevelUp] = useState(null);
+  const [rankUp, setRankUp] = useState(null);
   const toastAnim = useRef(new Animated.Value(0)).current;
 
   const mainsDone = day.mains.filter((m) => m.done).length;
@@ -115,6 +119,7 @@ export default function Quests({ user, player }) {
       const r = await completeQuest(user.uid, questId, slot);
       showToast({ coins: r.coins + r.bonus, bonus: r.bonus, xp: r.xp });
       if (r.levelUp) setLevelUp({ level: r.levelUp, xp: (player.xp ?? 0) + r.xp, coins: r.coins + r.bonus });
+      if (r.skillUp) setRankUp({ letter: RANKS[r.skillUp.rank], name: skillById[r.skillUp.id]?.name ?? "", xp: r.skillUp.xp });
     } catch (e) {
       if (e.message !== "already-done") showToast({ error: true });
     } finally {
@@ -262,7 +267,8 @@ export default function Quests({ user, player }) {
         </Animated.View>
       ) : null}
 
-      <LevelUp data={levelUp} onClose={() => setLevelUp(null)} />
+      <RankUp data={rankUp} onClose={() => setRankUp(null)} />
+      <LevelUp data={rankUp ? null : levelUp} onClose={() => setLevelUp(null)} />
     </View>
   );
 }

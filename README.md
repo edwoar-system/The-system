@@ -16,7 +16,7 @@ The app is built room by room. A room is built, tested, and only then finished.
 | 0 | Foundation: login, database, website, empty iPhone app |
 | 1 | Blocking apps and unlocking with coins |
 | 2 | Quests and economy (design v0.1: Status, quest board, level up) |
-| 3 | Stats and ranks |
+| 3 | Stats and ranks: Skills tab, skill pages, rank trials, rust (ladders in src/game/ladders.js) |
 | 4 | Body |
 | 5 | Health |
 | 6 | School |
