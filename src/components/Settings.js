@@ -5,7 +5,7 @@ import * as Updates from "expo-updates";
 import { signOut } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth } from "../lib/firebase";
-import { setNotify, setPlayerName, setProfile } from "../lib/player";
+import { setNotify, setPlayerName, setProfile, setReminders } from "../lib/player";
 import { askNotifyPermission, notifyPermission, notifySupported } from "../lib/notify";
 import { NOTIFY_KINDS, notifySettings } from "../game/notify";
 import { setUrgentPerDay } from "../lib/urgent";
@@ -69,6 +69,63 @@ function Notifications({ user, player }) {
             trackColor={{ false: "#1A2440", true: color.blue }} thumbColor="#EAF4FF" ios_backgroundColor="#1A2440" />
         </View>
       ))}
+    </View>
+  );
+}
+
+function Reminders({ user, player }) {
+  const { color, font } = useTheme();
+  const [text, setText] = useState("");
+  const [time, setTime] = useState("");
+  const [daily, setDaily] = useState(true);
+  const [error, setError] = useState(null);
+  const list = player.reminders ?? [];
+  const shown = list.filter((r) => r.repeat === "daily" || r.date >= todayKey()); // past one-off reminders are hidden
+
+  async function add() {
+    const m = time.trim().match(/^(\d{1,2})[:.](\d{2})$/);
+    if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) { setError(t.reminders.badTime); return; }
+    const hhmm = `${m[1].padStart(2, "0")}:${m[2]}`;
+    // A one-off reminder is for today, or tomorrow when the time has already passed.
+    const now = new Date();
+    const when = new Date(now.getFullYear(), now.getMonth(), now.getDate(), Number(m[1]), Number(m[2]));
+    if (when <= now) when.setDate(when.getDate() + 1);
+    const r = { id: String(Date.now()), text: text.trim(), time: hhmm, repeat: daily ? "daily" : "once", ...(daily ? {} : { date: todayKey(when) }) };
+    setError(null);
+    await setReminders(user.uid, [...list, r]);
+    setText("");
+    setTime("");
+  }
+
+  return (
+    <View style={{ gap: 10 }}>
+      {shown.length ? shown.map((r) => (
+        <View key={r.id} style={{ minHeight: 48, flexDirection: "row", alignItems: "center", gap: 12, borderTopWidth: 1, borderTopColor: color.line }}>
+          <Text style={{ width: 52, fontFamily: font.num, fontSize: 17, color: color.accent }}>{r.time}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{r.text}</Text>
+            <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{r.repeat === "daily" ? t.reminders.daily : r.date === todayKey() ? t.reminders.today : t.reminders.tomorrow}</Text>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel={`${t.reminders.remove}: ${r.text}`} onPress={() => setReminders(user.uid, list.filter((x) => x.id !== r.id))}
+            style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.muted }}>{t.reminders.remove}</Text>
+          </Pressable>
+        </View>
+      )) : <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{t.reminders.empty}</Text>}
+      <Input label={t.reminders.what} value={text} onChangeText={setText} />
+      <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-end" }}>
+        <Input label={t.reminders.time} value={time} onChangeText={(v) => { setTime(v); setError(null); }} keyboardType="numbers-and-punctuation" width={120} />
+        <View style={{ flex: 1, flexDirection: "row", gap: 6 }}>
+          {[[true, t.reminders.daily], [false, t.reminders.once]].map(([v, label]) => (
+            <Pressable key={label} accessibilityRole="button" accessibilityState={{ selected: daily === v }} onPress={() => setDaily(v)}
+              style={{ flex: 1, minHeight: 46, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: daily === v ? color.frame : "rgba(159,203,255,0.22)", backgroundColor: daily === v ? "rgba(159,203,255,0.16)" : "transparent" }}>
+              <Text style={{ fontFamily: font.bold, fontSize: 13, color: daily === v ? "#FFFFFF" : color.muted }}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+      {error ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: color.dangerSoft }}>{error}</Text> : null}
+      <SysButton label={t.reminders.add} onPress={add} disabled={!text.trim() || !time.trim()} />
     </View>
   );
 }
@@ -184,6 +241,10 @@ export default function Settings({ user, player, synced }) {
           <SeverityChips value={pendingSeverity ?? severity} onChange={(s) => scheduleSeverity(user.uid, s)} />
           {pendingSeverity ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: color.frame }}>{fill(t.settings.severityNext, { sev: t.penalty.severities[pendingSeverity] })}</Text> : null}
         </View>
+      </Section>
+
+      <Section title={t.reminders.title} sub={t.reminders.sub}>
+        <Reminders user={user} player={player} />
       </Section>
 
       <Section title={t.notify.section}>

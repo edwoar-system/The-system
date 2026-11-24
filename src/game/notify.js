@@ -6,12 +6,16 @@ import { PENALTY, isInPenalty } from "./penalty";
 import { ladderById, RANKS } from "./ladders";
 import { skillById } from "./guild";
 import { dayNum, skillView, trialState, TRIAL_DAYS } from "./skills";
+import { quoteOfDay } from "./quotes";
+import { quickById, quickToday } from "./quick";
 import { t } from "../i18n";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 
-export const NOTIFY_KINDS = ["urgent", "deadline", "penalty", "trial", "rust", "morning"];
-export const NOTIFY_DEFAULTS = { urgent: true, deadline: true, penalty: true, trial: true, rust: true, morning: false };
+export const NOTIFY_KINDS = ["urgent", "deadline", "penalty", "water", "quote", "trial", "rust", "morning"];
+export const NOTIFY_DEFAULTS = { urgent: true, deadline: true, penalty: true, water: true, quote: true, trial: true, rust: true, morning: false };
+export const WATER_HOURS = [10, 12, 14, 16, 18];
+export const QUOTE_HOUR = 9;
 export const DEADLINE_WARNING_HOUR = 20;
 export const MORNING_HOUR = 8;
 const LOOK_AHEAD_DAYS = 2; // today and tomorrow; rescheduled every time the app opens or the player changes
@@ -76,6 +80,25 @@ export function notificationPlan(player, uid, now = new Date()) {
     if (s.penalty && mainsOpen > 0 && !(d === 0 && isInPenalty(player))) {
       add({ id: `penalty-${key}`, date: at(base, 0, PENALTY.deadlineHour, 1), title: t.notify.penaltyTitle, body: t.notify.penaltyBody, data: { kind: "status" } });
     }
+    if (s.water) {
+      const goal = quickById.water.goal;
+      const had = d === 0 ? quickToday(player).water ?? 0 : 0;
+      if (had < goal) {
+        WATER_HOURS.forEach((h) => add({ id: `water-${key}-${h}`, date: at(base, 0, h), title: t.notify.waterTitle,
+          body: fill(t.notify.waterBody, { n: had, goal }), data: { kind: "quests" } }));
+      }
+    }
+    if (s.quote) {
+      const q = quoteOfDay(key, 0, player.profile?.schools);
+      add({ id: `quote-${key}`, date: at(base, 0, QUOTE_HOUR), title: t.notify.quoteTitle, body: `${q.text} (${q.who})`, data: { kind: "status" } });
+    }
+    // Your own reminders ("don't forget"): daily ones every day, one-off ones on their date.
+    (player.reminders ?? []).forEach((r) => {
+      if (r.repeat !== "daily" && r.date !== key) return;
+      const [hh, mm] = String(r.time).split(":").map(Number);
+      if (!Number.isFinite(hh) || !Number.isFinite(mm)) return;
+      add({ id: `rem-${r.id}-${key}`, date: at(base, 0, hh, mm), title: t.notify.reminderTitle, body: r.text, data: { kind: "status" } });
+    });
     if (s.morning) {
       add({ id: `morning-${key}`, date: at(base, 0, MORNING_HOUR), title: t.notify.morningTitle, body: t.notify.morningBody, data: { kind: "quests" } });
     }

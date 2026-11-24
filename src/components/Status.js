@@ -12,6 +12,8 @@ import { Coins, Frame, Glow, Label, hexPoints } from "./sys";
 import StatShape from "./StatShape";
 import Setup from "./Setup";
 import { BodyCard } from "./Body";
+import { quoteOfDay } from "../game/quotes";
+import { todayKey } from "../game/quests";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
@@ -74,11 +76,28 @@ function ExpBar({ ratio }) {
   );
 }
 
+function QuoteCard({ quote, onNext }) {
+  const { color, font } = useTheme();
+  return (
+    <View style={{ marginTop: 20, marginHorizontal: 18, paddingLeft: 14, borderLeftWidth: 2, borderLeftColor: color.frame, gap: 6 }}>
+      <Label tone={color.hi}>{t.quote.title}</Label>
+      <Text style={{ fontFamily: font.bodyMedium, fontSize: 16, lineHeight: 23, color: "#FFFFFF" }}>{quote.text}</Text>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+        <Text style={{ flex: 1, fontFamily: font.body, fontSize: 12, color: color.muted }}>{quote.who === quote.work ? quote.who : `${quote.who}, ${quote.work}`}</Text>
+        <Pressable accessibilityRole="button" onPress={onNext} style={{ minHeight: 40, justifyContent: "center", paddingLeft: 12 }}>
+          <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.accent }}>{t.quote.another}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 export default function Status({ user, player, error, onOpenQuests }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const [nameDraft, setNameDraft] = useState("");
   const [locking, setLocking] = useState(false);
+  const [quoteShift, setQuoteShift] = useState(0);
   const k = useCountUp();
 
   if (error) {
@@ -144,6 +163,8 @@ export default function Status({ user, player, error, onOpenQuests }) {
           {t.status.mainsToday} <Text style={{ fontFamily: font.num, fontSize: 17, color: color.text }}>{mainsDone}/{day.mains.length}</Text>
         </Text>
       </View>
+
+      <QuoteCard quote={quoteOfDay(todayKey(), quoteShift, player.profile?.schools)} onNext={() => setQuoteShift((n) => n + 1)} />
 
       <Pressable accessibilityRole="button" onPress={onOpenQuests} style={({ pressed }) => ({ marginTop: 22, marginHorizontal: 14, transform: [{ scale: pressed ? 0.99 : 1 }] })}>
         <Frame kind="premium" cut={16} contentStyle={{ padding: 16, flexDirection: "row", alignItems: "center", gap: 14 }}>

@@ -62,3 +62,8 @@ export function setProfile(uid, profile) {
 export function setNotify(uid, kind, on) {
   return updateDoc(doc(db, "players", uid), { [`notify.${kind}`]: on, updatedAt: serverTimestamp() });
 }
+
+// Your own reminders: { id, text, time "HH:MM", repeat "daily" | "once", date (for once) }.
+export function setReminders(uid, reminders) {
+  return updateDoc(doc(db, "players", uid), { reminders, updatedAt: serverTimestamp() });
+}
