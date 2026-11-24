@@ -14,6 +14,8 @@ import { checkPenalty, dismissNotice } from "../lib/penalty";
 import { onNotificationTap, setupNotifications, syncNotifications } from "../lib/notify";
 import { offerNotifiedUrgent } from "../lib/urgent";
 import { syncPublic } from "../lib/social";
+import { ensureDay, setGymCache } from "../lib/day";
+import { todayKey } from "../game/quests";
 import { setFeel, tapFeel } from "../lib/haptics";
 import { skillById } from "../game/guild";
 
@@ -97,6 +99,13 @@ export default function Shell({ user }) {
     setTrail(trail.slice(0, -1));
     open(last);
   };
+
+  // Your gym split for gym quests, and today's board saved once a day.
+  setGymCache(player?.gym);
+  const dayDate = player?.day?.date;
+  useEffect(() => {
+    if (player && dayDate !== todayKey()) ensureDay(user.uid).catch(() => {});
+  }, [player, dayDate, user.uid]);
 
   // Your sound and vibration choice for every vibration and sound in the app.
   useEffect(() => { setFeel(player?.feel); }, [player?.feel]);

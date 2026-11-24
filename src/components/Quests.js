@@ -14,6 +14,7 @@ import RankUp from "./RankUp";
 import QuestSheet from "./QuestSheet";
 import { BodyReport } from "./Body";
 import CheckIn from "./CheckIn";
+import GymSession from "./GymSession";
 import QuickLog from "./QuickLog";
 import { QUICK, goalFor, quickToday } from "../game/quick";
 import { dayNum, trialQuestId, trialState, weekNum } from "../game/skills";
@@ -373,7 +374,10 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
         </Animated.View>
       ) : null}
 
-      {sheet ? <QuestSheet user={user} player={player} questId={sheet.id} slot={sheet.slot} done={sheet.done} onClose={() => setSheet(null)} onResult={(r) => onResult(r, sheet.id)}
+      {sheet && sheet.id.startsWith("gs:") && !sheet.done ? (
+        <GymSession user={user} player={player} questId={sheet.id} slot={sheet.slot} onClose={() => setSheet(null)} onResult={(r) => onResult(r, sheet.id)} />
+      ) : null}
+      {sheet && !(sheet.id.startsWith("gs:") && !sheet.done) ? <QuestSheet user={user} player={player} questId={sheet.id} slot={sheet.slot} done={sheet.done} onClose={() => setSheet(null)} onResult={(r) => onResult(r, sheet.id)}
         onOpenSkill={onOpenSkill ? (id) => { const from = { id: sheet.id, slot: sheet.slot }; setSheet(null); onOpenSkill(id, from); } : null} /> : null}
       <CheckIn uid={user.uid} data={check} onClose={() => setCheck(null)} />
       <BodyReport data={check ? null : body} onClose={() => setBody(null)} onOpenSkill={onOpenSkill} />

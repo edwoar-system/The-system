@@ -5,6 +5,7 @@ import Svg, { Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { acceptQuest, currentDay, rewardPreview, MAX_GUILD_QUESTS } from "../lib/day";
 import { interestSkills } from "../game/profile";
+import { hitsTired, tiredSet } from "../game/muscles";
 import { GUILD, GYM_COUNTS, GYM_LENGTHS, GYM_SESSIONS, PHILOSOPHY, guildQuest, skillById, suggestSkills } from "../game/guild";
 import { rankLetter, skillView } from "../game/skills";
 import { GYM_TIER_BANDS, TIERS, TIER_RANKS, tierForRank } from "../game/tiers";
@@ -45,6 +46,8 @@ export default function Guild({ user, player, onClose, initialSkill, onAccepted 
   const [stat, setStat] = useState(start?.stat ?? "STR");
   const [skill, setSkill] = useState(start);
   const [seed, setSeed] = useState(0);
+  const tired = tiredSet(player.fatigue);
+  const isTired = (id) => hitsTired({ skill: id, minutes: 30 }, tired);
   const [session, setSession] = useState(0);
   const [len, setLen] = useState(1);
   const [school, setSchool] = useState(null);
@@ -210,12 +213,13 @@ export default function Guild({ user, player, onClose, initialSkill, onAccepted 
               </Pressable>
             </View>
             <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
-              {suggestSkills(stat, player.lastDoneBySkill, seed, interestSkills(player.profile)).map((s) => (
+              {suggestSkills(stat, player.lastDoneBySkill, seed, interestSkills(player.profile), isTired).map((s) => (
                 <Pressable key={s.id} accessibilityRole="button" onPress={() => openSkill(s)} style={{ flex: 1 }}>
                   <Frame kind="premium" cut={10} contentStyle={{ minHeight: 118, padding: 10, gap: 6 }}>
                     <HexBadge w={26} h={30} label={rankOf(s.id)} labelSize={11} />
                     <Text style={{ fontFamily: font.bold, fontSize: 14, lineHeight: 18, color: "#FFFFFF" }}>{s.name}</Text>
                     <Text style={{ fontFamily: font.body, fontSize: 11, lineHeight: 15, color: color.muted }}>{s.quest}</Text>
+                    {isTired(s.id) ? <Text style={{ fontFamily: font.bodyBold, fontSize: 11, color: "#F6B45A" }}>{t.guild.tired}</Text> : null}
                   </Frame>
                 </Pressable>
               ))}

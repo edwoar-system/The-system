@@ -8,7 +8,8 @@ import { todayKey } from "../game/quests";
 import { skillById } from "../game/guild";
 import { ladderById } from "../game/ladders";
 import { dayNum, habitRank, isHabit, recordTraining, weekNum } from "../game/skills";
-import { addLoad, questLoad } from "../game/muscles";
+import { questLoad } from "../game/muscles";
+import { trainMuscles } from "./muscles";
 import { levelFromXp } from "../game/economy";
 
 const ref = (uid) => doc(db, "players", uid);
@@ -39,9 +40,7 @@ export async function quickLog(uid, itemId) {
     Object.keys(player.skills?.[item.skill]?.recent ?? {}).forEach((d) => { if (!(d in recent)) recent[d] = deleteField(); });
 
     // Muscles for this week.
-    const load = questLoad({ skill: item.skill, minutes: item.minutes });
-    const week = weekNum(today);
-    const muscleLoad = load ? { [week]: addLoad(player.muscleLoad?.[week] ?? {}, load) } : null;
+    const trained = trainMuscles(player, questLoad({ skill: item.skill, minutes: item.minutes }), weekNum(today));
 
     const xp = Math.max(1, Math.round(item.minutes * QUICK_XP_PER_MINUTE));
     const totalXp = (player.xp ?? 0) + xp;
@@ -51,7 +50,7 @@ export async function quickLog(uid, itemId) {
     tx.set(ref(uid), {
       quick: countsWrite(player, counts),
       skills: { ...(player.skills ?? {}), [item.skill]: { ...entry, recent } },
-      ...(muscleLoad ? { muscleLoad } : {}),
+      ...(trained ? trained.fields : {}),
       xp: totalXp,
       level: after,
       statXp: { ...(player.statXp ?? {}), [skill.stat]: (player.statXp?.[skill.stat] ?? 0) + xp },

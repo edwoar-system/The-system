@@ -6,7 +6,7 @@ import { Frame, Label } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
-export const TERMS = ["quests", "coins", "exp", "stats", "ranks", "trials", "rust", "tiers", "streak", "penalty", "urgent", "mountains", "proof", "duties"];
+export const TERMS = ["quests", "coins", "exp", "stats", "ranks", "trials", "rust", "tiers", "streak", "penalty", "urgent", "mountains", "proof", "duties", "recovery", "split"];
 
 export function ExplainCard({ term, onClose }) {
   const { color, font } = useTheme();

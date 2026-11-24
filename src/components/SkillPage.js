@@ -11,6 +11,7 @@ import QuestSheet from "./QuestSheet";
 import { BodyReport } from "./Body";
 import { needsProof } from "../game/proof";
 import CheckIn from "./CheckIn";
+import GymSetup from "./GymSetup";
 import { getQuest } from "../lib/day";
 import RankUp from "./RankUp";
 import LevelUp from "./LevelUp";
@@ -78,6 +79,7 @@ export default function SkillPage({ user, player, id, onBack, onRequest }) {
 
   const [placement, setPlacement] = useState(null); // a higher target rank
   const [more, setMore] = useState(false);
+  const [gymOpen, setGymOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [rankUp, setRankUp] = useState(null);
@@ -269,6 +271,11 @@ export default function SkillPage({ user, player, id, onBack, onRequest }) {
         </Frame>
 
         <SysButton label={t.skills.request} onPress={onRequest} style={{ marginTop: 18 }} />
+        {id === "gym" ? (
+          <Pressable accessibilityRole="button" onPress={() => setGymOpen(true)} style={{ minHeight: 44, alignItems: "center", justifyContent: "center", marginTop: 6 }}>
+            <Text style={{ fontFamily: font.bodyBold, fontSize: 14, color: color.accent }}>{player.gym ? t.gym.edit : t.gym.setUp}</Text>
+          </Pressable>
+        ) : null}
 
         {/* The full ladder and how the skill works: folded, it's reference, not something you need every visit. */}
         <Pressable accessibilityRole="button" accessibilityState={{ expanded: more }} onPress={() => setMore((m) => !m)}
@@ -303,6 +310,7 @@ export default function SkillPage({ user, player, id, onBack, onRequest }) {
         ) : null}
       </ScrollView>
       {sheet ? <QuestSheet user={user} player={player} questId={sheet.id} slot="trial" done={sheet.done} onClose={() => setSheet(null)} onResult={onResult} /> : null}
+      {gymOpen ? <GymSetup user={user} player={player} onClose={() => setGymOpen(false)} /> : null}
       <CheckIn uid={user.uid} data={check} onClose={() => setCheck(null)} />
       <BodyReport data={check ? null : body} onClose={() => setBody(null)} />
       <RankUp data={check || body ? null : rankUp} onClose={() => setRankUp(null)} />

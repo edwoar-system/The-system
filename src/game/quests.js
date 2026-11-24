@@ -1,5 +1,6 @@
 // Quest catalog and the daily main-quest picker.
 // Stats: STR (strength), AGI (agility), VIT (vitality/health), INT (intellect), WIL (willpower), CHA (charisma).
+import { hitsTired } from "./muscles";
 
 export const STATS = ["STR", "AGI", "VIT", "INT", "WIL", "CHA"];
 
@@ -47,7 +48,8 @@ function seeded(seedText) {
 // Picks today's main quests: one per stat, rotating so the stats you trained least recently come first.
 // mainSlots grows with rank later (room 3): F–E 3, D–C 4–5, B+ 6.
 // liked: skills from your interests; a quest for one of them is picked 3 times out of 4 when the stat has one.
-export function pickMainQuests({ date, lastDoneByStat = {}, mainSlots = 3, uid = "", liked = null }) {
+// tired: muscles that are still tired; quests that lean on them are skipped when there's another choice.
+export function pickMainQuests({ date, lastDoneByStat = {}, mainSlots = 3, uid = "", liked = null, tired = null }) {
   const rand = seeded(`${uid}:${date}`);
   const order = [...STATS].sort((a, b) => {
     const da = lastDoneByStat[a] ?? "";
@@ -56,7 +58,9 @@ export function pickMainQuests({ date, lastDoneByStat = {}, mainSlots = 3, uid =
     return rand() - 0.5;
   });
   return order.slice(0, mainSlots).map((stat) => {
-    const pool = QUESTS.filter((q) => q.stat === stat && !q.side && q.kind !== "start");
+    const all = QUESTS.filter((q) => q.stat === stat && !q.side && q.kind !== "start");
+    const rested = tired?.size ? all.filter((q) => !hitsTired(q, tired)) : all;
+    const pool = rested.length ? rested : all;
     const fav = liked?.size ? pool.filter((q) => liked.has(q.skill)) : [];
     const from = fav.length && rand() < 0.75 ? fav : pool;
     return from[Math.floor(rand() * from.length)].id;

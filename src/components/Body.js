@@ -3,8 +3,8 @@ import { useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
-import BodyMap, { stepColor } from "./BodyMap";
-import { MUSCLES, coverage, level, muscleById, weekLoad } from "../game/muscles";
+import BodyMap, { REST_COLORS, restColor, stepColor } from "./BodyMap";
+import { MUSCLES, REGIONS, coverage, fatigueNow, hoursToFresh, level, muscleById, recoveryState, weekLoad } from "../game/muscles";
 import { dayNum, weekNum } from "../game/skills";
 import { Frame, Glow, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
@@ -19,6 +19,20 @@ function Legend() {
       <Text style={{ fontFamily: font.body, fontSize: 11, color: color.muted }}>{t.body.legendNone}</Text>
       {[0, 0.2, 0.5, 0.8, 1].map((v) => <View key={v} style={{ width: 18, height: 6, backgroundColor: stepColor(v), transform: [{ skewX: "-30deg" }] }} />)}
       <Text style={{ fontFamily: font.body, fontSize: 11, color: color.muted }}>{t.body.legendFull}</Text>
+    </View>
+  );
+}
+
+function RestLegend() {
+  const { color, font } = useTheme();
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 14, justifyContent: "center" }}>
+      {["fresh", "recovering", "tired"].map((k) => (
+        <View key={k} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <View style={{ width: 14, height: 6, backgroundColor: REST_COLORS[k], transform: [{ skewX: "-30deg" }] }} />
+          <Text style={{ fontFamily: font.body, fontSize: 11, color: color.muted }}>{t.body.rest[k]}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -38,6 +52,7 @@ export function BodyCard({ player }) {
   const [open, setOpen] = useState(false);
   const { load, lastWeek } = weekLoad(player.muscleLoad, weekNum(dayNum()));
   const pct = coverage(load);
+  const tired = Object.entries(fatigueNow(player.fatigue)).filter(([, v]) => recoveryState(v) === "tired").map(([m]) => muscleById[m]?.name).filter(Boolean);
   return (
     <>
       <Pressable accessibilityRole="button" accessibilityLabel={`${t.body.title} ${pct}%. ${t.body.open}`} onPress={() => setOpen(true)}
@@ -55,6 +70,9 @@ export function BodyCard({ player }) {
           </View>
           <View style={{ alignItems: "center" }}><BodyMap load={load} width={300} /></View>
           <Legend />
+          {tired.length ? (
+            <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: REST_COLORS.tired }}>{fill(t.body.tiredLine, { list: tired.slice(0, 4).join(", ") })}</Text>
+          ) : null}
         </Frame>
       </Pressable>
       {open ? <BodyScreen player={player} onClose={() => setOpen(false)} /> : null}
@@ -62,12 +80,22 @@ export function BodyCard({ player }) {
   );
 }
 
-// Full screen: the map plus every muscle group with its load this week.
+// Full screen: the map (this week, or recovery), tap a muscle for its details, and every muscle by region.
 export function BodyScreen({ player, onClose }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
+  const [mode, setMode] = useState("week"); // "week" | "rest"
+  const [sel, setSel] = useState(null);
   const { load, lastWeek } = weekLoad(player.muscleLoad, weekNum(dayNum()));
-  const rows = [...MUSCLES].sort((a, b) => (load[b.id] ?? 0) - (load[a.id] ?? 0));
+  const fat = fatigueNow(player.fatigue);
+  const pick = (m) => setSel(sel === m ? null : m);
+  const detail = (m) => {
+    const v = level(load[m]);
+    const f = fat[m] ?? 0;
+    const st = recoveryState(f);
+    const h = hoursToFresh(m, f);
+    return fill(t.body.detail, { pct: Math.round(v * 100), state: t.body.rest[st] }) + (h ? ` ${fill(t.body.freshIn, { h })}` : "");
+  };
   return (
     <Modal animationType="slide" visible onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: color.bg }}>
@@ -79,27 +107,50 @@ export function BodyScreen({ player, onClose }) {
           </Pressable>
           <View style={{ alignItems: "center", gap: 6, marginTop: 6 }}>
             <Text accessibilityRole="header" style={{ fontFamily: font.bold, fontSize: 26, color: "#FFFFFF" }}>{t.body.screenTitle}</Text>
-            <Percent value={coverage(load)} size={56} />
-            <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{fill(t.body.vsLast, { n: coverage(lastWeek) })}</Text>
+            {mode === "week" ? (
+              <>
+                <Percent value={coverage(load)} size={56} />
+                <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{fill(t.body.vsLast, { n: coverage(lastWeek) })}</Text>
+              </>
+            ) : <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, textAlign: "center", color: color.muted }}>{t.body.restSub}</Text>}
           </View>
-          <View style={{ alignItems: "center", marginTop: 12 }}><BodyMap load={load} width={340} /></View>
-          <View style={{ marginTop: 10 }}><Legend /></View>
-          <Text style={{ marginTop: 14, fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted, textAlign: "center" }}>{t.body.sub}</Text>
-          <Frame cut={12} style={{ marginTop: 14 }} contentStyle={{ padding: 16 }}>
-            <Label tone={color.hi}>{t.body.list}</Label>
-            {rows.map((m) => {
-              const v = level(load[m.id]);
-              return (
-                <View key={m.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 9, borderTopWidth: 1, borderTopColor: color.line, marginTop: 6 }}>
-                  <Text style={{ width: 130, fontFamily: font.bodyMedium, fontSize: 14, color: v ? color.text : color.muted }}>{m.name}</Text>
-                  <View style={{ flex: 1, height: 6, backgroundColor: "rgba(96,160,255,0.14)", transform: [{ skewX: "-30deg" }], overflow: "hidden" }}>
-                    <View style={{ width: `${v * 100}%`, height: 6, backgroundColor: stepColor(v) }} />
-                  </View>
-                  <Text style={{ width: 40, textAlign: "right", fontFamily: font.num, fontSize: 15, color: v >= 1 ? "#FFFFFF" : color.muted }}>{Math.round(v * 100)}%</Text>
-                </View>
-              );
-            })}
-          </Frame>
+          <View accessibilityRole="tablist" style={{ flexDirection: "row", gap: 6, marginTop: 14 }}>
+            {["week", "rest"].map((k) => (
+              <Pressable key={k} accessibilityRole="tab" accessibilityState={{ selected: mode === k }} onPress={() => setMode(k)}
+                style={{ flex: 1, minHeight: 44, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: mode === k ? color.frame : "rgba(159,203,255,0.22)", backgroundColor: mode === k ? "rgba(159,203,255,0.16)" : "transparent" }}>
+                <Text style={{ fontFamily: font.bold, fontSize: 13, color: mode === k ? "#FFFFFF" : color.muted }}>{t.body.modes[k]}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <View style={{ alignItems: "center", marginTop: 12 }}>
+            <BodyMap load={load} mode={mode} fatigue={fat} width={340} onMuscle={pick} selected={sel} />
+          </View>
+          <View style={{ marginTop: 10 }}>{mode === "week" ? <Legend /> : <RestLegend />}</View>
+          {sel ? (
+            <Frame cut={12} style={{ marginTop: 12 }} contentStyle={{ padding: 14, gap: 4 }}>
+              <Text style={{ fontFamily: font.bold, fontSize: 17, color: "#FFFFFF" }}>{muscleById[sel].name}</Text>
+              <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{detail(sel)}</Text>
+            </Frame>
+          ) : <Text style={{ marginTop: 12, fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted, textAlign: "center" }}>{t.body.tapHint}</Text>}
+          {REGIONS.map((r) => (
+            <Frame key={r} cut={12} style={{ marginTop: 12 }} contentStyle={{ padding: 16 }}>
+              <Label tone={color.hi}>{t.body.regions[r]}</Label>
+              {MUSCLES.filter((m) => m.region === r).map((m) => {
+                const v = level(load[m.id]);
+                const f = fat[m.id] ?? 0;
+                return (
+                  <Pressable key={m.id} onPress={() => pick(m.id)} style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 9, borderTopWidth: 1, borderTopColor: color.line, marginTop: 6 }}>
+                    <View style={{ width: 8, height: 8, transform: [{ rotate: "45deg" }], backgroundColor: restColor(f) }} />
+                    <Text style={{ width: 150, fontFamily: sel === m.id ? font.bodyBold : font.bodyMedium, fontSize: 14, color: v || sel === m.id ? color.text : color.muted }}>{m.name}</Text>
+                    <View style={{ flex: 1, height: 6, backgroundColor: "rgba(96,160,255,0.14)", transform: [{ skewX: "-30deg" }], overflow: "hidden" }}>
+                      <View style={{ width: `${v * 100}%`, height: 6, backgroundColor: stepColor(v) }} />
+                    </View>
+                    <Text style={{ width: 40, textAlign: "right", fontFamily: font.num, fontSize: 15, color: v >= 1 ? "#FFFFFF" : color.muted }}>{Math.round(v * 100)}%</Text>
+                  </Pressable>
+                );
+              })}
+            </Frame>
+          ))}
         </ScrollView>
       </View>
     </Modal>

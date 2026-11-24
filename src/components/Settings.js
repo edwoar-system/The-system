@@ -28,6 +28,8 @@ import { useTheme } from "../theme";
 import { t } from "../i18n";
 import { Glossary } from "./Explain";
 import { FeedbackSheet } from "./Feedback";
+import GymSetup from "./GymSetup";
+import { TEMPLATES } from "../game/gym";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 
@@ -265,6 +267,7 @@ export default function Settings({ user, player, synced }) {
   const [name, setName] = useState(player.name ?? "");
   const [quotes, setQuotes] = useState(false);
   const [feedback, setFeedback] = useState(false);
+  const [gymOpen, setGymOpen] = useState(false);
   const { stamp, track, Provider } = useSavedStamp();
 
   // Your name saves itself a moment after you stop typing.
@@ -318,6 +321,14 @@ export default function Settings({ user, player, synced }) {
           {pendingSeverity ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: color.frame }}>{fill(t.settings.severityNext, { sev: t.penalty.severities[pendingSeverity] })}</Text> : null}
         </View>
       </Section>
+
+      <Section title={t.gym.section} sub={t.gym.sectionSub}>
+        <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>
+          {player.gym ? fill(t.gym.summary, { name: TEMPLATES[player.gym.template]?.name ?? "", days: player.gym.weekdays.map((d) => t.gym.weekdays[d]).join(" ") || t.gym.noDays }) : t.gym.none}
+        </Text>
+        <SysButton label={player.gym ? t.gym.edit : t.gym.setUp} onPress={() => setGymOpen(true)} />
+      </Section>
+      {gymOpen ? <GymSetup user={user} player={player} onClose={() => setGymOpen(false)} /> : null}
 
       <Section title={t.proof.title} sub={t.proof.sub}>
         <ProofChoice user={user} player={player} />

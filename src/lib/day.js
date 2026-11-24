@@ -7,13 +7,21 @@ import { ladderById } from "../game/ladders";
 import { dayNum, habitRank, isHabit, passTrial, recordTraining, skillView, SKILL_RULES, trialQuest, trialState, weekNum } from "../game/skills";
 import { tierForRank } from "../game/tiers";
 import { dutyQuest, interestSkills, mountainFactor } from "../game/profile";
-import { addLoad, coverage, questLoad } from "../game/muscles";
+import { questLoad, tiredSet } from "../game/muscles";
+import { gymToday, splitQuest } from "../game/gym";
+import { penaltyDue } from "../game/penalty";
+import { trainMuscles } from "./muscles";
 
 export const MAX_GUILD_QUESTS = 6;
 
 // Any quest by id: the fixed catalogue, a guild quest ("g:...") or a rank-trial part ("t:...").
-export function getQuest(id) {
+// Your gym split, for gym quests ("gs:<day>") looked up without the player at hand (Shell keeps it current).
+let gymCache = null;
+export const setGymCache = (gym) => { gymCache = gym ?? null; };
+
+export function getQuest(id, player = null) {
   if (questById[id]) return questById[id];
+  if (id.startsWith("gs:")) return splitQuest(id, player?.gym ?? gymCache);
   if (id.startsWith("t:")) return trialQuest(id);
   if (id.startsWith("d:")) return dutyQuest(id);
   return guildQuest(id);
@@ -26,13 +34,21 @@ const rankXp = (from, to) => {
 };
 
 // Today's quest board lives in the player document as `day`. A new board is made the first time you open the app each day.
+// Muscles that are still tired steer the picks; on a gym day the split's day takes the STR slot (or the last one).
 export function newDay(player, uid) {
   const date = todayKey();
+  const tired = tiredSet(player?.fatigue);
+  const mains = pickMainQuests({ date, uid, lastDoneByStat: player?.lastDoneByStat ?? {}, mainSlots: player?.mainSlots ?? 3, liked: interestSkills(player?.profile), tired });
+  const gym = gymToday(player?.gym, date, (muscles) => Object.entries(muscles).some(([m, k]) => k >= 0.7 && tired.has(m)));
+  if (gym) {
+    const at = mains.findIndex((id) => questById[id]?.stat === "STR");
+    mains[at >= 0 ? at : mains.length - 1] = `gs:${gym.index}`;
+  }
   return {
     date,
     start: { id: "start", done: false },
-    mains: pickMainQuests({ date, uid, lastDoneByStat: player?.lastDoneByStat ?? {}, mainSlots: player?.mainSlots ?? 3, liked: interestSkills(player?.profile) })
-      .map((id) => ({ id, done: false })),
+    mains: mains.map((id) => ({ id, done: false })),
+    ...(gym ? { gym: { planned: gym.planned, index: gym.index, swapped: gym.swapped, allTired: !!gym.allTired } } : {}),
     guild: [],
     typeCounts: {},
     mainCoins: 0,
@@ -55,6 +71,21 @@ export function currentStreak(player) {
 export function currentDay(player, uid) {
   const day = player?.day?.date === todayKey() ? player.day : newDay(player, uid);
   return day.guild ? day : { ...day, guild: [] };
+}
+
+// Saves today's board the first time it's needed, so it stays the same all day
+// (it's picked from how tired your muscles are, which changes as you train).
+export async function ensureDay(uid) {
+  const ref = doc(db, "players", uid);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) return;
+    const player = snap.data();
+    if (player.day?.date === todayKey()) return;
+    // Yesterday's board still waiting for the penalty check: leave it, the check runs first.
+    if (player.day && penaltyDue(player.day, player)) return;
+    tx.set(ref, { day: newDay(player, uid), updatedAt: serverTimestamp() }, { merge: true });
+  });
 }
 
 // Puts a guild quest on today's board.
@@ -88,10 +119,14 @@ export function rewardPreview(day, questId, profile = null) {
 // opts.quick: finished by quick logs, which already counted the minutes toward the skill and muscles.
 export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
   const ref = doc(db, "players", uid);
-  const q = getQuest(questId);
+  let q = getQuest(questId);
   const result = await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     const player = snap.data() ?? {};
+    if (questId.startsWith("gs:")) q = getQuest(questId, player);
+    if (!q) throw new Error("unknown-quest");
+    // A logged gym session counts what you actually did: its muscles and (at most the planned) minutes.
+    if (opts.gym) q = { ...q, muscles: opts.gym.muscles, minutes: Math.min(q.minutes, opts.gym.minutes ?? q.minutes) };
     const day = JSON.parse(JSON.stringify(currentDay(player, uid)));
     const today = dayNum(day.date);
     let trial = null; // the updated trial when this is a trial part
@@ -164,16 +199,8 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
       skills = { ...(player.skills ?? {}), [q.skill]: { ...entry, recent } };
     }
 
-    // Muscles: the quest's load goes into this week's body map.
-    const load = opts.quick ? null : questLoad(q);
-    const week = weekNum(today);
-    const weekBefore = player.muscleLoad?.[week] ?? {};
-    const weekAfter = load ? addLoad(weekBefore, load) : null;
-    let muscleLoad = null;
-    if (weekAfter) {
-      muscleLoad = { [week]: weekAfter };
-      Object.keys(player.muscleLoad ?? {}).forEach((k) => { if (Number(k) < week - 1) muscleLoad[k] = deleteField(); });
-    }
+    // Muscles: the quest's load goes into this week's body map and each muscle's fatigue.
+    const trained = opts.quick ? null : trainMuscles(player, questLoad(q), weekNum(today));
 
     const totalXp = (player.xp ?? 0) + xp + (skillUp?.xp ?? 0);
     const before = levelFromXp(player.xp ?? 0).level;
@@ -191,7 +218,8 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
       lastQuestAt: Date.now(),
       ...(q.skill ? { lastDoneBySkill: { ...(player.lastDoneBySkill ?? {}), [q.skill]: day.date } } : {}),
       ...(skills ? { skills } : {}),
-      ...(muscleLoad ? { muscleLoad } : {}),
+      ...(trained ? trained.fields : {}),
+      ...(q.gymDay != null && player.gym?.days?.length ? { gym: { next: (q.gymDay + 1) % player.gym.days.length } } : {}),
       ...(duties ? { duties } : {}),
       ...(skillUp?.xp ? { skillBest: { ...(player.skillBest ?? {}), [q.skill]: skillUp.rank } } : {}),
       ...(trial ? { trials: { [q.skill]: trial.complete ? deleteField() : { rank: trial.rank, started: trial.started, done: trial.done } } } : {}),
@@ -201,7 +229,7 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
 
     return {
       coins, xp, bonus, levelUp: after > before ? after : null, stat: q.stat, streak, skillUp, trialDone: trial?.complete ?? false,
-      muscles: weekAfter ? { hit: load, load: weekAfter, before: coverage(weekBefore), after: coverage(weekAfter) } : null,
+      muscles: trained ? trained.report : null,
     };
   });
 
