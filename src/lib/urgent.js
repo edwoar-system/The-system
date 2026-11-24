@@ -74,6 +74,19 @@ export async function checkUrgent(uid) {
   });
 }
 
+// You tapped an urgent-quest notification: offer one now (counts toward your urgent quests per day).
+export async function offerNotifiedUrgent(uid) {
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref(uid));
+    const player = snap.data() ?? {};
+    if (player.urgent && ["offered", "active", "followup"].includes(player.urgent.status)) return null;
+    const count = player.urgentToday?.date === todayKey() ? player.urgentToday.count : 0;
+    if (count >= (player.urgentPerDay ?? URGENT.defaultPerDay)) return null;
+    tx.set(ref(uid), { urgent: newOffer("notified"), urgentToday: countToday(player), lastUrgentCheckAt: Date.now() }, { merge: true });
+    return "offered";
+  });
+}
+
 // You asked for one yourself.
 export async function requestUrgent(uid) {
   return runTransaction(db, async (tx) => {

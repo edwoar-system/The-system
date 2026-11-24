@@ -57,3 +57,8 @@ export function lockSetup(uid, { urgentPerDay, penaltySeverity }) {
 export function setProfile(uid, profile) {
   return updateDoc(doc(db, "players", uid), { profile, updatedAt: serverTimestamp() });
 }
+
+// Turns one kind of notification on or off (see game/notify.js).
+export function setNotify(uid, kind, on) {
+  return updateDoc(doc(db, "players", uid), { [`notify.${kind}`]: on, updatedAt: serverTimestamp() });
+}

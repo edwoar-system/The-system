@@ -10,6 +10,8 @@ import Settings from "./Settings";
 import Urgent from "./Urgent";
 import PenaltyZone, { PenaltyBar, ShieldNotice } from "./PenaltyZone";
 import { checkPenalty, dismissNotice } from "../lib/penalty";
+import { onNotificationTap, setupNotifications, syncNotifications } from "../lib/notify";
+import { offerNotifiedUrgent } from "../lib/urgent";
 import { isInPenalty } from "../game/penalty";
 import { Glow } from "./sys";
 import { useTheme } from "../theme";
@@ -74,6 +76,20 @@ export default function Shell({ user }) {
   useEffect(() => {
     if (inPenalty && player.penalty.seen === false && !penaltyView) setPenaltyView("intro");
   }, [inPenalty, player, penaltyView]);
+
+  // Notifications: keep the phone's schedule in line with the player (debounced), and follow taps.
+  useEffect(() => { setupNotifications(); }, []);
+  useEffect(() => {
+    if (!player) return;
+    const id = setTimeout(() => { syncNotifications(player, user.uid).catch(() => {}); }, 1500);
+    return () => clearTimeout(id);
+  }, [player, user.uid]);
+  useEffect(() => onNotificationTap((data) => {
+    if (data.kind === "urgent") offerNotifiedUrgent(user.uid).catch(() => {});
+    else if (data.kind === "quests") setTab("quests");
+    else if (data.kind === "status") setTab("status");
+    else if (data.kind === "skill" && data.skill) { setSkillFocus(data.skill); setTab("skills"); }
+  }), [user.uid]);
 
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>

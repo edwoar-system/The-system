@@ -12,11 +12,19 @@
       }
     },
     "production": {
-      "channel": "production",
-      "autoIncrement": true
+      "channel": "preview",
+      "autoIncrement": true,
+      "distribution": "store"
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "FILL_IN_APP_ID",
+        "ascApiKeyPath": "./asc_api_key.p8",
+        "ascApiKeyIssuerId": "FILL_IN_ISSUER_ID",
+        "ascApiKeyId": "FILL_IN_KEY_ID"
+      }
+    }
   }
 }

@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { Animated, Easing, Text, View } from "react-native";
 import Svg, { Path, Polygon } from "react-native-svg";
 import { lockSetup } from "../lib/player";
+import { askNotifyPermission } from "../lib/notify";
 import { URGENT } from "../game/urgent";
 import { severityFor } from "../game/penalty";
 import { todayKey } from "../game/quests";
@@ -43,7 +44,12 @@ export default function Setup({ user, player, onLocking, onDone }) {
     setLocking(true);
     onLocking?.();
     a.setValue(0);
-    Animated.timing(a, { toValue: 1, duration: 2200, easing: Easing.linear, useNativeDriver: nativeDriver }).start(({ finished }) => finished && onDone?.());
+    // After the lock-in, ask once for notifications (urgent quests and the deadline need them).
+    Animated.timing(a, { toValue: 1, duration: 2200, easing: Easing.linear, useNativeDriver: nativeDriver }).start(({ finished }) => {
+      if (!finished) return;
+      onDone?.();
+      askNotifyPermission().catch(() => {});
+    });
     try {
       await lockSetup(user.uid, { urgentPerDay: perDay, penaltySeverity: severity });
     } catch {

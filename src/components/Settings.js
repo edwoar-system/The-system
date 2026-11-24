@@ -1,11 +1,13 @@
 // Settings tab: profile, info for fair rank norms, the System settings, quest history and the account.
-import { useState } from "react";
-import { Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
 import * as Updates from "expo-updates";
 import { signOut } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth } from "../lib/firebase";
-import { setPlayerName, setProfile } from "../lib/player";
+import { setNotify, setPlayerName, setProfile } from "../lib/player";
+import { askNotifyPermission, notifyPermission, notifySupported } from "../lib/notify";
+import { NOTIFY_KINDS, notifySettings } from "../game/notify";
 import { setUrgentPerDay } from "../lib/urgent";
 import { scheduleSeverity } from "../lib/penalty";
 import { useHistory } from "../lib/history";
@@ -42,6 +44,32 @@ function Section({ title, sub, children }) {
       </View>
       {children}
     </Frame>
+  );
+}
+
+function Notifications({ user, player }) {
+  const { color, font } = useTheme();
+  const [perm, setPerm] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    notifyPermission().then((p) => { if (alive) setPerm(p); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  if (!notifySupported) return <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{t.notify.web}</Text>;
+  const on = notifySettings(player);
+  return (
+    <View style={{ gap: 4 }}>
+      {perm === "granted" ? <Text style={{ fontFamily: font.body, fontSize: 13, color: color.accent }}>{t.notify.allowed}</Text> : null}
+      {perm === "denied" ? <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.dangerSoft }}>{t.notify.denied}</Text> : null}
+      {perm === "undetermined" ? <SysButton label={t.notify.ask} onPress={async () => setPerm(await askNotifyPermission())} /> : null}
+      {NOTIFY_KINDS.map((k) => (
+        <View key={k} style={{ minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: color.line }}>
+          <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{t.notify.kinds[k]}</Text>
+          <Switch accessibilityLabel={t.notify.kinds[k]} value={on[k]} onValueChange={(v) => setNotify(user.uid, k, v)}
+            trackColor={{ false: "#1A2440", true: color.blue }} thumbColor="#EAF4FF" ios_backgroundColor="#1A2440" />
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -145,6 +173,10 @@ export default function Settings({ user, player, synced }) {
           <SeverityChips value={pendingSeverity ?? severity} onChange={(s) => scheduleSeverity(user.uid, s)} />
           {pendingSeverity ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: color.frame }}>{fill(t.settings.severityNext, { sev: t.penalty.severities[pendingSeverity] })}</Text> : null}
         </View>
+      </Section>
+
+      <Section title={t.notify.section}>
+        <Notifications user={user} player={player} />
       </Section>
 
       <Section title={t.settings.history}>
