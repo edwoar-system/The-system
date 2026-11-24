@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usePlayer } from "../lib/player";
 import Status from "./Status";
 import Quests from "./Quests";
+import Urgent from "./Urgent";
 import { Glow } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
@@ -48,6 +49,7 @@ export default function Shell({ user }) {
         {tab === "skills" ? <Soon text={t.soon.skills} /> : null}
         {tab === "shop" ? <Soon text={t.soon.shop} /> : null}
       </View>
+      {state.player ? <Urgent user={user} player={state.player} /> : null}
       <View accessibilityRole="tablist" style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: color.line, backgroundColor: "rgba(1,4,10,0.96)", paddingBottom: Math.max(insets.bottom, 8) }}>
         {TABS.map((id) => {
           const active = tab === id;

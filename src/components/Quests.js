@@ -1,11 +1,12 @@
 // Quest board (design v0.1, version B): one System window with today's goals, the reward and the penalty warning.
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, ScrollView, Text, View } from "react-native";
+import { Animated, Easing, Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Polygon } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { completeQuest, currentDay, getQuest, rewardPreview } from "../lib/day";
 import { questById } from "../game/quests";
 import Guild from "./Guild";
+import { requestUrgent } from "../lib/urgent";
 import { ECONOMY } from "../game/economy";
 import { Coins, Frame, Glow, HexBadge, HexCheck, Label, SysButton, nativeDriver } from "./sys";
 import LevelUp from "./LevelUp";
@@ -86,6 +87,7 @@ export default function Quests({ user, player }) {
   const [guild, setGuild] = useState(false);
   const guildOpen = day.guild.filter((g) => !g.done);
   const guildDone = day.guild.filter((g) => g.done);
+  const urgentOpen = ["offered", "active", "followup"].includes(player.urgent?.status);
   const [toast, setToast] = useState(null);
   const [levelUp, setLevelUp] = useState(null);
   const toastAnim = useRef(new Animated.Value(0)).current;
@@ -231,6 +233,16 @@ export default function Quests({ user, player }) {
             <Text style={{ flex: 1, fontFamily: font.body, fontSize: 14, color: color.muted }}>{t.board.guildTitle}</Text>
             <SysButton label={t.board.guildButton.toUpperCase()} onPress={() => setGuild(true)} />
           </View>
+          <Pressable accessibilityRole="button" disabled={busy || urgentOpen} onPress={async () => {
+            setBusy(true);
+            try { await requestUrgent(user.uid); } catch (e) { showToast({ error: true, text: t.urgent.open }); } finally { setBusy(false); }
+          }} style={{ minHeight: 52, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: "rgba(246,180,90,0.45)", backgroundColor: "rgba(246,180,90,0.06)", opacity: urgentOpen ? 0.5 : 1 }}>
+            <View style={{ width: 8, height: 8, backgroundColor: "#F6B45A", transform: [{ rotate: "45deg" }] }} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: font.bold, fontSize: 14, color: "#F6B45A" }}>{t.urgent.ask}</Text>
+              <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{urgentOpen ? t.urgent.open : t.urgent.askHint}</Text>
+            </View>
+          </Pressable>
         </View>
       </ScrollView>
 
@@ -239,7 +251,7 @@ export default function Quests({ user, player }) {
           opacity: toastAnim, transform: [{ translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }}>
           <Frame kind="premium" cut={10} contentStyle={{ flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 10, paddingHorizontal: 16 }}>
             {toast.error ? (
-              <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.danger }}>{t.quests.error}</Text>
+              <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.danger }}>{toast.text ?? t.quests.error}</Text>
             ) : (
               <>
                 <Coins value={toast.coins} sign="+" size={22} />

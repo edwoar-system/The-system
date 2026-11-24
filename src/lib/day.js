@@ -118,6 +118,7 @@ export async function completeQuest(uid, questId, slot) {
       lastDoneByStat: { ...(player.lastDoneByStat ?? {}), [q.stat]: day.date },
       streak,
       lastAllMainsDate,
+      lastQuestAt: Date.now(),
       ...(q.skill ? { lastDoneBySkill: { ...(player.lastDoneBySkill ?? {}), [q.skill]: day.date } } : {}),
       ...(q.school ? { philosophy: { ...(player.philosophy ?? {}), [q.school]: Math.max(player.philosophy?.[q.school] ?? 0, q.reading + 1) } } : {}),
       updatedAt: serverTimestamp(),

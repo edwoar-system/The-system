@@ -7,6 +7,8 @@ import Svg, { Polygon, Defs, LinearGradient, Stop } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth } from "../lib/firebase";
 import { setPlayerName } from "../lib/player";
+import { setUrgentPerDay } from "../lib/urgent";
+import { URGENT } from "../game/urgent";
 import { currentDay, currentStreak } from "../lib/day";
 import { levelFromXp, statValue } from "../game/economy";
 import { questById, STATS } from "../game/quests";
@@ -173,6 +175,21 @@ export default function Status({ user, player, error, synced, onOpenQuests }) {
           <Button label={t.home.saveName} disabled={!nameDraft.trim()} onPress={() => setPlayerName(user.uid, nameDraft.trim())} />
         </Frame>
       ) : null}
+
+      <View style={{ marginTop: 22, marginHorizontal: 18, gap: 8 }}>
+        <Label>{t.urgent.perDay.toUpperCase()}</Label>
+        <View style={{ flexDirection: "row", gap: 6 }}>
+          {[0, 1, 2, 3, 4].map((n) => {
+            const on = (player.urgentPerDay ?? URGENT.defaultPerDay) === n;
+            return (
+              <Pressable key={n} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => setUrgentPerDay(user.uid, n)}
+                style={{ flex: 1, minHeight: 44, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: on ? color.frame : "rgba(159,203,255,0.22)", backgroundColor: on ? "rgba(159,203,255,0.16)" : "transparent" }}>
+                <Text style={{ fontFamily: font.num, fontSize: 18, color: on ? "#FFFFFF" : color.muted }}>{n}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
 
       <View style={{ marginTop: 28, paddingHorizontal: 18, gap: 6 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
