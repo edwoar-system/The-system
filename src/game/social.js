@@ -34,6 +34,7 @@ export function publicCard(player, { streak = 0, mainsDone = 0, mainsOf = 0, cod
     level: levelFromXp(player?.xp ?? 0).level,
     active: todayKey(),
     shown: p,
+    title: trollTitle(player?.trollsDone ?? 0)?.name ?? null,
   };
   if (p.stats) card.stats = Object.fromEntries(STATS.map((s) => [s, statValue(player?.statXp?.[s] ?? 0)]));
   if (p.skills) {
@@ -64,31 +65,61 @@ export function activeAgo(dateKey, today = todayKey()) {
   return Math.max(0, d);
 }
 
-// Troll quests: a friend sends you one small challenge from this list (one per friend per day).
-// They pay a little EXP only, never coins, so friends can't farm coins for each other.
+// Troll quests: a friend pays coins to send you a challenge. The more they pay, the harder it is.
+// There's no time limit, but while one is open your apps stay blocked (the shop until app blocking exists).
+// You get no coins for it (a little EXP). At most MAX_OPEN_TROLLS are open on you at once; the rest wait in line.
+export const TROLL_LEVELS = { easy: 5, medium: 15, hard: 30 }; // coins the sender pays
+export const MAX_OPEN_TROLLS = 3;
 export const TROLLS = [
-  { id: "squats", stat: "STR", minutes: 2, title: "20 squats, right now" },
-  { id: "pushups", stat: "STR", minutes: 2, title: "15 push-ups, right now" },
-  { id: "plank", stat: "STR", minutes: 2, title: "Plank for 60 seconds" },
-  { id: "wallsit", stat: "STR", minutes: 2, title: "Wall sit for 45 seconds" },
-  { id: "burpees", stat: "AGI", minutes: 3, title: "10 burpees" },
-  { id: "jacks", stat: "AGI", minutes: 2, title: "40 jumping jacks" },
-  { id: "stairs", stat: "AGI", minutes: 5, title: "Walk up and down the stairs five times" },
-  { id: "water", stat: "VIT", minutes: 1, title: "Drink a full glass of water now" },
-  { id: "cold", stat: "VIT", minutes: 2, title: "End your next shower with 30 seconds of cold" },
-  { id: "bed", stat: "VIT", minutes: 2, title: "Make your bed properly (yes, again)" },
-  { id: "sugar", stat: "WIL", minutes: 5, title: "No sugar for the rest of the day" },
-  { id: "nophone", stat: "WIL", minutes: 15, title: "15 minutes without your phone" },
-  { id: "walk", stat: "WIL", minutes: 10, title: "A 10-minute walk, phone in your pocket" },
-  { id: "read", stat: "INT", minutes: 10, title: "Read 5 pages of any book" },
-  { id: "word", stat: "INT", minutes: 3, title: "Learn one new word and use it today" },
-  { id: "fact", stat: "INT", minutes: 5, title: "Find one fact you didn't know and tell me" },
-  { id: "grateful", stat: "WIL", minutes: 3, title: "Write down three things you're grateful for" },
-  { id: "text", stat: "CHA", minutes: 3, title: "Text someone you haven't talked to in a while" },
-  { id: "compliment", stat: "CHA", minutes: 2, title: "Give someone a real compliment" },
-  { id: "joke", stat: "CHA", minutes: 2, title: "Tell your family your worst joke" },
-  { id: "thanks", stat: "CHA", minutes: 2, title: "Thank someone who helped you this week" },
-  { id: "dishes", stat: "VIT", minutes: 10, title: "Do the dishes without being asked" },
+  // easy
+  { id: "squats", level: "easy", stat: "STR", minutes: 2, title: "20 squats" },
+  { id: "pushups", level: "easy", stat: "STR", minutes: 2, title: "15 push-ups" },
+  { id: "plank", level: "easy", stat: "STR", minutes: 2, title: "Plank for 60 seconds" },
+  { id: "jacks", level: "easy", stat: "AGI", minutes: 2, title: "40 jumping jacks" },
+  { id: "water", level: "easy", stat: "VIT", minutes: 1, title: "Drink a full glass of water" },
+  { id: "bed", level: "easy", stat: "VIT", minutes: 2, title: "Make your bed properly (yes, again)" },
+  { id: "grateful", level: "easy", stat: "WIL", minutes: 3, title: "Write down three things you're grateful for" },
+  { id: "word", level: "easy", stat: "INT", minutes: 3, title: "Learn one new word and use it today" },
+  { id: "compliment", level: "easy", stat: "CHA", minutes: 2, title: "Give someone a real compliment" },
+  { id: "joke", level: "easy", stat: "CHA", minutes: 2, title: "Tell your family your worst joke" },
+  // medium
+  { id: "squats100", level: "medium", stat: "STR", minutes: 10, title: "100 squats, any sets" },
+  { id: "pushups50", level: "medium", stat: "STR", minutes: 10, title: "50 push-ups, any sets" },
+  { id: "burpees30", level: "medium", stat: "AGI", minutes: 8, title: "30 burpees" },
+  { id: "run2", level: "medium", stat: "AGI", minutes: 15, title: "Run 2 km" },
+  { id: "cold1", level: "medium", stat: "VIT", minutes: 3, title: "A full minute of cold at the end of your shower" },
+  { id: "room", level: "medium", stat: "VIT", minutes: 20, title: "Clean your room until the floor and desk are clear" },
+  { id: "nophone30", level: "medium", stat: "WIL", minutes: 30, title: "30 minutes without your phone" },
+  { id: "read20", level: "medium", stat: "INT", minutes: 25, title: "Read 20 pages" },
+  { id: "call", level: "medium", stat: "CHA", minutes: 10, title: "Call someone instead of texting them" },
+  { id: "thanks", level: "medium", stat: "CHA", minutes: 5, title: "Thank someone who helped you this week, out loud" },
+  // hard
+  { id: "pushups150", level: "hard", stat: "STR", minutes: 25, title: "150 push-ups, any sets" },
+  { id: "wallsit5", level: "hard", stat: "STR", minutes: 10, title: "5 minutes of wall sit in total" },
+  { id: "run5", level: "hard", stat: "AGI", minutes: 30, title: "Run 5 km" },
+  { id: "burpees100", level: "hard", stat: "AGI", minutes: 20, title: "100 burpees, any sets" },
+  { id: "cold3", level: "hard", stat: "VIT", minutes: 5, title: "Three minutes of cold at the end of your shower" },
+  { id: "nosugar", level: "hard", stat: "WIL", minutes: 10, title: "No sugar until tomorrow" },
+  { id: "nophone2h", level: "hard", stat: "WIL", minutes: 120, title: "Two hours without your phone" },
+  { id: "study60", level: "hard", stat: "INT", minutes: 60, title: "One focused hour of study, phone in another room" },
+  { id: "letter", level: "hard", stat: "CHA", minutes: 30, title: "Write a real letter to someone you care about" },
 ];
 export const trollById = Object.fromEntries(TROLLS.map((x) => [x.id, x]));
-export const trollXp = (troll) => Math.max(3, Math.min(10, Math.round((troll?.minutes ?? 2) * 1.5)));
+export const trollXp = (troll) => Math.max(3, Math.min(30, Math.round((troll?.minutes ?? 2) * 1.2)));
+
+// Sender titles: earned by how many of your troll quests friends finished. Each gives coins back.
+export const TROLL_TITLES = [
+  { id: "trickster", name: "Trickster", at: 10, back: 0.25 },
+  { id: "menace", name: "Menace", at: 50, back: 0.5 },
+  { id: "chaos", name: "Chaos Lord", at: 150, back: 0.75 },
+];
+export function trollTitle(done = 0) {
+  return [...TROLL_TITLES].reverse().find((x) => done >= x.at) ?? null;
+}
+export const nextTrollTitle = (done = 0) => TROLL_TITLES.find((x) => done < x.at) ?? null;
+
+// Your open troll quests in order: the first MAX_OPEN_TROLLS are active, the rest wait.
+export function trollQueue(list = []) {
+  const open = list.filter((x) => x.status !== "done").sort((a, b) => (a.atMs ?? 0) - (b.atMs ?? 0));
+  return { active: open.slice(0, MAX_OPEN_TROLLS), waiting: open.slice(MAX_OPEN_TROLLS) };
+}

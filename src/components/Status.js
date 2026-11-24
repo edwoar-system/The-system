@@ -15,6 +15,7 @@ import { BodyCard } from "./Body";
 import QuoteLibrary from "./QuoteLibrary";
 import QuotePage from "./QuotePage";
 import StatInfo from "./StatInfo";
+import { trollTitle } from "../game/social";
 import { FeedbackButton } from "./Feedback";
 import { quoteOfDay } from "../game/quotes";
 import { PARTS, partsDone } from "../game/profile";
@@ -177,6 +178,9 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
         <Text style={{ fontFamily: font.displayHeavy, fontSize: 32, letterSpacing: 3, color: color.hi }}>
           {(player.name || t.home.defaultName).toUpperCase()}
         </Text>
+        {trollTitle(player.trollsDone ?? 0) ? (
+          <Text style={{ fontFamily: font.bold, fontSize: 13, letterSpacing: 2, color: color.gold }}>{trollTitle(player.trollsDone ?? 0).name.toUpperCase()}</Text>
+        ) : null}
       </View>
 
       <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginTop: 18, paddingHorizontal: 18 }}>

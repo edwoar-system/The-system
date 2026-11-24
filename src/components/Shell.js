@@ -13,7 +13,8 @@ import PenaltyZone, { PenaltyBar, ShieldNotice } from "./PenaltyZone";
 import { checkPenalty, dismissNotice } from "../lib/penalty";
 import { onNotificationTap, setupNotifications, syncNotifications } from "../lib/notify";
 import { offerNotifiedUrgent } from "../lib/urgent";
-import { syncPublic } from "../lib/social";
+import { settleTrolls, syncPublic, useTrolls } from "../lib/social";
+import { trollById, trollQueue } from "../game/social";
 import { ensureDay, setGymCache } from "../lib/day";
 import { todayKey } from "../game/quests";
 import { setFeel, tapFeel } from "../lib/haptics";
@@ -50,6 +51,24 @@ function TabIcon({ id, active, c }) {
         </>
       ) : null}
     </Svg>
+  );
+}
+
+// An open troll quest: shown on every tab until it's done (with app blocking, your apps stay locked too).
+function TrollBanner({ troll, more, onPress }) {
+  const { font } = useTheme();
+  const insets = useSafeAreaInsets();
+  const x = trollById[troll.troll];
+  return (
+    <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, top: 0, paddingTop: insets.top }}>
+      <Pressable accessibilityRole="button" onPress={onPress}
+        style={({ pressed }) => ({ marginHorizontal: 10, marginTop: 4, paddingHorizontal: 14, paddingVertical: 10, gap: 2, borderWidth: 1, borderColor: "#F6B45A", backgroundColor: pressed ? "rgba(40,28,10,0.98)" : "rgba(20,14,6,0.97)" })}>
+        <Text style={{ fontFamily: font.bold, fontSize: 11, letterSpacing: 2, color: "#F6B45A" }}>{t.troll.bannerKicker}</Text>
+        <Text numberOfLines={1} style={{ fontFamily: font.bodyBold, fontSize: 14, color: "#FFFFFF" }}>
+          {fill(t.troll.banner, { title: x?.title ?? "", name: troll.fromName })}{more > 0 ? `  ${fill(t.troll.bannerMore, { n: more })}` : ""}
+        </Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -107,6 +126,10 @@ export default function Shell({ user }) {
     if (player && dayDate !== todayKey()) ensureDay(user.uid).catch(() => {});
   }, [player, dayDate, user.uid]);
 
+  // Troll quests: a banner on every tab while one is open; and your sent ones pay your title's coins back.
+  const trollQ = trollQueue(useTrolls(user.uid));
+  useEffect(() => { settleTrolls(user.uid).catch(() => {}); }, [user.uid]);
+
   // Your sound and vibration choice for every vibration and sound in the app.
   useEffect(() => { setFeel(player?.feel); }, [player?.feel]);
 
@@ -159,6 +182,7 @@ export default function Shell({ user }) {
           onGoToQuest={(f, fromSkill) => goTo({ tab: "quests", focus: f }, { tab: "skills", skillFocus: fromSkill ?? undefined })} /> : <Status user={user} {...state} />) : null}
         {tab === "friends" ? (state.player ? <Friends user={user} player={state.player} /> : <Status user={user} {...state} />) : null}
         {tab === "settings" ? (state.player ? <Settings user={user} player={state.player} synced={state.synced} /> : <Status user={user} {...state} />) : null}
+        {trollQ.active.length && tab !== "quests" && !penaltyView ? <TrollBanner troll={trollQ.active[0]} more={trollQ.active.length + trollQ.waiting.length - 1} onPress={() => goTo({ tab: "quests" })} /> : null}
         {trail.length > 0 && !penaltyView ? <BackPill place={trail[trail.length - 1]} onPress={goBack} /> : null}
       </View>
       {player && !penaltyView ? <Urgent user={user} player={player} /> : null}

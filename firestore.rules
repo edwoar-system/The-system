@@ -42,14 +42,13 @@ service cloud.firestore {
         allow create, update: if signedIn() && request.auth.uid == from && from != uid;
       }
 
-      // Troll quests to {uid}: a friend sends one a day (id "{fromUid}_{date}"); {uid} marks it done or declined.
+      // Troll quests to {uid}: friends send them (paying 5, 15 or 30 coins); only {uid} can mark one done.
       match /trolls/{id} {
         allow create: if signedIn() && request.resource.data.from == request.auth.uid
-          && id == request.auth.uid + "_" + request.resource.data.date
+          && request.resource.data.cost in [5, 15, 30] && request.resource.data.status == "new"
           && exists(/databases/$(database)/documents/public/$(uid)/friends/$(request.auth.uid));
         allow read: if signedIn() && (request.auth.uid == uid || resource == null || resource.data.from == request.auth.uid);
-        allow update: if signedIn() && request.auth.uid == uid;
-        allow delete: if signedIn() && (request.auth.uid == uid || resource.data.from == request.auth.uid);
+        allow update: if signedIn() && request.auth.uid == uid && request.resource.data.status == "done";
       }
 
       // {fid} is a friend of {uid}. Written when {uid} or {fid} accepts the other's request.

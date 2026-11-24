@@ -2,16 +2,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Modal, Pressable, ScrollView, Share, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { acceptRequest, declineRequest, findByCode, myCode, removeFriend, sendRequest, sendTroll, useFriends, useRequests, useSentTroll } from "../lib/social";
-import { activeAgo, cleanCode, MAX_FRIENDS, TROLLS, trollById } from "../game/social";
-import { todayKey } from "../game/quests";
+import { acceptRequest, declineRequest, findByCode, myCode, removeFriend, sendRequest, sendTroll, useFriends, useRequests, useSentTrolls } from "../lib/social";
+import { activeAgo, cleanCode, MAX_FRIENDS, TROLLS, TROLL_LEVELS, nextTrollTitle, trollById, trollTitle } from "../game/social";
 import { RANKS } from "../game/ladders";
 import { skillById } from "../game/guild";
 import { doneFeel, lockFeel, tapFeel } from "../lib/haptics";
 import StatShape from "./StatShape";
 import StatInfo from "./StatInfo";
 import { RankHex } from "./skillParts";
-import { Frame, Glow, Label, SysButton } from "./sys";
+import { Coins, Frame, Glow, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
@@ -60,24 +59,44 @@ function HoldButton({ label, onDone, tone }) {
   );
 }
 
-// Pick a troll quest to send (or let the System pick).
-function TrollPicker({ name, onPick, onClose }) {
+// Pick a troll quest to send: choose how hard (you pay its coins), then one of that level or a surprise.
+function TrollPicker({ name, coins, onPick, onClose }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
+  const [level, setLevel] = useState("easy");
+  const cost = TROLL_LEVELS[level];
+  const can = coins >= cost;
+  const list = TROLLS.filter((x) => x.level === level);
   return (
     <Modal animationType="slide" visible onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: color.bg }}>
         <ScrollView contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 30, paddingHorizontal: 14, maxWidth: 520, width: "100%", alignSelf: "center", gap: 10 }}>
-          <Pressable accessibilityRole="button" onPress={onClose} style={{ minHeight: 44, justifyContent: "center", alignSelf: "flex-start" }}>
-            <Text style={{ fontFamily: font.bodyBold, fontSize: 14, color: color.accent }}>{`‹ ${t.friends.back}`}</Text>
-          </Pressable>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <Pressable accessibilityRole="button" onPress={onClose} style={{ minHeight: 44, justifyContent: "center" }}>
+              <Text style={{ fontFamily: font.bodyBold, fontSize: 14, color: color.accent }}>{`‹ ${t.friends.back}`}</Text>
+            </Pressable>
+            <Coins value={coins} size={18} />
+          </View>
           <Text accessibilityRole="header" style={{ fontFamily: font.bold, fontSize: 24, color: "#FFFFFF" }}>{fill(t.troll.pickTitle, { name })}</Text>
           <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{t.troll.pickSub}</Text>
-          <SysButton label={t.troll.surprise} onPress={() => onPick(TROLLS[Math.floor(Math.random() * TROLLS.length)].id)} />
+          <View style={{ flexDirection: "row", gap: 6 }}>
+            {Object.keys(TROLL_LEVELS).map((l) => {
+              const on = level === l;
+              return (
+                <Pressable key={l} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => setLevel(l)}
+                  style={{ flex: 1, minHeight: 56, alignItems: "center", justifyContent: "center", gap: 2, borderWidth: 1, borderColor: on ? color.frame : "rgba(159,203,255,0.22)", backgroundColor: on ? "rgba(159,203,255,0.16)" : "transparent" }}>
+                  <Text style={{ fontFamily: font.bold, fontSize: 14, color: on ? "#FFFFFF" : color.muted }}>{t.troll.levels[l]}</Text>
+                  <Coins value={TROLL_LEVELS[l]} size={13} />
+                </Pressable>
+              );
+            })}
+          </View>
+          {!can ? <Text style={{ fontFamily: font.body, fontSize: 13, color: "#F6B45A" }}>{fill(t.troll.notEnough, { n: cost })}</Text> : null}
+          <SysButton label={fill(t.troll.surprise, { n: cost })} disabled={!can} onPress={() => onPick(list[Math.floor(Math.random() * list.length)].id)} />
           <Frame cut={12} contentStyle={{ paddingHorizontal: 14, paddingVertical: 4 }}>
-            {TROLLS.map((x, i) => (
-              <Pressable key={x.id} accessibilityRole="button" onPress={() => onPick(x.id)}
-                style={({ pressed }) => ({ minHeight: 52, flexDirection: "row", alignItems: "center", gap: 12, borderTopWidth: i ? 1 : 0, borderTopColor: color.line, opacity: pressed ? 0.7 : 1 })}>
+            {list.map((x, i) => (
+              <Pressable key={x.id} accessibilityRole="button" disabled={!can} onPress={() => onPick(x.id)}
+                style={({ pressed }) => ({ minHeight: 52, flexDirection: "row", alignItems: "center", gap: 12, borderTopWidth: i ? 1 : 0, borderTopColor: color.line, opacity: !can ? 0.4 : pressed ? 0.7 : 1 })}>
                 <Text style={{ width: 34, fontFamily: font.bold, fontSize: 11, letterSpacing: 1, color: color.accent }}>{x.stat}</Text>
                 <Text style={{ flex: 1, fontFamily: font.bodyMedium, fontSize: 15, color: "#FFFFFF" }}>{x.title}</Text>
               </Pressable>
@@ -89,37 +108,44 @@ function TrollPicker({ name, onPick, onClose }) {
   );
 }
 
-// Send one troll quest a day, and see if they did it.
-function TrollSection({ me, myName, friend }) {
+// Send troll quests (you pay), follow them, and work toward your troll title.
+function TrollSection({ me, myName, myCoins, trollsDone, friend }) {
   const { color, font } = useTheme();
-  const date = todayKey();
-  const sent = useSentTroll(me, friend.uid, date);
+  const sent = useSentTrolls(me, friend.uid);
   const [picking, setPicking] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState(null);
   const name = friend.card?.name ?? friend.name;
+  const title = trollTitle(trollsDone);
+  const next = nextTrollTitle(trollsDone);
   async function pick(id) {
     setPicking(false);
-    setError(false);
-    try { await sendTroll(me, myName, friend.uid, id, date); doneFeel(); } catch { setError(true); }
+    setError(null);
+    try { await sendTroll(me, myName, friend.uid, name, id); doneFeel(); } catch (e) { setError(e.message === "no-coins" ? t.troll.noCoins : t.troll.failed); }
   }
   return (
     <Section title={t.troll.title} sub={fill(t.troll.sub, { name })}>
-      {sent ? (
-        <View style={{ gap: 4 }}>
-          <Text style={{ fontFamily: font.bold, fontSize: 15, color: "#FFFFFF" }}>{trollById[sent.troll]?.title}</Text>
-          <Text style={{ fontFamily: font.body, fontSize: 13, color: sent.status === "done" ? color.accent : color.muted }}>{t.troll.status[sent.status] ?? t.troll.status.new}</Text>
+      <SysButton label={t.troll.send} onPress={() => setPicking(true)} />
+      {error ? <Text style={{ fontFamily: font.body, fontSize: 13, color: "#F6B45A" }}>{error}</Text> : null}
+      {sent.map((x) => (
+        <View key={x.id} style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: color.line }}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: "#FFFFFF" }}>{trollById[x.troll]?.title ?? x.troll}</Text>
+            <Text style={{ fontFamily: font.body, fontSize: 12, color: x.status === "done" ? color.accent : color.muted }}>{t.troll.status[x.status] ?? t.troll.status.new}</Text>
+          </View>
+          <Coins value={x.cost} sign="-" size={13} />
         </View>
-      ) : (
-        <SysButton label={t.troll.send} disabled={sent === undefined} onPress={() => setPicking(true)} />
-      )}
-      {error ? <Text style={{ fontFamily: font.body, fontSize: 13, color: "#F6B45A" }}>{t.troll.failed}</Text> : null}
-      {picking ? <TrollPicker name={name} onPick={pick} onClose={() => setPicking(false)} /> : null}
+      ))}
+      <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>
+        {title ? fill(t.troll.titleHave, { title: title.name, pct: Math.round(title.back * 100) }) : ""}
+        {next ? `${title ? " " : ""}${fill(t.troll.titleNext, { title: next.name, n: next.at - trollsDone, pct: Math.round(next.back * 100) })}` : ""}
+      </Text>
+      {picking ? <TrollPicker name={name} coins={myCoins} onPick={pick} onClose={() => setPicking(false)} /> : null}
     </Section>
   );
 }
 
 // One friend, full screen.
-export function FriendPage({ friend, me, myName, onClose }) {
+export function FriendPage({ friend, me, myName, myCoins = 0, trollsDone = 0, onClose }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const [info, setInfo] = useState(null);
@@ -148,6 +174,7 @@ export function FriendPage({ friend, me, myName, onClose }) {
               <View style={{ alignItems: "center", gap: 2, marginTop: c.stats ? 10 : 30 }}>
                 <Label>{fill(t.friends.level, { n: c.level })}</Label>
                 <Text style={{ fontFamily: font.displayHeavy, fontSize: 30, letterSpacing: 3, color: color.hi }}>{(c.name ?? friend.name).toUpperCase()}</Text>
+                {c.title ? <Text style={{ fontFamily: font.bold, fontSize: 13, letterSpacing: 2, color: color.gold }}>{c.title.toUpperCase()}</Text> : null}
                 <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{lastSeen(c)}</Text>
               </View>
 
@@ -179,7 +206,7 @@ export function FriendPage({ friend, me, myName, onClose }) {
               ) : null}
             </>
           )}
-          <TrollSection me={me} myName={myName} friend={friend} />
+          <TrollSection me={me} myName={myName} myCoins={myCoins} trollsDone={trollsDone} friend={friend} />
           <View style={{ marginTop: 30, marginHorizontal: 14 }}>
             <HoldButton label={t.friends.remove} tone="#F6B45A" onDone={() => { removeFriend(me, friend.uid).catch(() => {}); onClose(); }} />
           </View>
@@ -300,7 +327,7 @@ export default function Friends({ user, player }) {
           </View>
         </Section>
       </ScrollView>
-      {open ? <FriendPage friend={friends?.find((f) => f.uid === open.uid) ?? open} me={user.uid} myName={name} onClose={() => setOpen(null)} /> : null}
+      {open ? <FriendPage friend={friends?.find((f) => f.uid === open.uid) ?? open} me={user.uid} myName={name} myCoins={player.coins ?? 0} trollsDone={player.trollsDone ?? 0} onClose={() => setOpen(null)} /> : null}
     </View>
   );
 }
