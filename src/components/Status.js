@@ -9,6 +9,8 @@ import { auth } from "../lib/firebase";
 import { setPlayerName } from "../lib/player";
 import { setUrgentPerDay } from "../lib/urgent";
 import { URGENT } from "../game/urgent";
+import { setPenaltySeverity } from "../lib/penalty";
+import { SEVERITIES } from "../game/penalty";
 import { currentDay, currentStreak } from "../lib/day";
 import { levelFromXp, statValue } from "../game/economy";
 import { questById, STATS } from "../game/quests";
@@ -189,6 +191,22 @@ export default function Status({ user, player, error, synced, onOpenQuests }) {
             );
           })}
         </View>
+      </View>
+
+      <View style={{ marginTop: 18, marginHorizontal: 18, gap: 8 }}>
+        <Label>{t.penalty.severity.toUpperCase()}</Label>
+        <View style={{ flexDirection: "row", gap: 6 }}>
+          {SEVERITIES.map((s) => {
+            const on = (player.penaltySeverity ?? "normal") === s;
+            return (
+              <Pressable key={s} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => setPenaltySeverity(user.uid, s)}
+                style={{ flex: 1, minHeight: 48, alignItems: "center", justifyContent: "center", paddingHorizontal: 4, borderWidth: 1, borderColor: on ? "#FF5A6B" : "rgba(159,203,255,0.22)", backgroundColor: on ? "rgba(255,46,69,0.12)" : "transparent" }}>
+                <Text style={{ fontFamily: font.bold, fontSize: 14, color: on ? "#FFFFFF" : color.muted }}>{t.penalty.severities[s]}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{t.penalty.severityHint[player.penaltySeverity ?? "normal"]}</Text>
       </View>
 
       <View style={{ marginTop: 28, paddingHorizontal: 18, gap: 6 }}>

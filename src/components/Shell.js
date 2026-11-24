@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import Svg, { Path, Polygon } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -6,6 +6,9 @@ import { usePlayer } from "../lib/player";
 import Status from "./Status";
 import Quests from "./Quests";
 import Urgent from "./Urgent";
+import PenaltyZone, { PenaltyBar, ShieldNotice } from "./PenaltyZone";
+import { checkPenalty, dismissNotice } from "../lib/penalty";
+import { isInPenalty } from "../game/penalty";
 import { Glow } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
@@ -40,6 +43,26 @@ export default function Shell({ user }) {
   const insets = useSafeAreaInsets();
   const state = usePlayer(user.uid);
   const [tab, setTab] = useState("status");
+  const [penaltyView, setPenaltyView] = useState(null); // null | "intro" | "manual"
+  const checking = useRef(false);
+  const player = state.player;
+  const inPenalty = isInPenalty(player);
+
+  // Penalty check on open and every minute: deadline passed with open mains -> zone (or a shield is used).
+  useEffect(() => {
+    const run = () => {
+      if (checking.current) return;
+      checking.current = true;
+      checkPenalty(user.uid).catch(() => {}).finally(() => { checking.current = false; });
+    };
+    run();
+    const id = setInterval(run, 60000);
+    return () => clearInterval(id);
+  }, [user.uid]);
+
+  useEffect(() => {
+    if (inPenalty && player.penalty.seen === false && !penaltyView) setPenaltyView("intro");
+  }, [inPenalty, player, penaltyView]);
 
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>
@@ -49,7 +72,10 @@ export default function Shell({ user }) {
         {tab === "skills" ? <Soon text={t.soon.skills} /> : null}
         {tab === "shop" ? <Soon text={t.soon.shop} /> : null}
       </View>
-      {state.player ? <Urgent user={user} player={state.player} /> : null}
+      {player && !penaltyView ? <Urgent user={user} player={player} /> : null}
+      {player && penaltyView ? <PenaltyZone user={user} player={player} intro={penaltyView === "intro"} onClose={() => setPenaltyView(null)} /> : null}
+      {player?.notice && !player.notice.seen && !penaltyView ? <ShieldNotice player={player} onClose={() => dismissNotice(user.uid)} /> : null}
+      {inPenalty ? <PenaltyBar player={player} onOpen={() => setPenaltyView("manual")} /> : null}
       <View accessibilityRole="tablist" style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: color.line, backgroundColor: "rgba(1,4,10,0.96)", paddingBottom: Math.max(insets.bottom, 8) }}>
         {TABS.map((id) => {
           const active = tab === id;
