@@ -15,6 +15,7 @@ import { BodyCard } from "./Body";
 import QuoteLibrary from "./QuoteLibrary";
 import QuotePage from "./QuotePage";
 import StatInfo from "./StatInfo";
+import { FeedbackButton } from "./Feedback";
 import { quoteOfDay } from "../game/quotes";
 import { PARTS, partsDone } from "../game/profile";
 import { useTheme } from "../theme";
@@ -162,7 +163,10 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
 
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 18 }}>
         <Label tone={color.hi} style={{ letterSpacing: 5, fontSize: 12 }}>{t.status.system}</Label>
-        <Coins value={n(player.coins ?? 0)} size={18} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <FeedbackButton user={user} player={player} />
+          <Coins value={n(player.coins ?? 0)} size={18} />
+        </View>
       </View>
 
       <StatShape values={stats} onStat={setInfo} />

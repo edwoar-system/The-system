@@ -17,6 +17,12 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
     }
 
+    // Tips and ideas: anyone signed in can send one (their own uid, under 1,000 characters). Nobody reads them in the app.
+    match /feedback/{id} {
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid
+        && request.resource.data.text is string && request.resource.data.text.size() <= 1000;
+    }
+
     function signedIn() { return request.auth != null; }
     function isFriend(uid) {
       return exists(/databases/$(database)/documents/public/$(uid)/friends/$(request.auth.uid));

@@ -27,6 +27,7 @@ import QuoteLibrary from "./QuoteLibrary";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 import { Glossary } from "./Explain";
+import { FeedbackSheet } from "./Feedback";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 
@@ -263,6 +264,7 @@ export default function Settings({ user, player, synced }) {
   const insets = useSafeAreaInsets();
   const [name, setName] = useState(player.name ?? "");
   const [quotes, setQuotes] = useState(false);
+  const [feedback, setFeedback] = useState(false);
   const { stamp, track, Provider } = useSavedStamp();
 
   // Your name saves itself a moment after you stop typing.
@@ -336,6 +338,11 @@ export default function Settings({ user, player, synced }) {
       <Section title={t.notify.section}>
         <Notifications user={user} player={player} />
       </Section>
+
+      <Section title={t.feedback.section} sub={t.feedback.sectionSub}>
+        <SysButton label={t.feedback.open} onPress={() => setFeedback(true)} />
+      </Section>
+      {feedback ? <FeedbackSheet user={user} player={player} onClose={() => setFeedback(false)} /> : null}
 
       <Section title={t.explain.section} sub={t.explain.sectionSub}>
         <Glossary />
