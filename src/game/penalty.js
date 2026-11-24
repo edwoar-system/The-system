@@ -38,9 +38,15 @@ export function penaltyDue(day, player, now = Date.now()) {
   if (!day?.date || day.penaltyChecked) return null;
   if (!Array.isArray(day.mains) || day.mains.every((m) => m.done)) return null;
   if (now < deadlineOf(day.date)) return null;
-  if (now >= penaltyUntil(day.date, player.penaltySeverity)) return null; // already over (app wasn't opened)
+  if (now >= penaltyUntil(day.date, severityFor(player, day.date))) return null; // already over (app wasn't opened)
   return (player.shields ?? 0) > 0 ? "shield" : "penalty";
 }
 
 export const isInPenalty = (player, now = Date.now()) =>
   player?.penalty?.status === "active" && now < player.penalty.until;
+
+// A severity change made after setup counts from the next day, so you can't soften tonight's penalty at 20:59.
+export function severityFor(player, dateKey) {
+  if (player?.penaltySeverityNext && player.penaltySeverityFrom && player.penaltySeverityFrom <= dateKey) return player.penaltySeverityNext;
+  return player?.penaltySeverity ?? PENALTY.defaultSeverity;
+}

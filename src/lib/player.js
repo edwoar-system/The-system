@@ -47,3 +47,13 @@ export function addCoins(uid, amount) {
 export function setPlayerName(uid, name) {
   return updateDoc(doc(db, "players", uid), { name, updatedAt: serverTimestamp() });
 }
+
+// First-time setup: urgent quests per day and the penalty severity, locked in together.
+export function lockSetup(uid, { urgentPerDay, penaltySeverity }) {
+  return updateDoc(doc(db, "players", uid), { urgentPerDay, penaltySeverity, setupLocked: true, setupLockedAt: serverTimestamp(), updatedAt: serverTimestamp() });
+}
+
+// Profile info for fair rank norms: age, sex and bodyweight (all optional).
+export function setProfile(uid, profile) {
+  return updateDoc(doc(db, "players", uid), { profile, updatedAt: serverTimestamp() });
+}

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import Svg, { Path, Polygon } from "react-native-svg";
+import Svg, { Circle, Path, Polygon } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usePlayer } from "../lib/player";
 import Status from "./Status";
 import Quests from "./Quests";
 import Skills from "./Skills";
+import Settings from "./Settings";
 import Urgent from "./Urgent";
 import PenaltyZone, { PenaltyBar, ShieldNotice } from "./PenaltyZone";
 import { checkPenalty, dismissNotice } from "../lib/penalty";
@@ -14,7 +15,7 @@ import { Glow } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
-const TABS = ["status", "quests", "skills", "shop"];
+const TABS = ["status", "quests", "skills", "shop", "settings"];
 
 function TabIcon({ id, active, c }) {
   const p = { fill: active ? "rgba(159,203,255,0.25)" : "none", stroke: c, strokeWidth: 1.6 };
@@ -24,6 +25,13 @@ function TabIcon({ id, active, c }) {
       {id === "quests" ? <Path d="M6 3h12v18l-6-4-6 4z" {...p} /> : null}
       {id === "skills" ? <Path d="M4 20V10M10 20V4M16 20v-7M22 20H2" {...p} fill="none" /> : null}
       {id === "shop" ? <Path d="M4 8h16l-1.5 12h-13zM9 8a3 3 0 0 1 6 0" {...p} /> : null}
+      {id === "settings" ? (
+        <>
+          <Path d="M12 2.5v3M12 18.5v3M3.8 7.3l2.6 1.5M17.6 15.2l2.6 1.5M3.8 16.7l2.6-1.5M17.6 8.8l2.6-1.5" stroke={c} strokeWidth={1.6} />
+          <Polygon points="12,6 17.2,9 17.2,15 12,18 6.8,15 6.8,9" {...p} />
+          <Circle cx={12} cy={12} r={2.2} fill="none" stroke={c} strokeWidth={1.6} />
+        </>
+      ) : null}
     </Svg>
   );
 }
@@ -73,6 +81,7 @@ export default function Shell({ user }) {
         {tab === "quests" ? (state.player ? <Quests user={user} player={state.player} focus={focus} onFocusDone={() => setFocus(null)} /> : <Status user={user} {...state} />) : null}
         {tab === "skills" ? (state.player ? <Skills user={user} player={state.player} onGoToQuest={(f) => { setFocus(f); setTab("quests"); }} /> : <Status user={user} {...state} />) : null}
         {tab === "shop" ? <Soon text={t.soon.shop} /> : null}
+        {tab === "settings" ? (state.player ? <Settings user={user} player={state.player} synced={state.synced} /> : <Status user={user} {...state} />) : null}
       </View>
       {player && !penaltyView ? <Urgent user={user} player={player} /> : null}
       {player && penaltyView ? <PenaltyZone user={user} player={player} intro={penaltyView === "intro"} onClose={() => setPenaltyView(null)} /> : null}

@@ -3,7 +3,7 @@ import { addDoc, collection, doc, runTransaction, serverTimestamp } from "fireba
 import { db } from "./firebase";
 import { currentDay } from "./day";
 import { todayKey } from "../game/quests";
-import { penaltyDue, penaltyUntil, redemptionById } from "../game/penalty";
+import { penaltyDue, penaltyUntil, redemptionById, severityFor } from "../game/penalty";
 
 const ref = (uid) => doc(db, "players", uid);
 
@@ -39,7 +39,7 @@ export async function checkPenalty(uid) {
       const missed = day.mains.filter((m) => !m.done).map((m) => m.id);
       tx.set(ref(uid), {
         ...write,
-        penalty: { status: "active", date: day.date, missed, severity: player.penaltySeverity ?? "normal", until: penaltyUntil(day.date, player.penaltySeverity), seen: false, redemption: null, at: now },
+        penalty: { status: "active", date: day.date, missed, severity: severityFor(player, day.date), until: penaltyUntil(day.date, severityFor(player, day.date)), seen: false, redemption: null, at: now },
       }, { merge: true });
       return "penalty";
     }
@@ -59,7 +59,17 @@ async function update(uid, fn) {
 export const markPenaltySeen = (uid) => update(uid, (p) => (p.penalty ? { penalty: { ...p.penalty, seen: true } } : null));
 export const chooseRedemption = (uid, id) => update(uid, (p) => (p.penalty?.status === "active" && redemptionById[id] ? { penalty: { ...p.penalty, redemption: id } } : null));
 export const dismissNotice = (uid) => update(uid, (p) => (p.notice ? { notice: { ...p.notice, seen: true } } : null));
-export const setPenaltySeverity = (uid, s) => update(uid, () => ({ penaltySeverity: s }));
+export const setPenaltySeverity = (uid, s) => update(uid, () => ({ penaltySeverity: s, penaltySeverityNext: null, penaltySeverityFrom: null }));
+
+// After setup: the new severity starts tomorrow.
+export const scheduleSeverity = (uid, s) => update(uid, (player) => {
+  const today = todayKey();
+  const now = severityFor(player, today);
+  if (s === now) return { penaltySeverity: now, penaltySeverityNext: null, penaltySeverityFrom: null };
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return { penaltySeverity: now, penaltySeverityNext: s, penaltySeverityFrom: todayKey(d) };
+});
 
 // No reward, only freedom.
 export async function finishRedemption(uid) {

@@ -1,22 +1,16 @@
 // Status: who you are in the System. Attribute hexagon, level, streak and your next main quest.
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Platform, Pressable, ScrollView, Text, View } from "react-native";
-import * as Updates from "expo-updates";
-import { signOut } from "firebase/auth";
+import { Animated, Easing, Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Polygon, Defs, LinearGradient, Stop } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { auth } from "../lib/firebase";
 import { setPlayerName } from "../lib/player";
-import { setUrgentPerDay } from "../lib/urgent";
-import { URGENT } from "../game/urgent";
-import { setPenaltySeverity } from "../lib/penalty";
-import { SEVERITIES } from "../game/penalty";
 import { currentDay, currentStreak } from "../lib/day";
 import { levelFromXp, statValue } from "../game/economy";
 import { questById, STATS } from "../game/quests";
 import { Button, Field } from "./ui";
 import { Coins, Frame, Glow, Label, hexPoints } from "./sys";
 import StatShape from "./StatShape";
+import Setup from "./Setup";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
@@ -79,10 +73,11 @@ function ExpBar({ ratio }) {
   );
 }
 
-export default function Status({ user, player, error, synced, onOpenQuests }) {
+export default function Status({ user, player, error, onOpenQuests }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const [nameDraft, setNameDraft] = useState("");
+  const [locking, setLocking] = useState(false);
   const k = useCountUp();
 
   if (error) {
@@ -178,47 +173,9 @@ export default function Status({ user, player, error, synced, onOpenQuests }) {
         </Frame>
       ) : null}
 
-      <View style={{ marginTop: 22, marginHorizontal: 18, gap: 8 }}>
-        <Label>{t.urgent.perDay.toUpperCase()}</Label>
-        <View style={{ flexDirection: "row", gap: 6 }}>
-          {[0, 1, 2, 3, 4].map((n) => {
-            const on = (player.urgentPerDay ?? URGENT.defaultPerDay) === n;
-            return (
-              <Pressable key={n} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => setUrgentPerDay(user.uid, n)}
-                style={{ flex: 1, minHeight: 44, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: on ? color.frame : "rgba(159,203,255,0.22)", backgroundColor: on ? "rgba(159,203,255,0.16)" : "transparent" }}>
-                <Text style={{ fontFamily: font.num, fontSize: 18, color: on ? "#FFFFFF" : color.muted }}>{n}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-
-      <View style={{ marginTop: 18, marginHorizontal: 18, gap: 8 }}>
-        <Label>{t.penalty.severity.toUpperCase()}</Label>
-        <View style={{ flexDirection: "row", gap: 6 }}>
-          {SEVERITIES.map((s) => {
-            const on = (player.penaltySeverity ?? "normal") === s;
-            return (
-              <Pressable key={s} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => setPenaltySeverity(user.uid, s)}
-                style={{ flex: 1, minHeight: 48, alignItems: "center", justifyContent: "center", paddingHorizontal: 4, borderWidth: 1, borderColor: on ? "#FF5A6B" : "rgba(159,203,255,0.22)", backgroundColor: on ? "rgba(255,46,69,0.12)" : "transparent" }}>
-                <Text style={{ fontFamily: font.bold, fontSize: 14, color: on ? "#FFFFFF" : color.muted }}>{t.penalty.severities[s]}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{t.penalty.severityHint[player.penaltySeverity ?? "normal"]}</Text>
-      </View>
-
-      <View style={{ marginTop: 28, paddingHorizontal: 18, gap: 6 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <View style={{ width: 7, height: 7, transform: [{ rotate: "45deg" }], backgroundColor: synced ? color.accent : color.muted }} />
-          <Text style={{ fontFamily: font.body, fontSize: 13, color: synced ? color.accent : color.muted }}>{synced ? t.home.synced : t.home.syncing}</Text>
-        </View>
-        {Platform.OS !== "web" ? (
-          <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{Updates.isEmbeddedLaunch ? t.home.builtIn : t.home.overTheAir}</Text>
-        ) : null}
-        <Button kind="text" label={t.home.logout} onPress={() => signOut(auth)} style={{ alignSelf: "flex-start", paddingHorizontal: 0 }} />
-      </View>
+      {!player.setupLocked || locking ? (
+        <Setup user={user} player={player} onLocking={() => setLocking(true)} onDone={() => setLocking(false)} />
+      ) : null}
     </ScrollView>
   );
 }
