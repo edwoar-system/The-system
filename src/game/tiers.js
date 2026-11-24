@@ -30,6 +30,7 @@ export const TIERS = {
   swim: [["1,500 m with 10 × 100 m intervals", 40, "hard"], ["2,500 m including drills and a timed 400 m", 60, "hard"]],
   cycle: [["75 min ride with 4 × 8 min at threshold", 75, "hard"], ["2-hour ride with hills or race-pace blocks", 120, "hard"]],
   footwork: [["15 min of fast ladder and cone drills, timed", 15, "hard"], ["20 min: Illinois course runs and reactive drills", 20, "hard"]],
+  windsurf: [["60 minutes on the water: tacks, gybes and waterstarts", 60, "hard"], ["A 90-minute session in planing wind, gybes on both sides", 90, "hard"]],
   boxing: [["6 rounds: shadowboxing, bag work and combos", 30, "hard"], ["A class or 8 rounds with sparring or pad work", 45, "hard"]],
   breakdance: [["40 min: link toprock, footwork and a freeze into a round", 40, "normal"], ["60 min: power-move drills and two full rounds", 60, "hard"]],
   // VIT

@@ -10,7 +10,7 @@ export const INTERESTS = [
   { id: "strength", name: "Strength training", skills: ["gym", "pushups", "pullups", "pistol", "iso", "core", "grip", "dips", "kettlebell", "handstand"] },
   { id: "climbing", name: "Climbing", skills: ["boulder", "fingers"] },
   { id: "endurance", name: "Running and endurance", skills: ["running", "rope", "sprints", "swim", "cycle", "zone2", "walk"] },
-  { id: "sport", name: "Sports and moves", skills: ["skate", "golf", "footwork", "boxing", "breakdance"] },
+  { id: "sport", name: "Sports and moves", skills: ["skate", "golf", "windsurf", "footwork", "boxing", "breakdance"] },
   { id: "mobility", name: "Mobility and balance", skills: ["toes", "stretch", "balance", "posture"] },
   { id: "health", name: "Health and sleep", skills: ["sleep", "winddown", "water", "cook", "light", "coldshower", "cold", "tidy"] },
   { id: "study", name: "Study and maths", skills: ["study", "maths", "memory", "docu"] },

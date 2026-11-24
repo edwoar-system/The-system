@@ -41,6 +41,7 @@ const SKILL_MUSCLES = {
   swim: { back: 0.8, shoulders: 0.8, chest: 0.4, triceps: 0.4, abs: 0.3 },
   cycle: { quads: 1, glutes: 0.6, calves: 0.5, hamstrings: 0.3 },
   rope: { calves: 1, shoulders: 0.3, forearms: 0.3 },
+  windsurf: { forearms: 0.9, back: 0.8, shoulders: 0.6, abs: 0.5, quads: 0.5, lowerback: 0.4, calves: 0.3 },
   boxing: { shoulders: 0.9, obliques: 0.7, abs: 0.4, triceps: 0.4, calves: 0.4, back: 0.3 },
   breakdance: { shoulders: 0.7, abs: 0.6, triceps: 0.5, obliques: 0.5, quads: 0.4, forearms: 0.4 },
   skate: { quads: 0.5, calves: 0.5, glutes: 0.4, abs: 0.3 },

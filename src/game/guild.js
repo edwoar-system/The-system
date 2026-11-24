@@ -32,6 +32,7 @@ const RAW = {
     ["cycle", "Cycling", "45 min ride", "Tracked in Strava or Apple Health.", 45, "normal", "cardio"],
     ["footwork", "Footwork", "10 min ladder or shadow footwork", "Light on your toes the whole time.", 10, "normal", "sport"],
     ["boxing", "Boxing", "3 rounds of 3 min shadowboxing", "Hands up, move between combos.", 15, "hard", "sport"],
+    ["windsurf", "Windsurfing", "30 min on the water, or 30 min dryland", "Dryland (out of season): balance board, core and grip.", 30, "normal", "sport"],
     ["breakdance", "Breakdance", "20 min toprock and one footwork move", "To music, keep moving.", 20, "normal", "sport"],
   ],
   VIT: [
