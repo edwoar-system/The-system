@@ -11,6 +11,7 @@ import { Button, Field } from "./ui";
 import { Coins, Frame, Glow, Label, hexPoints } from "./sys";
 import StatShape from "./StatShape";
 import Setup from "./Setup";
+import { BodyCard } from "./Body";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
@@ -164,6 +165,8 @@ export default function Status({ user, player, error, onOpenQuests }) {
           )}
         </Frame>
       </Pressable>
+
+      <BodyCard player={player} />
 
       {!player.name ? (
         <Frame style={{ marginTop: 12, marginHorizontal: 14 }} contentStyle={{ padding: 16, gap: 12 }}>

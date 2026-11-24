@@ -54,6 +54,7 @@ export default function Shell({ user }) {
   const [tab, setTab] = useState("status");
   const [penaltyView, setPenaltyView] = useState(null); // null | "intro" | "manual"
   const [focus, setFocus] = useState(null); // a quest to open on the board: { id, slot }
+  const [skillFocus, setSkillFocus] = useState(null); // a skill page to open in the Skills tab
   const checking = useRef(false);
   const player = state.player;
   const inPenalty = isInPenalty(player);
@@ -78,8 +79,8 @@ export default function Shell({ user }) {
     <View style={{ flex: 1, backgroundColor: color.bg }}>
       <View style={{ flex: 1 }}>
         {tab === "status" ? <Status user={user} {...state} onOpenQuests={() => setTab("quests")} /> : null}
-        {tab === "quests" ? (state.player ? <Quests user={user} player={state.player} focus={focus} onFocusDone={() => setFocus(null)} /> : <Status user={user} {...state} />) : null}
-        {tab === "skills" ? (state.player ? <Skills user={user} player={state.player} onGoToQuest={(f) => { setFocus(f); setTab("quests"); }} /> : <Status user={user} {...state} />) : null}
+        {tab === "quests" ? (state.player ? <Quests user={user} player={state.player} focus={focus} onFocusDone={() => setFocus(null)} onOpenSkill={(id) => { setSkillFocus(id); setTab("skills"); }} /> : <Status user={user} {...state} />) : null}
+        {tab === "skills" ? (state.player ? <Skills user={user} player={state.player} onGoToQuest={(f) => { setFocus(f); setTab("quests"); }} focusSkill={skillFocus} onFocusDone={() => setSkillFocus(null)} /> : <Status user={user} {...state} />) : null}
         {tab === "shop" ? <Soon text={t.soon.shop} /> : null}
         {tab === "settings" ? (state.player ? <Settings user={user} player={state.player} synced={state.synced} /> : <Status user={user} {...state} />) : null}
       </View>

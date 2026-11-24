@@ -8,6 +8,7 @@ import { HABIT_LADDER, RANKS } from "../game/ladders";
 import { dayNum, isHabit, skillView, trialParts, trialQuestId, trialState } from "../game/skills";
 import { startTrial, stopTrial } from "../lib/skills";
 import QuestSheet from "./QuestSheet";
+import { BodyReport } from "./Body";
 import RankUp from "./RankUp";
 import LevelUp from "./LevelUp";
 import { AMBER, StepBar, fill, skillStatus } from "./skillParts";
@@ -77,6 +78,7 @@ export default function SkillPage({ user, player, id, onBack, onRequest }) {
   const [rankUp, setRankUp] = useState(null);
   const [levelUp, setLevelUp] = useState(null);
   const [sheet, setSheet] = useState(null); // a trial part opened as a quest
+  const [body, setBody] = useState(null);
 
   // The trial: a running one, a retest when rusty, otherwise the next rank (or a higher one: placement).
   const active = trialState(player.trials?.[id], L, v.ticks);
@@ -109,6 +111,7 @@ export default function SkillPage({ user, player, id, onBack, onRequest }) {
     try { await stopTrial(user.uid, id); } catch { setError(t.skills.failed); } finally { setBusy(false); }
   }
   function onResult(r) {
+    if (r.muscles) setBody(r.muscles);
     if (r.levelUp) setLevelUp({ level: r.levelUp, xp: (player.xp ?? 0) + r.xp });
     if (r.skillUp) setRankUp({ letter: RANKS[r.skillUp.rank], name: skill.name, xp: r.skillUp.xp });
     else if (r.trialDone) setRankUp({ letter: RANKS[target], name: skill.name, xp: 0, restored: true });
@@ -277,8 +280,9 @@ export default function SkillPage({ user, player, id, onBack, onRequest }) {
         <SysButton label={t.skills.request} onPress={onRequest} style={{ marginTop: 18 }} />
       </ScrollView>
       {sheet ? <QuestSheet user={user} player={player} questId={sheet.id} slot="trial" done={sheet.done} onClose={() => setSheet(null)} onResult={onResult} /> : null}
-      <RankUp data={rankUp} onClose={() => setRankUp(null)} />
-      <LevelUp data={rankUp ? null : levelUp} onClose={() => setLevelUp(null)} />
+      <BodyReport data={body} onClose={() => setBody(null)} />
+      <RankUp data={body ? null : rankUp} onClose={() => setRankUp(null)} />
+      <LevelUp data={body || rankUp ? null : levelUp} onClose={() => setLevelUp(null)} />
     </View>
   );
 }

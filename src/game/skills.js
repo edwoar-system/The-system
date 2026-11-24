@@ -30,7 +30,7 @@ export function dayNum(key = todayKey()) {
   const [y, m, d] = key.split("-").map(Number);
   return Math.round(Date.UTC(y, m - 1, d) / 86400000);
 }
-const weekNum = (n) => Math.floor((n + 3) / 7); // weeks start on Monday
+export const weekNum = (n) => Math.floor((n + 3) / 7); // weeks start on Monday
 
 export const isHabit = (ladder) => ladder?.basis === "habit";
 export const maxRank = (ladder) => (isHabit(ladder) ? SKILL_RULES.habitMaxRank : RANKS.length - 1);

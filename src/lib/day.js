@@ -4,8 +4,9 @@ import { allMainsBonus, levelFromXp, questCoins, questXp } from "../game/economy
 import { pickMainQuests, questById, todayKey } from "../game/quests";
 import { guildQuest } from "../game/guild";
 import { ladderById } from "../game/ladders";
-import { dayNum, habitRank, isHabit, passTrial, recordTraining, skillView, SKILL_RULES, trialQuest, trialState } from "../game/skills";
+import { dayNum, habitRank, isHabit, passTrial, recordTraining, skillView, SKILL_RULES, trialQuest, trialState, weekNum } from "../game/skills";
 import { tierForRank } from "../game/tiers";
+import { addLoad, coverage, questLoad } from "../game/muscles";
 
 export const MAX_GUILD_QUESTS = 6;
 
@@ -139,7 +140,21 @@ export async function completeQuest(uid, questId, slot, log = null) {
       if (isHabit(ladder)) entry = { ...entry, rank: habitRank({ ...entry, rank: skillBefore }, ladder, today) };
       const best = player.skillBest?.[q.skill] ?? 0;
       if (entry.rank > skillBefore) skillUp = { id: q.skill, rank: entry.rank, xp: rankXp(Math.max(best, skillBefore), entry.rank) };
-      skills = { ...(player.skills ?? {}), [q.skill]: entry };
+      // Merge writes keep old map keys, so delete the days that dropped out of the last-14-days chart.
+      const recent = { ...entry.recent };
+      Object.keys(player.skills?.[q.skill]?.recent ?? {}).forEach((d) => { if (!(d in recent)) recent[d] = deleteField(); });
+      skills = { ...(player.skills ?? {}), [q.skill]: { ...entry, recent } };
+    }
+
+    // Muscles: the quest's load goes into this week's body map.
+    const load = questLoad(q);
+    const week = weekNum(today);
+    const weekBefore = player.muscleLoad?.[week] ?? {};
+    const weekAfter = load ? addLoad(weekBefore, load) : null;
+    let muscleLoad = null;
+    if (weekAfter) {
+      muscleLoad = { [week]: weekAfter };
+      Object.keys(player.muscleLoad ?? {}).forEach((k) => { if (Number(k) < week - 1) muscleLoad[k] = deleteField(); });
     }
 
     const totalXp = (player.xp ?? 0) + xp + (skillUp?.xp ?? 0);
@@ -158,13 +173,17 @@ export async function completeQuest(uid, questId, slot, log = null) {
       lastQuestAt: Date.now(),
       ...(q.skill ? { lastDoneBySkill: { ...(player.lastDoneBySkill ?? {}), [q.skill]: day.date } } : {}),
       ...(skills ? { skills } : {}),
+      ...(muscleLoad ? { muscleLoad } : {}),
       ...(skillUp?.xp ? { skillBest: { ...(player.skillBest ?? {}), [q.skill]: skillUp.rank } } : {}),
       ...(trial ? { trials: { [q.skill]: trial.complete ? deleteField() : { rank: trial.rank, started: trial.started, done: trial.done } } } : {}),
       ...(q.school ? { philosophy: { ...(player.philosophy ?? {}), [q.school]: Math.max(player.philosophy?.[q.school] ?? 0, q.reading + 1) } } : {}),
       updatedAt: serverTimestamp(),
     }, { merge: true });
 
-    return { coins, xp, bonus, levelUp: after > before ? after : null, stat: q.stat, streak, skillUp, trialDone: trial?.complete ?? false };
+    return {
+      coins, xp, bonus, levelUp: after > before ? after : null, stat: q.stat, streak, skillUp, trialDone: trial?.complete ?? false,
+      muscles: weekAfter ? { hit: load, load: weekAfter, before: coverage(weekBefore), after: coverage(weekAfter) } : null,
+    };
   });
 
   // Quest log for balancing later. Separate write: if it fails, the reward still counts.

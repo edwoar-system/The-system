@@ -12,6 +12,7 @@ import { Coins, Frame, Glow, HexBadge, HexCheck, Label, SysButton, nativeDriver 
 import LevelUp from "./LevelUp";
 import RankUp from "./RankUp";
 import QuestSheet from "./QuestSheet";
+import { BodyReport } from "./Body";
 import { trialQuestId, trialState } from "../game/skills";
 import { RANKS, ladderById as ladders } from "../game/ladders";
 import { skillById } from "../game/guild";
@@ -83,7 +84,7 @@ function GoalRow({ questId, done, busy, onDone, onOpen, last }) {
   );
 }
 
-export default function Quests({ user, player, focus, onFocusDone }) {
+export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const day = currentDay(player, user.uid);
@@ -96,6 +97,7 @@ export default function Quests({ user, player, focus, onFocusDone }) {
   const [toast, setToast] = useState(null);
   const [levelUp, setLevelUp] = useState(null);
   const [rankUp, setRankUp] = useState(null);
+  const [body, setBody] = useState(null); // body report after a quest that trained muscles
   // Opened from somewhere else (a quest just accepted in the guild): start with that quest open.
   const [sheet, setSheet] = useState(focus ?? null); // { id, slot, done }
   useEffect(() => {
@@ -130,6 +132,7 @@ export default function Quests({ user, player, focus, onFocusDone }) {
     showToast({ coins: r.coins + r.bonus, bonus: r.bonus, xp: r.xp });
     if (r.levelUp) setLevelUp({ level: r.levelUp, xp: (player.xp ?? 0) + r.xp, coins: r.coins + r.bonus });
     const q = getQuest(questId);
+    if (r.muscles) setBody({ ...r.muscles, skillId: q?.skill, skillName: skillById[q?.skill]?.name ?? "" });
     if (r.skillUp) setRankUp({ letter: RANKS[r.skillUp.rank], name: skillById[r.skillUp.id]?.name ?? "", xp: r.skillUp.xp });
     else if (r.trialDone && q?.skill) setRankUp({ letter: RANKS[q.trial.rank], name: skillById[q.skill]?.name ?? "", xp: 0, restored: true });
   }
@@ -316,9 +319,11 @@ export default function Quests({ user, player, focus, onFocusDone }) {
         </Animated.View>
       ) : null}
 
-      {sheet ? <QuestSheet user={user} player={player} questId={sheet.id} slot={sheet.slot} done={sheet.done} onClose={() => setSheet(null)} onResult={(r) => onResult(r, sheet.id)} /> : null}
-      <RankUp data={rankUp} onClose={() => setRankUp(null)} />
-      <LevelUp data={rankUp ? null : levelUp} onClose={() => setLevelUp(null)} />
+      {sheet ? <QuestSheet user={user} player={player} questId={sheet.id} slot={sheet.slot} done={sheet.done} onClose={() => setSheet(null)} onResult={(r) => onResult(r, sheet.id)}
+        onOpenSkill={onOpenSkill ? (id) => { setSheet(null); onOpenSkill(id); } : null} /> : null}
+      <BodyReport data={body} onClose={() => setBody(null)} onOpenSkill={onOpenSkill} />
+      <RankUp data={body ? null : rankUp} onClose={() => setRankUp(null)} />
+      <LevelUp data={body || rankUp ? null : levelUp} onClose={() => setLevelUp(null)} />
     </View>
   );
 }

@@ -169,7 +169,7 @@ export function guildQuest(id) {
     const minutes = Number(parts[3]);
     const tier = Number(parts[4] ?? 0);
     if (!s || !minutes || !GYM_TIER_BANDS[tier]) return null;
-    return { id, skill: "gym", stat: "STR", type: "gym", difficulty: "hard", minutes, tier, title: `Gym: ${s.name}, ${minutes} min`, counts: `${GYM_TIER_BANDS[tier]} ${s.plan} ${GYM_COUNTS}` };
+    return { id, skill: "gym", session: Number(parts[2]), stat: "STR", type: "gym", difficulty: "hard", minutes, tier, title: `Gym: ${s.name}, ${minutes} min`, counts: `${GYM_TIER_BANDS[tier]} ${s.plan} ${GYM_COUNTS}` };
   }
   if (parts[1] === "philo") {
     const p = schoolById[parts[2]];

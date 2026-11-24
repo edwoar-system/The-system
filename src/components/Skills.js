@@ -1,5 +1,5 @@
 // Skills tab: your trained skills first, then every skill by stat. Tap one for its page.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,10 +31,14 @@ function Row({ v, name, onPress }) {
   );
 }
 
-export default function Skills({ user, player, onGoToQuest }) {
+export default function Skills({ user, player, onGoToQuest, focusSkill, onFocusDone }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
-  const [open, setOpen] = useState(null);
+  // Opened from somewhere else (a quest or the body report): start on that skill's page.
+  const [open, setOpen] = useState(focusSkill ?? null);
+  useEffect(() => {
+    if (focusSkill) onFocusDone?.();
+  }, [focusSkill, onFocusDone]);
   const [guildFor, setGuildFor] = useState(null);
   const [stat, setStat] = useState("STR");
 

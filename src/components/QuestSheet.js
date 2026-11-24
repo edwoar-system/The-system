@@ -44,7 +44,7 @@ function Step({ label, onPress }) {
 }
 
 // slot: "main" | "guild" | "trial" | "start". done: already completed today.
-export default function QuestSheet({ user, player, questId, slot, done, onClose, onResult }) {
+export default function QuestSheet({ user, player, questId, slot, done, onClose, onResult, onOpenSkill }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const q = questId ? getQuest(questId) : null;
@@ -107,6 +107,11 @@ export default function QuestSheet({ user, player, questId, slot, done, onClose,
               <Label tone={q.trial ? color.purple : color.accent}>{kicker}</Label>
               <Text accessibilityRole="header" style={{ fontFamily: font.bold, fontSize: 22, lineHeight: 28, color: "#FFFFFF" }}>{q.title}</Text>
               <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{t.stats[q.stat]} · {t.quests.difficulty[q.difficulty]} · {fill(t.guild.min, { n: q.minutes })}</Text>
+              {onOpenSkill && skill ? (
+                <Pressable accessibilityRole="button" onPress={() => onOpenSkill(q.skill)} style={{ alignSelf: "flex-start", minHeight: 36, justifyContent: "center" }}>
+                  <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.accent }}>{fill(t.sheet.openSkill, { skill: skill.name })}</Text>
+                </Pressable>
+              ) : null}
             </View>
 
             {q.counts ? (
