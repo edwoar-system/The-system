@@ -4,6 +4,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Defs, LinearGradient, Path, Polygon, Stop } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { skillById } from "../game/guild";
+import { TIERS, TIER_RANKS } from "../game/tiers";
 import { HABIT_LADDER, RANKS } from "../game/ladders";
 import { dayNum, isHabit, skillView, trialParts, trialQuestId, trialState } from "../game/skills";
 import { startTrial, stopTrial } from "../lib/skills";
@@ -74,6 +75,12 @@ export default function SkillPage({ user, player, id, onBack, onRequest }) {
   const skill = skillById[id];
   const v = skillView(id, player.skills?.[id], dayNum());
   const L = v.ladder;
+  // Example sessions: the guild quest (tier I), the ladder's own ideas, then tiers II and III.
+  const ways = [
+    ...(skill?.quest ? [{ tier: "I", text: skill.quest, min: skill.minutes }] : []),
+    ...String(L.quests ?? "").split(";").map((x) => x.trim().replace(/\.$/, "")).filter((x) => x && x.toLowerCase() !== String(skill?.quest ?? "").toLowerCase()).map((x) => ({ text: x.charAt(0).toUpperCase() + x.slice(1) })),
+    ...(TIERS[id] ?? []).map(([text, min], k) => ({ tier: k ? "III" : "II", text, min, unlock: TIER_RANKS[k + 1], locked: v.rank < TIER_RANKS[k + 1] })),
+  ];
   const habit = isHabit(L);
   const st = skillStatus(v);
 
@@ -268,6 +275,25 @@ export default function SkillPage({ user, player, id, onBack, onRequest }) {
           <View style={{ marginTop: 6, flexDirection: "row", justifyContent: "flex-end" }}>
             <Text style={{ fontFamily: font.body, fontSize: 11, color: "#7B8DB0" }}>{t.skills.today}</Text>
           </View>
+        </Frame>
+
+        {/* Ways to train: example sessions, harder ones unlock with rank */}
+        <Frame cut={12} style={{ marginTop: 18 }} contentStyle={{ padding: 16, gap: 4 }}>
+          <Label tone={color.hi}>{t.skills.ways}</Label>
+          <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted, marginBottom: 4 }}>{t.skills.waysSub}</Text>
+          {ways.map((w, i) => (
+            <View key={i} style={{ flexDirection: "row", gap: 10, paddingVertical: 9, borderTopWidth: 1, borderTopColor: color.line, opacity: w.locked ? 0.5 : 1 }}>
+              <Text style={{ width: 20, fontFamily: font.num, fontSize: 14, color: w.locked ? color.muted : color.accent }}>{w.tier ?? "·"}</Text>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, lineHeight: 20, color: color.text }}>{w.text}</Text>
+                {w.min || w.locked ? (
+                  <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>
+                    {[w.min ? fill(t.guild.min, { n: w.min }) : null, w.locked ? fill(t.skills.unlockAt, { rank: RANKS[w.unlock] }) : null].filter(Boolean).join("  ·  ")}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          ))}
         </Frame>
 
         <SysButton label={t.skills.request} onPress={onRequest} style={{ marginTop: 18 }} />

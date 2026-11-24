@@ -63,3 +63,32 @@ export function activeAgo(dateKey, today = todayKey()) {
   const d = Math.round((Date.parse(`${today}T12:00:00Z`) - Date.parse(`${dateKey}T12:00:00Z`)) / 86400000);
   return Math.max(0, d);
 }
+
+// Troll quests: a friend sends you one small challenge from this list (one per friend per day).
+// They pay a little EXP only, never coins, so friends can't farm coins for each other.
+export const TROLLS = [
+  { id: "squats", stat: "STR", minutes: 2, title: "20 squats, right now" },
+  { id: "pushups", stat: "STR", minutes: 2, title: "15 push-ups, right now" },
+  { id: "plank", stat: "STR", minutes: 2, title: "Plank for 60 seconds" },
+  { id: "wallsit", stat: "STR", minutes: 2, title: "Wall sit for 45 seconds" },
+  { id: "burpees", stat: "AGI", minutes: 3, title: "10 burpees" },
+  { id: "jacks", stat: "AGI", minutes: 2, title: "40 jumping jacks" },
+  { id: "stairs", stat: "AGI", minutes: 5, title: "Walk up and down the stairs five times" },
+  { id: "water", stat: "VIT", minutes: 1, title: "Drink a full glass of water now" },
+  { id: "cold", stat: "VIT", minutes: 2, title: "End your next shower with 30 seconds of cold" },
+  { id: "bed", stat: "VIT", minutes: 2, title: "Make your bed properly (yes, again)" },
+  { id: "sugar", stat: "WIL", minutes: 5, title: "No sugar for the rest of the day" },
+  { id: "nophone", stat: "WIL", minutes: 15, title: "15 minutes without your phone" },
+  { id: "walk", stat: "WIL", minutes: 10, title: "A 10-minute walk, phone in your pocket" },
+  { id: "read", stat: "INT", minutes: 10, title: "Read 5 pages of any book" },
+  { id: "word", stat: "INT", minutes: 3, title: "Learn one new word and use it today" },
+  { id: "fact", stat: "INT", minutes: 5, title: "Find one fact you didn't know and tell me" },
+  { id: "grateful", stat: "WIL", minutes: 3, title: "Write down three things you're grateful for" },
+  { id: "text", stat: "CHA", minutes: 3, title: "Text someone you haven't talked to in a while" },
+  { id: "compliment", stat: "CHA", minutes: 2, title: "Give someone a real compliment" },
+  { id: "joke", stat: "CHA", minutes: 2, title: "Tell your family your worst joke" },
+  { id: "thanks", stat: "CHA", minutes: 2, title: "Thank someone who helped you this week" },
+  { id: "dishes", stat: "VIT", minutes: 10, title: "Do the dishes without being asked" },
+];
+export const trollById = Object.fromEntries(TROLLS.map((x) => [x.id, x]));
+export const trollXp = (troll) => Math.max(3, Math.min(10, Math.round((troll?.minutes ?? 2) * 1.5)));

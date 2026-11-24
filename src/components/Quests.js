@@ -20,6 +20,8 @@ import { QUICK, goalFor, quickToday } from "../game/quick";
 import { dayNum, trialQuestId, trialState, weekNum } from "../game/skills";
 import { dutiesToday } from "../game/profile";
 import { ASK_SLOTS, needsProof } from "../game/proof";
+import { completeTroll, declineTroll, useTrolls } from "../lib/social";
+import { trollById, trollXp } from "../game/social";
 import { RANKS, ladderById as ladders } from "../game/ladders";
 import { skillById } from "../game/guild";
 import { useTheme } from "../theme";
@@ -123,6 +125,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
     return st ? { skillId, ...st } : null;
   }).filter(Boolean);
   const duties = dutiesToday(player, day.date, weekNum(dayNum(day.date)));
+  const trolls = useTrolls(user.uid, day.date);
   const toastAnim = useRef(new Animated.Value(0)).current;
 
   const quickCounts = quickToday(player);
@@ -282,6 +285,35 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
               <View style={{ height: 6 }} />
             </Frame>
           ) : null}
+          {trolls.length ? (
+            <Frame cut={12}>
+              <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: color.line, gap: 2 }}>
+                <Label tone={color.hi}>{t.troll.board}</Label>
+                <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{t.troll.boardSub}</Text>
+              </View>
+              {trolls.map((tr, i) => {
+                const x = trollById[tr.troll];
+                if (!x) return null;
+                const done = tr.status === "done";
+                return (
+                  <View key={tr.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 14, paddingRight: 8, opacity: done ? 0.55 : 1,
+                    borderBottomWidth: i === trolls.length - 1 ? 0 : 1, borderBottomColor: color.line }}>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Text style={{ fontFamily: font.bold, fontSize: 15, lineHeight: 20, color: "#FFFFFF" }}>{x.title}</Text>
+                      <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{fill(t.troll.from, { name: tr.fromName, xp: trollXp(x) })}</Text>
+                      {!done ? (
+                        <Pressable accessibilityRole="button" onPress={() => declineTroll(user.uid, tr.id).catch(() => {})} style={{ minHeight: 32, justifyContent: "center", alignSelf: "flex-start" }}>
+                          <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: color.muted }}>{t.troll.decline}</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                    <HexCheck size={30} done={done} disabled={busy || done} label={fill(done ? t.board.isDone : t.board.markDone, { title: x.title })}
+                      onPress={() => completeTroll(user.uid, tr).then((r) => { if (r) { doneFeel(); showToast({ coins: 0, bonus: 0, xp: r.xp }); if (r.levelUp) setLevelUp({ level: r.levelUp, xp: (player.xp ?? 0) + r.xp, coins: 0 }); } }).catch(() => showToast({ error: true }))} />
+                  </View>
+                );
+              })}
+            </Frame>
+          ) : null}
           {duties.length ? (
             <Frame cut={12}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", paddingHorizontal: 14, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: color.line }}>
@@ -366,7 +398,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
               <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.danger }}>{toast.text ?? t.quests.error}</Text>
             ) : (
               <>
-                <Coins value={toast.coins} sign="+" size={22} />
+                {toast.coins ? <Coins value={toast.coins} sign="+" size={22} /> : null}
                 <Text style={{ fontFamily: font.num, fontSize: 22, color: color.accent }}>+{toast.xp} <Text style={{ fontSize: 14 }}>{t.status.exp}</Text></Text>
               </>
             )}

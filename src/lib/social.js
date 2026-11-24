@@ -4,9 +4,10 @@
 //   public/{uid}/requests/{fromUid} -> a friend request to you
 //   public/{uid}/friends/{friendUid}-> one friend (both sides get a doc when a request is accepted)
 import { useEffect, useState } from "react";
-import { collection, doc, getDoc, onSnapshot, serverTimestamp, setDoc, writeBatch } from "firebase/firestore";
+import { collection, doc, getDoc, onSnapshot, runTransaction, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { db } from "./firebase";
-import { cardSignature, cleanCode, friendCode, publicCard } from "../game/social";
+import { cardSignature, cleanCode, friendCode, publicCard, trollById, trollXp } from "../game/social";
+import { levelFromXp } from "../game/economy";
 import { currentDay, currentStreak } from "./day";
 
 let lastSig = null;
@@ -114,4 +115,56 @@ export function useFriends(uid) {
 
 export async function myCode(uid, name) {
   return claimCode(uid, name);
+}
+
+// ---- Troll quests ----
+// public/{uid}/trolls/{fromUid}_{date}: one per friend per day (the id makes a second one impossible).
+
+export function sendTroll(me, myName, friendUid, trollId, date) {
+  return setDoc(doc(db, "public", friendUid, "trolls", `${me}_${date}`), { from: me, fromName: myName ?? "Player", troll: trollId, date, status: "new", at: serverTimestamp() });
+}
+
+// The one you sent this friend today (to show whether they did it).
+export function useSentTroll(me, friendUid, date) {
+  const [sent, setSent] = useState(undefined);
+  useEffect(() => {
+    if (!me || !friendUid) return;
+    return onSnapshot(doc(db, "public", friendUid, "trolls", `${me}_${date}`),
+      (snap) => setSent(snap.exists() ? snap.data() : null), () => setSent(null));
+  }, [me, friendUid, date]);
+  return sent;
+}
+
+// Troll quests sent to you today.
+export function useTrolls(uid, date) {
+  const [list, setList] = useState([]);
+  useEffect(() => {
+    if (!uid) return;
+    return onSnapshot(collection(db, "public", uid, "trolls"),
+      (snap) => setList(snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((x) => x.date === date && x.status !== "declined")),
+      () => setList([]));
+  }, [uid, date]);
+  return list;
+}
+
+// Done: a little EXP (and stat EXP), and the sender sees it was done.
+export async function completeTroll(uid, troll) {
+  const t = trollById[troll.troll];
+  if (!t || troll.status === "done") return null;
+  const xp = trollXp(t);
+  const playerRef = doc(db, "players", uid);
+  const trollRef = doc(db, "public", uid, "trolls", troll.id);
+  return runTransaction(db, async (tx) => {
+    const p = (await tx.get(playerRef)).data() ?? {};
+    const tr = await tx.get(trollRef);
+    if (!tr.exists() || tr.data().status === "done") return null;
+    const total = (p.xp ?? 0) + xp;
+    tx.set(playerRef, { xp: total, level: levelFromXp(total).level, statXp: { ...(p.statXp ?? {}), [t.stat]: (p.statXp?.[t.stat] ?? 0) + xp }, updatedAt: serverTimestamp() }, { merge: true });
+    tx.update(trollRef, { status: "done", doneAt: serverTimestamp() });
+    return { xp, stat: t.stat, levelUp: levelFromXp(total).level > levelFromXp(p.xp ?? 0).level ? levelFromXp(total).level : null };
+  });
+}
+
+export function declineTroll(uid, trollDocId) {
+  return updateDoc(doc(db, "public", uid, "trolls", trollDocId), { status: "declined" });
 }

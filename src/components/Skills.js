@@ -1,6 +1,6 @@
-// Skills tab: your trained skills first, then every skill by stat. Tap one for its page.
+// Skills tab: your trained skills first, then every skill: search, filter, fold per stat, or a random one.
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GUILD, skillById } from "../game/guild";
@@ -13,7 +13,12 @@ import { AMBER, RankHex, StepBar, skillStatus } from "./skillParts";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 import StatInfo from "./StatInfo";
+import { interestSkills } from "../game/profile";
+import { ladderById } from "../game/ladders";
+import { tapFeel } from "../lib/haptics";
 import { statValue } from "../game/economy";
+const FILTERS = ["all", "new", "trained", "rust", "liked"];
+const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 
 function Row({ v, name, onPress }) {
   const { color, font } = useTheme();
@@ -42,8 +47,11 @@ export default function Skills({ user, player, onGoToQuest, focusSkill, onFocusD
     if (focusSkill) onFocusDone?.();
   }, [focusSkill, onFocusDone]);
   const [guildFor, setGuildFor] = useState(null);
-  const [stat, setStat] = useState("STR");
   const [info, setInfo] = useState(null);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [openStats, setOpenStats] = useState(["STR"]);
+  const toggle = (st) => setOpenStats((o) => (o.includes(st) ? o.filter((x) => x !== st) : [...o, st]));
 
   if (guildFor) return <Guild user={user} player={player} initialSkill={guildFor} onClose={() => setGuildFor(null)} onAccepted={(id) => { const from = guildFor; setGuildFor(null); onGoToQuest?.({ id, slot: "guild" }, from); }} />;
   if (open) return <SkillPage user={user} player={player} id={open} onBack={() => setOpen(null)} onRequest={() => setGuildFor(open)} />;
@@ -52,6 +60,32 @@ export default function Skills({ user, player, onGoToQuest, focusSkill, onFocusD
   const view = (id) => skillView(id, player.skills?.[id], today);
   const yours = Object.keys(skillById).map(view).filter((v) => v.trained)
     .sort((a, b) => a.since - b.since || b.rank - a.rank);
+
+  // Browsing: search by name, filter by state, fold per stat.
+  const liked = interestSkills(player.profile);
+  const q = query.trim().toLowerCase();
+  const searching = q.length > 0 || filter !== "all";
+  const passes = (sk) => {
+    if (q && !`${sk.id} ${sk.name} ${sk.quest} ${sk.counts ?? ""} ${ladderById[sk.id]?.note ?? ""}`.toLowerCase().includes(q)) return false;
+    const v = view(sk.id);
+    if (filter === "new") return !v.trained;
+    if (filter === "trained") return v.trained;
+    if (filter === "rust") return v.rusty || v.draining || (v.rustIn != null && v.rustIn <= 3);
+    if (filter === "liked") return liked.has(sk.id);
+    return true;
+  };
+  const shown = (st) => GUILD[st].filter(passes);
+
+  // A random skill you haven't trained yet (your interests twice as likely), from what the filter shows.
+  function randomSkill() {
+    const pool = STATS.flatMap(shown);
+    const fresh = pool.filter((sk) => !view(sk.id).trained);
+    const from = fresh.length ? fresh : pool.length ? pool : Object.values(skillById);
+    const weighted = from.flatMap((sk) => (liked.has(sk.id) ? [sk, sk] : [sk]));
+    const pick = weighted[Math.floor(Math.random() * weighted.length)];
+    tapFeel();
+    setOpen(pick.id);
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>
@@ -81,29 +115,60 @@ export default function Skills({ user, player, onGoToQuest, focusSkill, onFocusD
           )}
         </Frame>
 
-        <Label style={{ marginTop: 26, marginBottom: 10, marginLeft: 4 }}>{t.skills.all}</Label>
-        <View accessibilityRole="tablist" style={{ flexDirection: "row", gap: 6 }}>
-          {STATS.map((s) => {
-            const on = s === stat;
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 26, marginBottom: 10, paddingHorizontal: 4 }}>
+          <Label>{fill(t.skills.allCount, { n: Object.keys(skillById).length })}</Label>
+          <Pressable accessibilityRole="button" accessibilityHint={t.skills.randomHint} onPress={randomSkill} hitSlop={6}
+            style={({ pressed }) => ({ minHeight: 40, flexDirection: "row", alignItems: "center", gap: 6, opacity: pressed ? 0.6 : 1 })}>
+            <Svg width={18} height={18} viewBox="0 0 24 24">
+              <Path d="M12 2.8l8 4.6v9.2l-8 4.6-8-4.6V7.4z" fill="none" stroke={color.accent} strokeWidth={1.6} strokeLinejoin="round" />
+              <Path d="M9 9.5h.01M15 9.5h.01M12 12h.01M9 14.5h.01M15 14.5h.01" stroke={color.accent} strokeWidth={2.6} strokeLinecap="round" />
+            </Svg>
+            <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.accent }}>{t.skills.random}</Text>
+          </Pressable>
+        </View>
+        <TextInput value={query} onChangeText={setQuery} placeholder={t.skills.search} placeholderTextColor="#4A5A7A" accessibilityLabel={t.skills.search}
+          autoCorrect={false} clearButtonMode="while-editing"
+          style={{ minHeight: 46, paddingHorizontal: 12, fontFamily: font.body, fontSize: 15, color: "#FFFFFF", borderWidth: 1, borderColor: "rgba(159,203,255,0.3)", backgroundColor: "rgba(5,10,24,0.7)" }} />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 8 }}>
+          {FILTERS.map((f) => {
+            const on = filter === f;
             return (
-              <Pressable key={s} accessibilityRole="tab" accessibilityLabel={t.stats[s]} accessibilityState={{ selected: on }} onPress={() => setStat(s)}
-                style={{ flex: 1, minHeight: 44, alignItems: "center", justifyContent: "center", backgroundColor: on ? "rgba(159,203,255,0.18)" : "rgba(5,10,24,0.7)", borderWidth: 1, borderColor: on ? color.frame : "rgba(159,203,255,0.22)" }}>
-                <Text style={{ fontFamily: font.bold, fontSize: 12, letterSpacing: 1, color: on ? "#FFFFFF" : "#B8C7E3" }}>{s}</Text>
+              <Pressable key={f} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => setFilter(f)}
+                style={{ minHeight: 40, paddingHorizontal: 12, justifyContent: "center", borderWidth: 1, borderColor: on ? color.frame : "rgba(159,203,255,0.22)", backgroundColor: on ? "rgba(159,203,255,0.16)" : "transparent" }}>
+                <Text style={{ fontFamily: font.bold, fontSize: 13, color: on ? "#FFFFFF" : color.muted }}>{t.skills.filters[f]}</Text>
               </Pressable>
             );
           })}
-        </View>
-        <Pressable accessibilityRole="button" onPress={() => setInfo(stat)} style={{ minHeight: 40, flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6, paddingHorizontal: 4 }}>
-          <Text style={{ fontFamily: font.bold, fontSize: 15, color: "#FFFFFF" }}>{t.stats[stat]}</Text>
-          <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.accent }}>{t.statInfo.whatIs}</Text>
-        </Pressable>
-        <Frame cut={14} style={{ marginTop: 4 }} contentStyle={{ paddingHorizontal: 16, paddingVertical: 4 }}>
-          {GUILD[stat].map((s, i) => (
-            <View key={s.id} style={{ borderTopWidth: i ? 1 : 0, borderTopColor: color.line }}>
-              <Row v={view(s.id)} name={s.name} onPress={() => setOpen(s.id)} />
-            </View>
-          ))}
-        </Frame>
+        </ScrollView>
+        {searching && !STATS.some((st) => shown(st).length) ? (
+          <Text style={{ marginTop: 10, fontFamily: font.body, fontSize: 14, color: color.muted, textAlign: "center" }}>{t.skills.noMatch}</Text>
+        ) : null}
+        {STATS.map((st) => {
+          const list = shown(st);
+          if (searching && !list.length) return null;
+          const open = searching || openStats.includes(st);
+          return (
+            <Frame key={st} cut={14} style={{ marginTop: 8 }} contentStyle={{ paddingHorizontal: 16, paddingVertical: 4 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 52 }}>
+                <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => toggle(st)} style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 10, minHeight: 52 }}>
+                  <Text style={{ width: 34, fontFamily: font.bold, fontSize: 12, letterSpacing: 1, color: color.accent }}>{st}</Text>
+                  <Text style={{ flex: 1, fontFamily: font.bold, fontSize: 16, color: "#FFFFFF" }}>{t.stats[st]}</Text>
+                  <Text style={{ fontFamily: font.num, fontSize: 15, color: color.muted }}>{list.length}</Text>
+                  <Text style={{ width: 16, textAlign: "center", fontFamily: font.bold, fontSize: 18, color: color.muted }}>{open ? "−" : "+"}</Text>
+                </Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel={`${t.statInfo.whatIs} ${t.stats[st]}`} onPress={() => setInfo(st)} hitSlop={8}
+                  style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 1, borderColor: color.muted, alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontFamily: font.bold, fontSize: 12, color: color.muted }}>?</Text>
+                </Pressable>
+              </View>
+              {open ? (list.length ? list.map((sk) => (
+                <View key={sk.id} style={{ borderTopWidth: 1, borderTopColor: color.line }}>
+                  <Row v={view(sk.id)} name={sk.name} onPress={() => setOpen(sk.id)} />
+                </View>
+              )) : <Text style={{ paddingVertical: 10, fontFamily: font.body, fontSize: 13, color: color.muted }}>{t.skills.noneHere}</Text>) : null}
+            </Frame>
+          );
+        })}
       </ScrollView>
       <StatInfo stat={info} value={info ? statValue(player.statXp?.[info] ?? 0) : null} onClose={() => setInfo(null)} onOpenSkill={(id) => setOpen(id)} />
     </View>
