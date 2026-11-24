@@ -1,4 +1,4 @@
-import { addDoc, collection, deleteField, doc, runTransaction, serverTimestamp } from "firebase/firestore";
+import { collection, deleteField, doc, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import { allMainsBonus, levelFromXp, questCoins, questXp } from "../game/economy";
 import { pickMainQuests, questById, todayKey } from "../game/quests";
@@ -79,7 +79,8 @@ export function rewardPreview(day, questId) {
 
 // Completes a quest: coins, XP, stat XP and the all-mains bonus in one transaction.
 // slot: "start" | "main" | "guild" | "trial". log: optional { value, unit } ("reps" or "seconds").
-export async function completeQuest(uid, questId, slot, log = null) {
+// opts.quick: finished by quick logs, which already counted the minutes toward the skill and muscles.
+export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
   const ref = doc(db, "players", uid);
   const q = getQuest(questId);
   const result = await runTransaction(db, async (tx) => {
@@ -132,7 +133,7 @@ export async function completeQuest(uid, questId, slot, log = null) {
     // Skill progress: the quest's minutes count toward its skill.
     let skills = null;
     let skillUp = null;
-    if (q.skill && ladderById[q.skill]) {
+    if (q.skill && ladderById[q.skill] && !opts.quick) {
       const ladder = ladderById[q.skill];
       const skillBefore = player.skills?.[q.skill]?.rank ?? 0;
       let entry = recordTraining(player.skills?.[q.skill], q.minutes, today);
@@ -147,7 +148,7 @@ export async function completeQuest(uid, questId, slot, log = null) {
     }
 
     // Muscles: the quest's load goes into this week's body map.
-    const load = questLoad(q);
+    const load = opts.quick ? null : questLoad(q);
     const week = weekNum(today);
     const weekBefore = player.muscleLoad?.[week] ?? {};
     const weekAfter = load ? addLoad(weekBefore, load) : null;
@@ -186,11 +187,13 @@ export async function completeQuest(uid, questId, slot, log = null) {
     };
   });
 
-  // Quest log for balancing later. Separate write: if it fails, the reward still counts.
-  addDoc(collection(db, "players", uid, "log"), {
+  // Quest log (Settings > History, and the check-in answers). Separate write: if it fails, the reward still counts.
+  const logRef = doc(collection(db, "players", uid, "log"));
+  setDoc(logRef, {
     questId, slot, title: q.title, type: q.type, stat: q.stat, ...(log?.value != null ? { value: log.value, unit: log.unit ?? null } : {}),
+    ...(opts.quick ? { quick: true } : {}),
     coins: result.coins, xp: result.xp, bonus: result.bonus, date: todayKey(), at: serverTimestamp(),
   }).catch(() => {});
 
-  return result;
+  return { ...result, logId: logRef.id, slot };
 }

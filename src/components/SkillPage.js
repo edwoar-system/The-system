@@ -9,6 +9,8 @@ import { dayNum, isHabit, skillView, trialParts, trialQuestId, trialState } from
 import { startTrial, stopTrial } from "../lib/skills";
 import QuestSheet from "./QuestSheet";
 import { BodyReport } from "./Body";
+import CheckIn from "./CheckIn";
+import { getQuest } from "../lib/day";
 import RankUp from "./RankUp";
 import LevelUp from "./LevelUp";
 import { AMBER, StepBar, fill, skillStatus } from "./skillParts";
@@ -79,6 +81,7 @@ export default function SkillPage({ user, player, id, onBack, onRequest }) {
   const [levelUp, setLevelUp] = useState(null);
   const [sheet, setSheet] = useState(null); // a trial part opened as a quest
   const [body, setBody] = useState(null);
+  const [check, setCheck] = useState(null);
 
   // The trial: a running one, a retest when rusty, otherwise the next rank (or a higher one: placement).
   const active = trialState(player.trials?.[id], L, v.ticks);
@@ -111,6 +114,7 @@ export default function SkillPage({ user, player, id, onBack, onRequest }) {
     try { await stopTrial(user.uid, id); } catch { setError(t.skills.failed); } finally { setBusy(false); }
   }
   function onResult(r) {
+    if (r.logId && sheet?.id) setCheck({ logId: r.logId, title: getQuest(sheet.id)?.title ?? "" });
     if (r.muscles) setBody(r.muscles);
     if (r.levelUp) setLevelUp({ level: r.levelUp, xp: (player.xp ?? 0) + r.xp });
     if (r.skillUp) setRankUp({ letter: RANKS[r.skillUp.rank], name: skill.name, xp: r.skillUp.xp });
@@ -280,9 +284,10 @@ export default function SkillPage({ user, player, id, onBack, onRequest }) {
         <SysButton label={t.skills.request} onPress={onRequest} style={{ marginTop: 18 }} />
       </ScrollView>
       {sheet ? <QuestSheet user={user} player={player} questId={sheet.id} slot="trial" done={sheet.done} onClose={() => setSheet(null)} onResult={onResult} /> : null}
-      <BodyReport data={body} onClose={() => setBody(null)} />
-      <RankUp data={body ? null : rankUp} onClose={() => setRankUp(null)} />
-      <LevelUp data={body || rankUp ? null : levelUp} onClose={() => setLevelUp(null)} />
+      <CheckIn uid={user.uid} data={check} onClose={() => setCheck(null)} />
+      <BodyReport data={check ? null : body} onClose={() => setBody(null)} />
+      <RankUp data={check || body ? null : rankUp} onClose={() => setRankUp(null)} />
+      <LevelUp data={check || body || rankUp ? null : levelUp} onClose={() => setLevelUp(null)} />
     </View>
   );
 }

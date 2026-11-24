@@ -13,6 +13,9 @@ import LevelUp from "./LevelUp";
 import RankUp from "./RankUp";
 import QuestSheet from "./QuestSheet";
 import { BodyReport } from "./Body";
+import CheckIn from "./CheckIn";
+import QuickLog from "./QuickLog";
+import { QUICK, goalFor, quickToday } from "../game/quick";
 import { trialQuestId, trialState } from "../game/skills";
 import { RANKS, ladderById as ladders } from "../game/ladders";
 import { skillById } from "../game/guild";
@@ -57,9 +60,13 @@ function QuestHex({ stat, done }) {
   );
 }
 
-function GoalRow({ questId, done, busy, onDone, onOpen, last }) {
+function GoalRow({ questId, done, busy, onDone, onOpen, last, quick }) {
   const { color, font } = useTheme();
   const q = getQuest(questId);
+  // Quick logs count toward the quest: show taps instead of minutes.
+  const a = quick ? Math.min(quick.count, quick.goal) : done ? q.minutes : 0;
+  const b = quick ? quick.goal : q.minutes;
+  const ratio = done ? 1 : b ? a / b : 0;
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, paddingLeft: 14, paddingRight: 8,
       borderBottomWidth: last ? 0 : 1, borderBottomColor: color.line, opacity: done ? 0.55 : 1 }}>
@@ -68,10 +75,10 @@ function GoalRow({ questId, done, busy, onDone, onOpen, last }) {
         <Text style={{ fontFamily: font.bold, fontSize: 16, lineHeight: 21, color: "#FFFFFF" }}>{q.title}</Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <View style={{ flex: 1, height: 3, backgroundColor: "rgba(159,203,255,0.12)" }}>
-            <View style={{ height: 3, width: done ? "100%" : "0%", backgroundColor: color.accent }} />
+            <View style={{ height: 3, width: `${ratio * 100}%`, backgroundColor: color.accent }} />
           </View>
           <Text style={{ fontFamily: font.num, fontSize: 15, color: color.frame }}>
-            {fill(t.board.progress, { a: done ? q.minutes : 0, b: q.minutes })}
+            {quick ? fill(t.board.progressQuick, { a: done ? b : a, b, unit: quick.unit }) : fill(t.board.progress, { a, b })}
           </Text>
         </View>
         <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>
@@ -98,6 +105,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
   const [levelUp, setLevelUp] = useState(null);
   const [rankUp, setRankUp] = useState(null);
   const [body, setBody] = useState(null); // body report after a quest that trained muscles
+  const [check, setCheck] = useState(null); // check-in after an important quest: { logId, title }
   // Opened from somewhere else (a quest just accepted in the guild): start with that quest open.
   const [sheet, setSheet] = useState(focus ?? null); // { id, slot, done }
   useEffect(() => {
@@ -111,6 +119,11 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
   }).filter(Boolean);
   const toastAnim = useRef(new Animated.Value(0)).current;
 
+  const quickCounts = quickToday(player);
+  const quickFor = (questId) => {
+    const item = QUICK.find((it) => (Array.isArray(it.quest) ? it.quest : [it.quest]).includes(questId));
+    return item ? { count: quickCounts[item.id] ?? 0, goal: goalFor(item, questId), unit: item.goalUnit } : null;
+  };
   const mainsDone = day.mains.filter((m) => m.done).length;
   const allDone = mainsDone === day.mains.length;
   const pct = Math.round(ECONOMY.allMainsBonus * 100);
@@ -132,6 +145,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
     showToast({ coins: r.coins + r.bonus, bonus: r.bonus, xp: r.xp });
     if (r.levelUp) setLevelUp({ level: r.levelUp, xp: (player.xp ?? 0) + r.xp, coins: r.coins + r.bonus });
     const q = getQuest(questId);
+    if ((r.slot === "main" || r.slot === "trial") && r.logId) setCheck({ logId: r.logId, title: q?.title ?? "" });
     if (r.muscles) setBody({ ...r.muscles, skillId: q?.skill, skillName: skillById[q?.skill]?.name ?? "" });
     if (r.skillUp) setRankUp({ letter: RANKS[r.skillUp.rank], name: skillById[r.skillUp.id]?.name ?? "", xp: r.skillUp.xp });
     else if (r.trialDone && q?.skill) setRankUp({ letter: RANKS[q.trial.rank], name: skillById[q.skill]?.name ?? "", xp: 0, restored: true });
@@ -182,6 +196,8 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
           </Frame>
         ) : null}
 
+        <QuickLog user={user} player={player} day={day} onCompleted={onResult} style={{ marginTop: 14, marginHorizontal: 14 }} />
+
         <Frame kind="premium" cut={16} corners style={{ marginTop: 14, marginHorizontal: 14 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: "rgba(159,203,255,0.18)" }}>
             <Label tone={color.hi} style={{ letterSpacing: 4, fontSize: 12 }}>{t.board.goals}</Label>
@@ -191,7 +207,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
           </View>
           {day.mains.map((m, i) => (
             <GoalRow key={m.id} questId={m.id} done={m.done} busy={busy} last={i === day.mains.length - 1}
-              onDone={() => complete(m.id, "main")} onOpen={() => setSheet({ id: m.id, slot: "main", done: m.done })} />
+              onDone={() => complete(m.id, "main")} onOpen={() => setSheet({ id: m.id, slot: "main", done: m.done })} quick={quickFor(m.id)} />
           ))}
           <View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 8, borderTopWidth: 1, borderTopColor: color.line }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -321,9 +337,10 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
 
       {sheet ? <QuestSheet user={user} player={player} questId={sheet.id} slot={sheet.slot} done={sheet.done} onClose={() => setSheet(null)} onResult={(r) => onResult(r, sheet.id)}
         onOpenSkill={onOpenSkill ? (id) => { setSheet(null); onOpenSkill(id); } : null} /> : null}
-      <BodyReport data={body} onClose={() => setBody(null)} onOpenSkill={onOpenSkill} />
-      <RankUp data={body ? null : rankUp} onClose={() => setRankUp(null)} />
-      <LevelUp data={body || rankUp ? null : levelUp} onClose={() => setLevelUp(null)} />
+      <CheckIn uid={user.uid} data={check} onClose={() => setCheck(null)} />
+      <BodyReport data={check ? null : body} onClose={() => setBody(null)} onOpenSkill={onOpenSkill} />
+      <RankUp data={check || body ? null : rankUp} onClose={() => setRankUp(null)} />
+      <LevelUp data={check || body || rankUp ? null : levelUp} onClose={() => setLevelUp(null)} />
     </View>
   );
 }

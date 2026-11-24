@@ -73,14 +73,19 @@ function Notifications({ user, player }) {
   );
 }
 
-function History({ uid }) {
+function History({ uid, honesty }) {
   const { color, font } = useTheme();
+  const summary = honesty?.checked
+    ? fill(t.settings.honesty, { n: honesty.checked, c: honesty.cheated ?? 0 })
+    : t.settings.honestyNone;
   const { items, error } = useHistory(uid);
-  if (!items) return <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{t.settings.loading}</Text>;
+  const head = <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: honesty?.cheated ? "#F6B45A" : color.muted }}>{summary}</Text>;
+  if (!items) return <View style={{ gap: 8 }}>{head}<Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{t.settings.loading}</Text></View>;
   if (error) return <Text style={{ fontFamily: font.body, fontSize: 13, color: color.dangerSoft }}>{t.settings.historyError}</Text>;
   if (!items.length) return <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{t.settings.historyEmpty}</Text>;
   return (
     <View>
+      {head}
       {items.map((it, i) => {
         const header = i === 0 || items[i - 1].date !== it.date ? it.date : null;
         return (
@@ -91,6 +96,12 @@ function History({ uid }) {
               <View style={{ flex: 1 }}>
                 <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, lineHeight: 19, color: color.text }}>{it.title}</Text>
                 {it.value != null ? <Text style={{ fontFamily: font.num, fontSize: 13, color: color.muted }}>{it.unit === "seconds" ? `${Math.floor(it.value / 60)}:${String(it.value % 60).padStart(2, "0")}` : `${it.value} ${t.sheet.reps}`}</Text> : null}
+                {it.how || it.cheat || it.quick ? (
+                  <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>
+                    {[it.quick ? t.settings.quickTag : null, it.how ? t.checkIn.hows[it.how] : null].filter(Boolean).join(" · ")}
+                    {it.cheat && it.cheat !== "no" ? <Text style={{ color: "#F6B45A" }}>{`${it.how || it.quick ? " · " : ""}${t.checkIn.cheat} ${t.checkIn.cheats[it.cheat]}`}</Text> : null}
+                  </Text>
+                ) : null}
               </View>
               <Coins value={(it.coins ?? 0) + (it.bonus ?? 0)} sign="+" size={14} />
             </View>
@@ -180,7 +191,7 @@ export default function Settings({ user, player, synced }) {
       </Section>
 
       <Section title={t.settings.history}>
-        <History uid={user.uid} />
+        <History uid={user.uid} honesty={player.honesty} />
       </Section>
 
       <Section title={t.settings.account}>
