@@ -15,6 +15,7 @@ import { BodyCard } from "./Body";
 import QuoteLibrary from "./QuoteLibrary";
 import QuotePage from "./QuotePage";
 import StatInfo from "./StatInfo";
+import { HabitsCard } from "./Habits";
 import { trollTitle } from "../game/social";
 import { FeedbackButton } from "./Feedback";
 import { quoteOfDay } from "../game/quotes";
@@ -235,6 +236,7 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
       </Pressable>
 
       <BodyCard player={player} />
+      <HabitsCard user={user} player={player} />
 
       {player.setupLocked && onOpenSettings ? <TunePrompt profile={player.profile} onPress={onOpenSettings} /> : null}
 
