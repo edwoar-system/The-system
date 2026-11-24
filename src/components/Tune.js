@@ -1,11 +1,12 @@
 // Tune the System: the questionnaire, in parts. Optional, any order, each part saved on its own.
 // Every question changes something (see game/profile.js); a question that changes nothing isn't asked.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { patchProfile } from "../lib/player";
 import { DUTIES, INTERESTS, MOUNTAINS, MOUNTAIN_LEVELS, PARTS, dayTimes, partsDone } from "../game/profile";
 import { SCHOOL_NAMES } from "../game/quotes";
-import { SysButton } from "./sys";
+import { useTrack } from "./saved";
+import { HelpDot } from "./Explain";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
@@ -136,16 +137,30 @@ const startDraft = (p = {}) => ({ ...p, ageText: p.age ? String(p.age) : "", wei
 
 export default function Tune({ user, player }) {
   const { color, font } = useTheme();
+  const track = useTrack();
   const [open, setOpen] = useState(null);
   const [draft, setDraft] = useState(() => startDraft(player.profile));
-  const [saved, setSaved] = useState(null);
   const done = partsDone(player.profile);
   const count = PARTS.filter((p) => done[p]).length;
 
-  async function save(part) {
-    await patchProfile(user.uid, patchFor(part, draft));
-    setSaved(part);
-    setOpen(null);
+  // Every answer saves itself a moment after you change it (or right away when you close the part).
+  const pending = useRef(null);
+  const timer = useRef(null);
+  const flushRef = useRef(null);
+  flushRef.current = () => {
+    clearTimeout(timer.current);
+    if (!pending.current) return;
+    const { part, d } = pending.current;
+    pending.current = null;
+    track(patchProfile(user.uid, patchFor(part, d))).catch(() => {});
+  };
+  useEffect(() => () => flushRef.current(), []);
+  function change(part, patch) {
+    const next = { ...draft, ...patch };
+    setDraft(next);
+    pending.current = { part, d: next };
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => flushRef.current(), 700);
   }
 
   return (
@@ -156,20 +171,23 @@ export default function Tune({ user, player }) {
         return (
           <View key={part} style={{ borderTopWidth: 1, borderTopColor: color.line, marginTop: 10 }}>
             <Pressable accessibilityRole="button" accessibilityState={{ expanded: isOpen }}
-              onPress={() => { setOpen(isOpen ? null : part); setSaved(null); setDraft(startDraft(player.profile)); }}
+              onPress={() => { flushRef.current(); setOpen(isOpen ? null : part); setDraft(startDraft(player.profile)); }}
               style={{ minHeight: 56, flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 10 }}>
               <View style={{ width: 9, height: 9, transform: [{ rotate: "45deg" }], borderWidth: 1, borderColor: done[part] ? color.accent : color.muted, backgroundColor: done[part] ? color.accent : "transparent" }} />
               <View style={{ flex: 1, gap: 2 }}>
                 <Text style={{ fontFamily: font.bold, fontSize: 15, color: "#FFFFFF" }}>{t.tune.parts[part].title}</Text>
-                <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{saved === part ? t.tune.saved : t.tune.parts[part].effect}</Text>
+                <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.tune.parts[part].effect}</Text>
               </View>
               <Text style={{ fontFamily: font.bold, fontSize: 18, color: color.muted }}>{isOpen ? "−" : "+"}</Text>
             </Pressable>
             {isOpen ? (
-              <View style={{ gap: 12, paddingTop: 8, paddingBottom: 6 }}>
-                <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.text }}>{t.tune.parts[part].ask}</Text>
-                <PartForm part={part} draft={draft} set={(patch) => setDraft((d) => ({ ...d, ...patch }))} />
-                <SysButton label={t.tune.save} onPress={() => save(part)} />
+              <View style={{ gap: 12, paddingTop: 8, paddingBottom: 10 }}>
+                <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
+                  <Text style={{ flex: 1, fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.text }}>{t.tune.parts[part].ask}</Text>
+                  {part === "mountains" || part === "duties" ? <HelpDot term={part} size={20} /> : null}
+                </View>
+                <PartForm part={part} draft={draft} set={(patch) => change(part, patch)} />
+                <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{t.tune.autosave}</Text>
               </View>
             ) : null}
           </View>

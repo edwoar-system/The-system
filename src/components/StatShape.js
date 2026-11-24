@@ -1,9 +1,10 @@
 // The attribute hexagon on Status: six stats, upright, with a slowly turning outer ring.
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Text, View } from "react-native";
+import { Animated, Easing, Pressable, Text, View } from "react-native";
 import Svg, { Defs, LinearGradient, Path, Polygon, Stop } from "react-native-svg";
 import { STATS } from "../game/quests";
 import { useTheme } from "../theme";
+import { t } from "../i18n";
 import { nativeDriver } from "./sys";
 
 const W = 330;
@@ -16,7 +17,8 @@ const P = (r, a) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
 const pts = (arr) => arr.map((q) => `${q[0].toFixed(1)},${q[1].toFixed(1)}`).join(" ");
 const ring = (fr) => pts(STATS.map((_, i) => P(R * fr, ang(i))));
 
-export default function StatShape({ values }) {
+// onStat: tap a stat label to explain it.
+export default function StatShape({ values, onStat }) {
   const { color, font } = useTheme();
   const grow = useRef(new Animated.Value(0)).current;
   const spin = useRef(new Animated.Value(0)).current;
@@ -65,10 +67,12 @@ export default function StatShape({ values }) {
       {STATS.map((s, i) => {
         const q = P(R + 30, ang(i));
         return (
-          <View key={s} pointerEvents="none" style={{ position: "absolute", left: q[0] - 30, top: q[1] - 20, width: 60, alignItems: "center" }}>
+          <Pressable key={s} disabled={!onStat} onPress={() => onStat?.(s)} accessibilityRole={onStat ? "button" : undefined}
+            accessibilityLabel={`${t.stats[s]} ${values[s] ?? 0}`} hitSlop={6}
+            style={({ pressed }) => ({ position: "absolute", left: q[0] - 32, top: q[1] - 22, width: 64, minHeight: 44, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}>
             <Text style={{ fontFamily: font.bold, fontSize: 11, letterSpacing: 2, color: color.muted }}>{s}</Text>
             <Text style={{ fontFamily: font.num, fontSize: 20, color: color.hi }}>{Math.round((values[s] ?? 0) * k)}</Text>
-          </View>
+          </Pressable>
         );
       })}
     </View>

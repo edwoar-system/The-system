@@ -5,7 +5,9 @@ import * as Updates from "expo-updates";
 import { signOut } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth } from "../lib/firebase";
-import { setNotify, setPlayerName, setPrivacy, setProof, setReminders } from "../lib/player";
+import { setFeelSetting, setNotify, toggleFavQuote, setPlayerName, setPrivacy, setProof, setReminders } from "../lib/player";
+import { setFeel } from "../lib/haptics";
+import { SavedStamp, useSavedStamp, useTrack } from "./saved";
 import { PRIVACY_KEYS, privacySettings } from "../game/social";
 import { loadProof } from "../lib/proof";
 import { PROOF_KINDS, proofSettings } from "../game/proof";
@@ -24,6 +26,7 @@ import Tune from "./Tune";
 import QuoteLibrary from "./QuoteLibrary";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
+import { Glossary } from "./Explain";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 
@@ -53,6 +56,7 @@ function Section({ title, sub, children }) {
 }
 
 function Notifications({ user, player }) {
+  const track = useTrack();
   const { color, font } = useTheme();
   const [perm, setPerm] = useState(null);
   useEffect(() => {
@@ -70,7 +74,7 @@ function Notifications({ user, player }) {
       {NOTIFY_KINDS.map((k) => (
         <View key={k} style={{ minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: color.line }}>
           <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{t.notify.kinds[k]}</Text>
-          <Switch accessibilityLabel={t.notify.kinds[k]} value={on[k]} onValueChange={(v) => setNotify(user.uid, k, v)}
+          <Switch accessibilityLabel={t.notify.kinds[k]} value={on[k]} onValueChange={(v) => track(setNotify(user.uid, k, v)).catch(() => {})}
             trackColor={{ false: "#1A2440", true: color.blue }} thumbColor="#EAF4FF" ios_backgroundColor="#1A2440" />
         </View>
       ))}
@@ -79,6 +83,7 @@ function Notifications({ user, player }) {
 }
 
 function Reminders({ user, player }) {
+  const track = useTrack();
   const { color, font } = useTheme();
   const [text, setText] = useState("");
   const [time, setTime] = useState("");
@@ -97,7 +102,7 @@ function Reminders({ user, player }) {
     if (when <= now) when.setDate(when.getDate() + 1);
     const r = { id: String(Date.now()), text: text.trim(), time: hhmm, repeat: daily ? "daily" : "once", ...(daily ? {} : { date: todayKey(when) }) };
     setError(null);
-    await setReminders(user.uid, [...list, r]);
+    await track(setReminders(user.uid, [...list, r]));
     setText("");
     setTime("");
   }
@@ -111,7 +116,7 @@ function Reminders({ user, player }) {
             <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{r.text}</Text>
             <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{r.repeat === "daily" ? t.reminders.daily : r.date === todayKey() ? t.reminders.today : t.reminders.tomorrow}</Text>
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel={`${t.reminders.remove}: ${r.text}`} onPress={() => setReminders(user.uid, list.filter((x) => x.id !== r.id))}
+          <Pressable accessibilityRole="button" accessibilityLabel={`${t.reminders.remove}: ${r.text}`} onPress={() => track(setReminders(user.uid, list.filter((x) => x.id !== r.id))).catch(() => {})}
             style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}>
             <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.muted }}>{t.reminders.remove}</Text>
           </Pressable>
@@ -137,12 +142,13 @@ function Reminders({ user, player }) {
 
 // Which kinds of quest ask for proof.
 function ProofChoice({ user, player }) {
+  const track = useTrack();
   const { color, font } = useTheme();
   const on = proofSettings(player);
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
       {PROOF_KINDS.map((k) => (
-        <Pressable key={k} accessibilityRole="switch" accessibilityState={{ checked: on[k] }} onPress={() => setProof(user.uid, k, !on[k])}
+        <Pressable key={k} accessibilityRole="switch" accessibilityState={{ checked: on[k] }} onPress={() => track(setProof(user.uid, k, !on[k])).catch(() => {})}
           style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: "center", borderWidth: 1, borderColor: on[k] ? color.frame : "rgba(159,203,255,0.22)", backgroundColor: on[k] ? "rgba(159,203,255,0.16)" : "transparent" }}>
           <Text style={{ fontFamily: font.bold, fontSize: 13, color: on[k] ? "#FFFFFF" : color.muted }}>{t.proof.kinds[k]}</Text>
         </Pressable>
@@ -151,8 +157,27 @@ function ProofChoice({ user, player }) {
   );
 }
 
+// Sound and vibration on or off.
+function Feel({ user, player }) {
+  const { color, font } = useTheme();
+  const track = useTrack();
+  const on = { vibration: player.feel?.vibration !== false, sound: player.feel?.sound !== false };
+  return (
+    <View>
+      {["vibration", "sound"].map((k, i) => (
+        <View key={k} style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 52, borderTopWidth: i ? 1 : 0, borderTopColor: color.line }}>
+          <Text style={{ flex: 1, fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{t.feel[k]}</Text>
+          <Switch value={on[k]} accessibilityLabel={t.feel[k]} trackColor={{ false: "#1A2740", true: color.frame }} thumbColor="#FFFFFF"
+            onValueChange={(v) => { setFeel({ ...on, [k]: v }); track(setFeelSetting(user.uid, k, v)).catch(() => {}); }} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 // What your friends can see.
 function Privacy({ user, player }) {
+  const track = useTrack();
   const { color, font } = useTheme();
   const on = privacySettings(player);
   return (
@@ -162,7 +187,7 @@ function Privacy({ user, player }) {
           <View style={{ flex: 1 }}>
             <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{t.privacy.keys[k]}</Text>
           </View>
-          <Switch value={on[k]} onValueChange={(v) => setPrivacy(user.uid, k, v)} accessibilityLabel={t.privacy.keys[k]}
+          <Switch value={on[k]} onValueChange={(v) => track(setPrivacy(user.uid, k, v)).catch(() => {})} accessibilityLabel={t.privacy.keys[k]}
             trackColor={{ false: "#1A2740", true: color.frame }} thumbColor="#FFFFFF" />
         </View>
       ))}
@@ -237,18 +262,24 @@ export default function Settings({ user, player, synced }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const [name, setName] = useState(player.name ?? "");
-  const [saved, setSaved] = useState(null); // "name"
   const [quotes, setQuotes] = useState(false);
+  const { stamp, track, Provider } = useSavedStamp();
+
+  // Your name saves itself a moment after you stop typing.
+  useEffect(() => {
+    const v = name.trim();
+    if (!v || v === player.name) return;
+    const id = setTimeout(() => { track(setPlayerName(user.uid, v)).catch(() => {}); }, 900);
+    return () => clearTimeout(id);
+  }, [name, player.name, user.uid, track]);
 
   const today = todayKey();
   const severity = severityFor(player, today);
   const pendingSeverity = player.penaltySeverityNext && player.penaltySeverityFrom > today ? player.penaltySeverityNext : null;
 
-  async function saveName() {
-    await setPlayerName(user.uid, name.trim());
-    setSaved("name");
-  }
   return (
+    <Provider value={track}>
+    <View style={{ flex: 1, backgroundColor: color.bg }}>
     <ScrollView style={{ flex: 1, backgroundColor: color.bg }} keyboardShouldPersistTaps="handled"
       contentContainerStyle={{ paddingTop: insets.top + 14, paddingBottom: 40, paddingHorizontal: 14, maxWidth: 520, width: "100%", alignSelf: "center" }}>
       <Glow height={380} at={0.18} />
@@ -260,8 +291,7 @@ export default function Settings({ user, player, synced }) {
 
       <Section title={t.settings.profile}>
         <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-end" }}>
-          <View style={{ flex: 1 }}><Input label={t.settings.name} value={name} onChangeText={(v) => { setName(v); setSaved(null); }} /></View>
-          <SysButton label={(saved === "name" ? t.settings.saved : t.settings.save).toUpperCase()} disabled={!name.trim() || name.trim() === player.name} onPress={saveName} style={{ minHeight: 46 }} />
+          <View style={{ flex: 1 }}><Input label={t.settings.name} value={name} onChangeText={setName} /></View>
         </View>
       </Section>
 
@@ -272,16 +302,17 @@ export default function Settings({ user, player, synced }) {
       <Section title={t.quote.section} sub={t.quote.sectionSub}>
         <SysButton label={t.quote.open} onPress={() => setQuotes(true)} />
       </Section>
-      {quotes ? <QuoteLibrary mine={player.profile?.schools ?? []} onClose={() => setQuotes(false)} /> : null}
+      {quotes ? <QuoteLibrary mine={player.profile?.schools ?? []} favs={player.favQuotes ?? []}
+        onStar={(id) => toggleFavQuote(user.uid, id, !(player.favQuotes ?? []).includes(id)).catch(() => {})} onClose={() => setQuotes(false)} /> : null}
 
       <Section title={t.settings.system}>
         <View style={{ gap: 8 }}>
           <Label>{t.settings.urgent.toUpperCase()}</Label>
-          <UrgentChips value={player.urgentPerDay ?? URGENT.defaultPerDay} onChange={(n) => setUrgentPerDay(user.uid, n)} />
+          <UrgentChips value={player.urgentPerDay ?? URGENT.defaultPerDay} onChange={(n) => track(setUrgentPerDay(user.uid, n)).catch(() => {})} />
         </View>
         <View style={{ gap: 8 }}>
           <Label>{t.settings.severity.toUpperCase()}</Label>
-          <SeverityChips value={pendingSeverity ?? severity} onChange={(s) => scheduleSeverity(user.uid, s)} />
+          <SeverityChips value={pendingSeverity ?? severity} onChange={(s) => track(scheduleSeverity(user.uid, s)).catch(() => {})} />
           {pendingSeverity ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: color.frame }}>{fill(t.settings.severityNext, { sev: t.penalty.severities[pendingSeverity] })}</Text> : null}
         </View>
       </Section>
@@ -298,8 +329,16 @@ export default function Settings({ user, player, synced }) {
         <Reminders user={user} player={player} />
       </Section>
 
+      <Section title={t.feel.title} sub={t.feel.sub}>
+        <Feel user={user} player={player} />
+      </Section>
+
       <Section title={t.notify.section}>
         <Notifications user={user} player={player} />
+      </Section>
+
+      <Section title={t.explain.section} sub={t.explain.sectionSub}>
+        <Glossary />
       </Section>
 
       <Section title={t.settings.history}>
@@ -317,5 +356,8 @@ export default function Settings({ user, player, synced }) {
         <Button kind="text" label={t.home.logout} onPress={() => signOut(auth)} style={{ alignSelf: "flex-start", paddingHorizontal: 0 }} />
       </Section>
     </ScrollView>
+    <SavedStamp stamp={stamp} />
+    </View>
+    </Provider>
   );
 }

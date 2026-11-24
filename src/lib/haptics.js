@@ -1,15 +1,32 @@
-// Small vibrations for moments that matter (a quest done, a lock-in). Silent on the website.
+// Feedback for moments that matter: a vibration and a short sound. Both can be turned off in
+// Settings (Shell passes your choice in with setFeel). Sounds follow the iPhone's silent switch.
 import { Platform } from "react-native";
 import * as Haptics from "expo-haptics";
+import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 
-const on = Platform.OS === "ios" || Platform.OS === "android";
+const native = Platform.OS === "ios" || Platform.OS === "android";
+let feel = { vibration: true, sound: true };
+export function setFeel(next) { feel = { vibration: next?.vibration !== false, sound: next?.sound !== false }; }
 
-export function tapFeel() {
-  if (on) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+const SOURCES = {
+  saved: require("../../assets/sounds/saved.wav"),
+  done: require("../../assets/sounds/done.wav"),
+  lock: require("../../assets/sounds/lock.wav"),
+};
+const players = {};
+let modeSet = false;
+function play(name, volume = 0.6) {
+  if (!feel.sound) return;
+  try {
+    if (!modeSet) { modeSet = true; setAudioModeAsync({ playsInSilentMode: false, interruptionMode: "mixWithOthers" }).catch(() => {}); }
+    const p = players[name] ?? (players[name] = createAudioPlayer(SOURCES[name]));
+    p.volume = volume;
+    p.seekTo(0).then(() => p.play()).catch(() => p.play());
+  } catch { /* sound is a bonus */ }
 }
-export function doneFeel() {
-  if (on) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-}
-export function lockFeel() {
-  if (on) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
-}
+const buzz = (fn) => { if (native && feel.vibration) fn().catch(() => {}); };
+
+export function tapFeel() { buzz(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)); }
+export function savedFeel() { buzz(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)); play("saved", 0.45); }
+export function doneFeel() { buzz(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)); play("done", 0.55); }
+export function lockFeel() { buzz(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)); play("lock", 0.6); }

@@ -14,6 +14,7 @@ import { statValue } from "../game/economy";
 import { Coins, Frame, Glow, HexBadge, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
+import { HelpDot } from "./Explain";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 
@@ -123,7 +124,10 @@ export default function Guild({ user, player, onClose, initialSkill, onAccepted 
     const next = unlocked + 1;
     return (
       <View style={{ gap: 8 }}>
-        <Label>{t.guild.tiers}</Label>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Label>{t.guild.tiers}</Label>
+          <HelpDot term="tiers" size={18} />
+        </View>
         <View style={{ flexDirection: "row", gap: 8 }}>
           {["I", "II", "III"].map((r, i) => (
             <Pressable key={r} accessibilityRole="button" accessibilityState={{ selected: tier === i, disabled: i > unlocked }} disabled={i > unlocked} onPress={() => setTier(i)}

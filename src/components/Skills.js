@@ -12,6 +12,8 @@ import { Coins, Frame, Glow, Label } from "./sys";
 import { AMBER, RankHex, StepBar, skillStatus } from "./skillParts";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
+import StatInfo from "./StatInfo";
+import { statValue } from "../game/economy";
 
 function Row({ v, name, onPress }) {
   const { color, font } = useTheme();
@@ -41,8 +43,9 @@ export default function Skills({ user, player, onGoToQuest, focusSkill, onFocusD
   }, [focusSkill, onFocusDone]);
   const [guildFor, setGuildFor] = useState(null);
   const [stat, setStat] = useState("STR");
+  const [info, setInfo] = useState(null);
 
-  if (guildFor) return <Guild user={user} player={player} initialSkill={guildFor} onClose={() => setGuildFor(null)} onAccepted={(id) => { setGuildFor(null); onGoToQuest?.({ id, slot: "guild" }); }} />;
+  if (guildFor) return <Guild user={user} player={player} initialSkill={guildFor} onClose={() => setGuildFor(null)} onAccepted={(id) => { const from = guildFor; setGuildFor(null); onGoToQuest?.({ id, slot: "guild" }, from); }} />;
   if (open) return <SkillPage user={user} player={player} id={open} onBack={() => setOpen(null)} onRequest={() => setGuildFor(open)} />;
 
   const today = dayNum();
@@ -90,7 +93,11 @@ export default function Skills({ user, player, onGoToQuest, focusSkill, onFocusD
             );
           })}
         </View>
-        <Frame cut={14} style={{ marginTop: 10 }} contentStyle={{ paddingHorizontal: 16, paddingVertical: 4 }}>
+        <Pressable accessibilityRole="button" onPress={() => setInfo(stat)} style={{ minHeight: 40, flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6, paddingHorizontal: 4 }}>
+          <Text style={{ fontFamily: font.bold, fontSize: 15, color: "#FFFFFF" }}>{t.stats[stat]}</Text>
+          <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.accent }}>{t.statInfo.whatIs}</Text>
+        </Pressable>
+        <Frame cut={14} style={{ marginTop: 4 }} contentStyle={{ paddingHorizontal: 16, paddingVertical: 4 }}>
           {GUILD[stat].map((s, i) => (
             <View key={s.id} style={{ borderTopWidth: i ? 1 : 0, borderTopColor: color.line }}>
               <Row v={view(s.id)} name={s.name} onPress={() => setOpen(s.id)} />
@@ -98,6 +105,7 @@ export default function Skills({ user, player, onGoToQuest, focusSkill, onFocusD
           ))}
         </Frame>
       </ScrollView>
+      <StatInfo stat={info} value={info ? statValue(player.statXp?.[info] ?? 0) : null} onClose={() => setInfo(null)} onOpenSkill={(id) => setOpen(id)} />
     </View>
   );
 }

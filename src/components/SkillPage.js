@@ -18,6 +18,7 @@ import { AMBER, StepBar, fill, skillStatus } from "./skillParts";
 import { Frame, Glow, Label, SysButton, hexPoints } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
+import { HelpDot } from "./Explain";
 
 function Chevron({ c }) {
   return <Svg width={18} height={18} viewBox="0 0 24 24"><Path d="M15 5l-7 7 7 7" fill="none" stroke={c} strokeWidth={1.8} /></Svg>;
@@ -144,8 +145,11 @@ export default function SkillPage({ user, player, id, onBack, onRequest }) {
             <Chevron c={color.muted} />
             <Text style={{ fontFamily: font.bodyBold, fontSize: 14, color: color.muted }}>{t.skills.back}</Text>
           </Pressable>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <View style={{ paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: st.tone === "amber" ? "rgba(246,180,90,0.5)" : "rgba(159,203,255,0.35)", backgroundColor: st.tone === "amber" ? "rgba(246,180,90,0.08)" : "rgba(159,203,255,0.08)" }}>
             <Text style={{ fontFamily: font.bold, fontSize: 11, letterSpacing: 1, color: stTone }}>{st.text}</Text>
+          </View>
+          {st.tone === "amber" ? <HelpDot term="rust" size={20} /> : null}
           </View>
         </View>
 
@@ -199,7 +203,10 @@ export default function SkillPage({ user, player, id, onBack, onRequest }) {
         {!atTop ? (
           <Frame kind="premium" cut={16} style={{ marginTop: 22 }} contentStyle={{ padding: 16, gap: 6 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
-              <Label tone={retest || v.rusty ? AMBER : "#EEF0FF"}>{fill(v.rusty && target === v.earned ? t.skills.retest : t.skills.trial, { rank: RANKS[target] })}</Label>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Label tone={retest || v.rusty ? AMBER : "#EEF0FF"}>{fill(v.rusty && target === v.earned ? t.skills.retest : t.skills.trial, { rank: RANKS[target] })}</Label>
+                <HelpDot term={v.rusty ? "rust" : "trials"} size={18} />
+              </View>
               <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>
                 {active ? (active.daysLeft != null ? fill(t.skills.trialActive, { n: active.daysLeft }) : t.skills.trialWaiting) : fill(t.skills.met, { a: met, b: items.length })}
               </Text>

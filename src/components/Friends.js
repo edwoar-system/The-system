@@ -8,6 +8,7 @@ import { RANKS } from "../game/ladders";
 import { skillById } from "../game/guild";
 import { doneFeel, lockFeel, tapFeel } from "../lib/haptics";
 import StatShape from "./StatShape";
+import StatInfo from "./StatInfo";
 import { RankHex } from "./skillParts";
 import { Frame, Glow, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
@@ -62,6 +63,7 @@ function HoldButton({ label, onDone, tone }) {
 export function FriendPage({ friend, me, onClose }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
+  const [info, setInfo] = useState(null);
   const c = friend.card;
   const shown = c?.shown ?? {};
   const fact = (label, value) => (
@@ -82,7 +84,8 @@ export function FriendPage({ friend, me, onClose }) {
             <Text style={{ marginTop: 60, textAlign: "center", fontFamily: font.body, fontSize: 14, color: color.muted, paddingHorizontal: 30 }}>{t.friends.noCard}</Text>
           ) : (
             <>
-              {c.stats ? <StatShape values={c.stats} /> : null}
+              {c.stats ? <StatShape values={c.stats} onStat={setInfo} /> : null}
+              <StatInfo stat={info} value={info ? c.stats?.[info] : null} onClose={() => setInfo(null)} />
               <View style={{ alignItems: "center", gap: 2, marginTop: c.stats ? 10 : 30 }}>
                 <Label>{fill(t.friends.level, { n: c.level })}</Label>
                 <Text style={{ fontFamily: font.displayHeavy, fontSize: 30, letterSpacing: 3, color: color.hi }}>{(c.name ?? friend.name).toUpperCase()}</Text>

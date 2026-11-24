@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Polygon, Defs, LinearGradient, Stop } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { setPlayerName } from "../lib/player";
+import { setPlayerName, toggleFavQuote } from "../lib/player";
 import { currentDay, currentStreak } from "../lib/day";
 import { levelFromXp, statValue } from "../game/economy";
 import { questById, STATS, todayKey } from "../game/quests";
@@ -13,6 +13,8 @@ import StatShape from "./StatShape";
 import Setup from "./Setup";
 import { BodyCard } from "./Body";
 import QuoteLibrary from "./QuoteLibrary";
+import QuotePage from "./QuotePage";
+import StatInfo from "./StatInfo";
 import { quoteOfDay } from "../game/quotes";
 import { PARTS, partsDone } from "../game/profile";
 import { useTheme } from "../theme";
@@ -77,16 +79,21 @@ function ExpBar({ ratio }) {
   );
 }
 
-function QuoteCard({ quote, onNext, onLibrary }) {
+function QuoteCard({ quote, onOpen, onNext, onLibrary }) {
   const { color, font } = useTheme();
   return (
     <View style={{ marginTop: 20, marginHorizontal: 18, paddingLeft: 14, borderLeftWidth: 2, borderLeftColor: color.frame, gap: 6 }}>
       <Label tone={color.hi}>{t.quote.title}</Label>
-      <Text style={{ fontFamily: font.bodyMedium, fontSize: 16, lineHeight: 23, color: "#FFFFFF" }}>{quote.text}</Text>
-      <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{quote.who === quote.work ? quote.who : `${quote.who}, ${quote.work}`}</Text>
+      <Pressable accessibilityRole="button" accessibilityHint={t.quote.openHint} onPress={onOpen} style={({ pressed }) => ({ gap: 6, opacity: pressed ? 0.7 : 1 })}>
+        <Text style={{ fontFamily: font.bodyMedium, fontSize: 16, lineHeight: 23, color: "#FFFFFF" }}>{quote.text}</Text>
+        <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{quote.who === quote.work ? quote.who : `${quote.who}, ${quote.work}`}</Text>
+      </Pressable>
       <View style={{ flexDirection: "row", gap: 18 }}>
         <Pressable accessibilityRole="button" onPress={onNext} style={{ minHeight: 40, justifyContent: "center" }}>
           <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.accent }}>{t.quote.another}</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" onPress={onOpen} style={{ minHeight: 40, justifyContent: "center" }}>
+          <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.accent }}>{t.quote.more}</Text>
         </Pressable>
         <Pressable accessibilityRole="button" onPress={onLibrary} style={{ minHeight: 40, justifyContent: "center" }}>
           <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.accent }}>{t.quote.all}</Text>
@@ -122,6 +129,8 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
   const [locking, setLocking] = useState(false);
   const [quoteShift, setQuoteShift] = useState(0);
   const [library, setLibrary] = useState(false);
+  const [info, setInfo] = useState(null); // a stat to explain
+  const [quotePage, setQuotePage] = useState(false);
   const k = useCountUp();
 
   if (error) {
@@ -136,6 +145,9 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
   }
 
   const lvl = levelFromXp(player.xp ?? 0);
+  const favs = player.favQuotes ?? [];
+  const quote = quoteOfDay(todayKey(), quoteShift, player.profile?.schools, favs);
+  const star = (id) => toggleFavQuote(user.uid, id, !favs.includes(id)).catch(() => {});
   const day = currentDay(player, user.uid);
   const stats = Object.fromEntries(STATS.map((s) => [s, statValue(player.statXp?.[s] ?? 0)]));
   const next = day.mains.find((m) => !m.done);
@@ -153,7 +165,8 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
         <Coins value={n(player.coins ?? 0)} size={18} />
       </View>
 
-      <StatShape values={stats} />
+      <StatShape values={stats} onStat={setInfo} />
+      <StatInfo stat={info} value={info ? stats[info] : null} onClose={() => setInfo(null)} />
 
       <View style={{ alignItems: "center", gap: 2, marginTop: 10 }}>
         <Label>{t.status.player}</Label>
@@ -188,8 +201,9 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
         </Text>
       </View>
 
-      <QuoteCard quote={quoteOfDay(todayKey(), quoteShift, player.profile?.schools)} onNext={() => setQuoteShift((n) => n + 1)} onLibrary={() => setLibrary(true)} />
-      {library ? <QuoteLibrary mine={player.profile?.schools ?? []} onClose={() => setLibrary(false)} /> : null}
+      <QuoteCard quote={quote} onOpen={() => setQuotePage(true)} onNext={() => setQuoteShift((n) => n + 1)} onLibrary={() => setLibrary(true)} />
+      {library ? <QuoteLibrary mine={player.profile?.schools ?? []} favs={favs} onStar={star} onClose={() => setLibrary(false)} /> : null}
+      {quotePage ? <QuotePage quote={quote} starred={favs.includes(quote.id)} onStar={() => star(quote.id)} onClose={() => setQuotePage(false)} /> : null}
 
       <Pressable accessibilityRole="button" onPress={onOpenQuests} style={({ pressed }) => ({ marginTop: 22, marginHorizontal: 14, transform: [{ scale: pressed ? 0.99 : 1 }] })}>
         <Frame kind="premium" cut={16} contentStyle={{ padding: 16, flexDirection: "row", alignItems: "center", gap: 14 }}>

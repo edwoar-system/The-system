@@ -102,7 +102,7 @@ export function notificationPlan(player, uid, now = new Date()) {
     if (s.morning) {
       const { wake } = dayTimes(player.profile);
       const minute = Math.round(wake * 60 + seeded(`${uid}:${key}:m`)() * 30);
-      const q = quoteOfDay(key, 0, player.profile?.schools);
+      const q = quoteOfDay(key, 0, player.profile?.schools, player.favQuotes);
       add({ id: `morning-${key}`, date: at(base, 0, Math.floor(minute / 60), minute % 60), title: t.notify.morningTitle,
         body: `${q.text} (${q.who}) ${t.notify.morningBody}`, data: { kind: "quests" } });
     }

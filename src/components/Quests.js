@@ -24,6 +24,7 @@ import { skillById } from "../game/guild";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 import { doneFeel } from "../lib/haptics";
+import { HelpDot } from "./Explain";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 const DEADLINE_HOUR = 21;
@@ -235,7 +236,10 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
           ) : (
             <View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 4, borderTopWidth: 1, borderTopColor: "rgba(255,46,69,0.35)", backgroundColor: "rgba(255,46,69,0.08)" }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Label tone={color.danger} style={{ letterSpacing: 4, fontSize: 12 }}>{t.board.warning}</Label>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Label tone={color.danger} style={{ letterSpacing: 4, fontSize: 12 }}>{t.board.warning}</Label>
+                  <HelpDot term="penalty" size={18} />
+                </View>
                 {countdown ? (
                   <Text style={{ fontFamily: font.num, fontSize: 20, color: color.danger, fontVariant: ["tabular-nums"] }}>{countdown}</Text>
                 ) : null}
@@ -370,7 +374,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
       ) : null}
 
       {sheet ? <QuestSheet user={user} player={player} questId={sheet.id} slot={sheet.slot} done={sheet.done} onClose={() => setSheet(null)} onResult={(r) => onResult(r, sheet.id)}
-        onOpenSkill={onOpenSkill ? (id) => { setSheet(null); onOpenSkill(id); } : null} /> : null}
+        onOpenSkill={onOpenSkill ? (id) => { const from = { id: sheet.id, slot: sheet.slot }; setSheet(null); onOpenSkill(id, from); } : null} /> : null}
       <CheckIn uid={user.uid} data={check} onClose={() => setCheck(null)} />
       <BodyReport data={check ? null : body} onClose={() => setBody(null)} onOpenSkill={onOpenSkill} />
       <RankUp data={check || body ? null : rankUp} onClose={() => setRankUp(null)} />

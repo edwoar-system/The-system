@@ -1,9 +1,11 @@
-// The quote library: every System message, by school. Your own schools (Tune the System) come first.
+// The quote library: every System message, by school. Your own schools (Tune the System) come first,
+// and tapping a quote opens what it means. Starred quotes come back more often.
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { QUOTES, SCHOOL_NAMES } from "../game/quotes";
 import { Glow, Label } from "./sys";
+import QuotePage, { StarButton } from "./QuotePage";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
@@ -17,12 +19,24 @@ function Chip({ label, on, onPress }) {
   );
 }
 
-export default function QuoteLibrary({ mine = [], onClose }) {
+export default function QuoteLibrary({ mine = [], favs = [], onStar, onClose }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
-  const [school, setSchool] = useState(null);
+  const [school, setSchool] = useState(null); // a school id, or "starred"
+  const [open, setOpen] = useState(null);
   const schools = Object.keys(SCHOOL_NAMES).sort((a, b) => (mine.includes(b) ? 1 : 0) - (mine.includes(a) ? 1 : 0));
-  const shown = schools.filter((s) => !school || s === school);
+  const shown = school === "starred" ? [] : schools.filter((s) => !school || s === school);
+  const starredList = QUOTES.filter((q) => favs.includes(q.id));
+  const row = (q, mineSchool) => (
+    <Pressable key={q.id} accessibilityRole="button" accessibilityHint={t.quote.openHint} onPress={() => setOpen(q)}
+      style={({ pressed }) => ({ flexDirection: "row", gap: 8, paddingLeft: 14, borderLeftWidth: 2, borderLeftColor: mineSchool ? color.frame : color.line, opacity: pressed ? 0.7 : 1 })}>
+      <View style={{ flex: 1, gap: 4 }}>
+        <Text style={{ fontFamily: font.bodyMedium, fontSize: 16, lineHeight: 23, color: "#FFFFFF" }}>{q.text}</Text>
+        <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{q.who === q.work ? q.who : `${q.who}, ${q.work}`}</Text>
+      </View>
+      {onStar ? <StarButton on={favs.includes(q.id)} onPress={() => onStar(q.id)} label={favs.includes(q.id) ? t.quote.unstar : t.quote.star} /> : null}
+    </Pressable>
+  );
 
   return (
     <Modal animationType="slide" visible onRequestClose={onClose}>
@@ -37,25 +51,23 @@ export default function QuoteLibrary({ mine = [], onClose }) {
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: 4 }}>
             <Chip label={t.quote.all} on={!school} onPress={() => setSchool(null)} />
+            {favs.length ? <Chip label={`${t.quote.starred} ${favs.length}`} on={school === "starred"} onPress={() => setSchool(school === "starred" ? null : "starred")} /> : null}
             {schools.map((s) => <Chip key={s} label={SCHOOL_NAMES[s]} on={school === s} onPress={() => setSchool(school === s ? null : s)} />)}
           </ScrollView>
 
+          {school === "starred" ? <View style={{ marginTop: 22, gap: 14 }}>{starredList.map((q) => row(q, true))}</View> : null}
           {shown.map((s) => (
             <View key={s} style={{ marginTop: 22, gap: 14 }}>
               <View style={{ flexDirection: "row", alignItems: "baseline", gap: 10 }}>
                 <Label tone={color.hi}>{SCHOOL_NAMES[s].toUpperCase()}</Label>
                 {mine.includes(s) ? <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{t.quote.yours}</Text> : null}
               </View>
-              {QUOTES.filter((q) => q.school === s).map((q) => (
-                <View key={q.text} style={{ paddingLeft: 14, borderLeftWidth: 2, borderLeftColor: mine.includes(s) ? color.frame : color.line, gap: 4 }}>
-                  <Text selectable style={{ fontFamily: font.bodyMedium, fontSize: 16, lineHeight: 23, color: "#FFFFFF" }}>{q.text}</Text>
-                  <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{q.who === q.work ? q.who : `${q.who}, ${q.work}`}</Text>
-                </View>
-              ))}
+              {QUOTES.filter((q) => q.school === s).map((q) => row(q, mine.includes(s)))}
             </View>
           ))}
         </ScrollView>
       </View>
+      <QuotePage quote={open} starred={open ? favs.includes(open.id) : false} onStar={onStar && open ? () => onStar(open.id) : null} onClose={() => setOpen(null)} />
     </Modal>
   );
 }

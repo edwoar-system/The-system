@@ -14,9 +14,14 @@ import { checkPenalty, dismissNotice } from "../lib/penalty";
 import { onNotificationTap, setupNotifications, syncNotifications } from "../lib/notify";
 import { offerNotifiedUrgent } from "../lib/urgent";
 import { syncPublic } from "../lib/social";
+import { setFeel, tapFeel } from "../lib/haptics";
+import { skillById } from "../game/guild";
+
 import { isInPenalty } from "../game/penalty";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
+
+const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 
 // The shop will open from your coins (it comes with app blocking), so friends take its place in the bar.
 const TABS = ["status", "quests", "skills", "friends", "settings"];
@@ -46,6 +51,24 @@ function TabIcon({ id, active, c }) {
   );
 }
 
+// Back to where you were. Sits above the tab bar until you use it or pick a tab yourself.
+function BackPill({ place, onPress }) {
+  const { color, font } = useTheme();
+  const label = place.focus ? t.back.quest
+    : place.skillFocus ? fill(t.back.to, { place: skillById[place.skillFocus]?.name ?? t.tabs.skills })
+    : fill(t.back.to, { place: t.tabs[place.tab] });
+  return (
+    <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "flex-start" }}>
+      <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => { tapFeel(); onPress(); }}
+        style={({ pressed }) => ({ marginLeft: 12, marginBottom: 10, minHeight: 44, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 8,
+          borderWidth: 1, borderColor: color.frame, backgroundColor: pressed ? "rgba(30,50,90,0.98)" : "rgba(8,16,34,0.96)" })}>
+        <Text style={{ fontFamily: font.bold, fontSize: 18, color: color.accent, marginTop: -2 }}>‹</Text>
+        <Text numberOfLines={1} style={{ maxWidth: 240, fontFamily: font.bodyBold, fontSize: 14, color: "#FFFFFF" }}>{label}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 // Logged-in app: one live player document shared by all tabs, with the System tab bar.
 export default function Shell({ user }) {
   const { color, font } = useTheme();
@@ -55,9 +78,31 @@ export default function Shell({ user }) {
   const [penaltyView, setPenaltyView] = useState(null); // null | "intro" | "manual"
   const [focus, setFocus] = useState(null); // a quest to open on the board: { id, slot }
   const [skillFocus, setSkillFocus] = useState(null); // a skill page to open in the Skills tab
+  // Where Back returns to after you got sent somewhere (a quest's skill page, a guild quest on the board...).
+  const [trail, setTrail] = useState([]); // [{ tab, focus?, skillFocus? }]
   const checking = useRef(false);
   const player = state.player;
   const inPenalty = isInPenalty(player);
+
+  const open = (place) => {
+    setTab(place.tab);
+    if (place.focus) setFocus(place.focus);
+    if (place.skillFocus) setSkillFocus(place.skillFocus);
+  };
+  // from: the exact place you're leaving (defaults to the current tab).
+  const goTo = (place, from) => { setTrail((tr) => [...tr, from ?? { tab }].slice(-8)); open(place); };
+  const goBack = () => {
+    const last = trail[trail.length - 1];
+    if (!last) return;
+    setTrail(trail.slice(0, -1));
+    open(last);
+  };
+
+  // Your sound and vibration choice for every vibration and sound in the app.
+  useEffect(() => { setFeel(player?.feel); }, [player?.feel]);
+
+  const goToRef = useRef(goTo);
+  goToRef.current = goTo;
 
   // Penalty check on open and every minute: deadline passed with open mains -> zone (or a shield is used).
   useEffect(() => {
@@ -90,19 +135,22 @@ export default function Shell({ user }) {
   }, [player, user.uid]);
   useEffect(() => onNotificationTap((data) => {
     if (data.kind === "urgent") offerNotifiedUrgent(user.uid).catch(() => {});
-    else if (data.kind === "quests") setTab("quests");
-    else if (data.kind === "status") setTab("status");
-    else if (data.kind === "skill" && data.skill) { setSkillFocus(data.skill); setTab("skills"); }
+    else if (data.kind === "quests") goToRef.current({ tab: "quests" });
+    else if (data.kind === "status") goToRef.current({ tab: "status" });
+    else if (data.kind === "skill" && data.skill) goToRef.current({ tab: "skills", skillFocus: data.skill });
   }), [user.uid]);
 
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>
       <View style={{ flex: 1 }}>
-        {tab === "status" ? <Status user={user} {...state} onOpenQuests={() => setTab("quests")} onOpenSettings={() => setTab("settings")} /> : null}
-        {tab === "quests" ? (state.player ? <Quests user={user} player={state.player} focus={focus} onFocusDone={() => setFocus(null)} onOpenSkill={(id) => { setSkillFocus(id); setTab("skills"); }} /> : <Status user={user} {...state} />) : null}
-        {tab === "skills" ? (state.player ? <Skills user={user} player={state.player} onGoToQuest={(f) => { setFocus(f); setTab("quests"); }} focusSkill={skillFocus} onFocusDone={() => setSkillFocus(null)} /> : <Status user={user} {...state} />) : null}
+        {tab === "status" ? <Status user={user} {...state} onOpenQuests={() => goTo({ tab: "quests" })} onOpenSettings={() => goTo({ tab: "settings" })} /> : null}
+        {tab === "quests" ? (state.player ? <Quests user={user} player={state.player} focus={focus} onFocusDone={() => setFocus(null)}
+          onOpenSkill={(id, sheet) => goTo({ tab: "skills", skillFocus: id }, { tab: "quests", focus: sheet ?? undefined })} /> : <Status user={user} {...state} />) : null}
+        {tab === "skills" ? (state.player ? <Skills user={user} player={state.player} focusSkill={skillFocus} onFocusDone={() => setSkillFocus(null)}
+          onGoToQuest={(f, fromSkill) => goTo({ tab: "quests", focus: f }, { tab: "skills", skillFocus: fromSkill ?? undefined })} /> : <Status user={user} {...state} />) : null}
         {tab === "friends" ? (state.player ? <Friends user={user} player={state.player} /> : <Status user={user} {...state} />) : null}
         {tab === "settings" ? (state.player ? <Settings user={user} player={state.player} synced={state.synced} /> : <Status user={user} {...state} />) : null}
+        {trail.length > 0 && !penaltyView ? <BackPill place={trail[trail.length - 1]} onPress={goBack} /> : null}
       </View>
       {player && !penaltyView ? <Urgent user={user} player={player} /> : null}
       {player && penaltyView ? <PenaltyZone user={user} player={player} intro={penaltyView === "intro"} onClose={() => setPenaltyView(null)} /> : null}
@@ -113,7 +161,7 @@ export default function Shell({ user }) {
           const active = tab === id;
           const c = active ? color.hi : color.muted;
           return (
-            <Pressable key={id} accessibilityRole="tab" accessibilityLabel={t.tabs[id]} accessibilityState={{ selected: active }} onPress={() => setTab(id)}
+            <Pressable key={id} accessibilityRole="tab" accessibilityLabel={t.tabs[id]} accessibilityState={{ selected: active }} onPress={() => { setTrail([]); setTab(id); }}
               style={{ flex: 1, alignItems: "center", paddingTop: 10, paddingBottom: 4, gap: 4 }}>
               <View style={{ position: "absolute", top: -1, width: 28, height: 2, backgroundColor: active ? color.accent : "transparent" }} />
               <TabIcon id={id} active={active} c={c} />
