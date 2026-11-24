@@ -1,0 +1,189 @@
+// Status: who you are in the System. Attribute hexagon, level, streak and your next main quest.
+import { useEffect, useRef, useState } from "react";
+import { Animated, Easing, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import * as Updates from "expo-updates";
+import { signOut } from "firebase/auth";
+import Svg, { Polygon, Defs, LinearGradient, Stop } from "react-native-svg";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { auth } from "../lib/firebase";
+import { setPlayerName } from "../lib/player";
+import { currentDay, currentStreak } from "../lib/day";
+import { levelFromXp, statValue } from "../game/economy";
+import { questById, STATS } from "../game/quests";
+import { Button, Field } from "./ui";
+import { Coins, Frame, Glow, Label, hexPoints } from "./sys";
+import StatShape from "./StatShape";
+import { useTheme } from "../theme";
+import { t } from "../i18n";
+
+const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
+
+function useCountUp(duration = 1400) {
+  const v = useRef(new Animated.Value(0)).current;
+  const [k, setK] = useState(0);
+  useEffect(() => {
+    const id = v.addListener(({ value }) => setK(value));
+    Animated.timing(v, { toValue: 1, duration, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+    return () => v.removeListener(id);
+  }, [v, duration]);
+  return k;
+}
+
+function LevelBadge({ level }) {
+  const { color, font } = useTheme();
+  return (
+    <View style={{ width: 58, height: 64, alignItems: "center", justifyContent: "center" }}>
+      <Svg width={58} height={64} style={{ position: "absolute" }}>
+        <Defs>
+          <LinearGradient id="lvEdge" x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor="#EAF4FF" />
+            <Stop offset="0.4" stopColor={color.purple} />
+            <Stop offset="1" stopColor={color.blue} />
+          </LinearGradient>
+        </Defs>
+        <Polygon points={hexPoints(58, 64, 1.5)} fill={color.surface} stroke="url(#lvEdge)" strokeWidth={2} />
+        <Polygon points={hexPoints(58, 64, 8)} fill="none" stroke={color.accent} strokeOpacity={0.3} strokeWidth={1} />
+      </Svg>
+      <Text style={{ fontFamily: font.bold, fontSize: 9, letterSpacing: 2, color: color.muted, marginTop: 2 }}>{t.status.lv}</Text>
+      <Text style={{ fontFamily: font.num, fontSize: 28, lineHeight: 30, color: color.hi }}>{level}</Text>
+    </View>
+  );
+}
+
+function ExpBar({ ratio }) {
+  const { color } = useTheme();
+  return (
+    <View style={{ height: 12, backgroundColor: color.surface, borderWidth: 1, borderColor: "rgba(150,200,255,0.3)", overflow: "hidden" }}>
+      <View style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${Math.max(ratio * 100, 1.5)}%`, flexDirection: "row" }}>
+        <Svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 10" style={{ position: "absolute" }}>
+          <Defs>
+            <LinearGradient id="expFill" x1="0" y1="0" x2="1" y2="0">
+              <Stop offset="0" stopColor={color.blue} />
+              <Stop offset="1" stopColor={color.purple} />
+            </LinearGradient>
+          </Defs>
+          <Polygon points="0,0 100,0 100,10 0,10" fill="url(#expFill)" />
+        </Svg>
+        <View style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 3, backgroundColor: "#FFFFFF" }} />
+      </View>
+      <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, flexDirection: "row" }}>
+        {Array.from({ length: 10 }, (_, i) => (
+          <View key={i} style={{ flex: 1, borderRightWidth: i < 9 ? 2 : 0, borderRightColor: "rgba(0,0,0,0.55)" }} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+export default function Status({ user, player, error, synced, onOpenQuests }) {
+  const { color, font } = useTheme();
+  const insets = useSafeAreaInsets();
+  const [nameDraft, setNameDraft] = useState("");
+  const k = useCountUp();
+
+  if (error) {
+    return <View style={{ flex: 1, backgroundColor: color.bg, padding: 24, paddingTop: insets.top + 40 }}>
+      <Text style={{ fontFamily: font.bodyMedium, color: color.danger }}>{t.home.dbError} ({error})</Text>
+    </View>;
+  }
+  if (!player) {
+    return <View style={{ flex: 1, backgroundColor: color.bg, padding: 24, paddingTop: insets.top + 40 }}>
+      <Text style={{ fontFamily: font.body, color: color.muted }}>{t.home.loading}</Text>
+    </View>;
+  }
+
+  const lvl = levelFromXp(player.xp ?? 0);
+  const day = currentDay(player, user.uid);
+  const stats = Object.fromEntries(STATS.map((s) => [s, statValue(player.statXp?.[s] ?? 0)]));
+  const next = day.mains.find((m) => !m.done);
+  const nextQ = next ? questById[next.id] : null;
+  const mainsDone = day.mains.filter((m) => m.done).length;
+  const n = (v) => Math.round(v * k);
+
+  return (
+    <ScrollView style={{ flex: 1, backgroundColor: color.bg }}
+      contentContainerStyle={{ paddingTop: insets.top + 14, paddingBottom: 40, maxWidth: 520, width: "100%", alignSelf: "center" }}>
+      <Glow height={560} at={0.22} />
+
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 18 }}>
+        <Label tone={color.hi} style={{ letterSpacing: 5, fontSize: 12 }}>{t.status.system}</Label>
+        <Coins value={n(player.coins ?? 0)} size={18} />
+      </View>
+
+      <StatShape values={stats} />
+
+      <View style={{ alignItems: "center", gap: 2, marginTop: 10 }}>
+        <Label>{t.status.player}</Label>
+        <Text style={{ fontFamily: font.displayHeavy, fontSize: 32, letterSpacing: 3, color: color.hi }}>
+          {(player.name || t.home.defaultName).toUpperCase()}
+        </Text>
+      </View>
+
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginTop: 18, paddingHorizontal: 18 }}>
+        <LevelBadge level={lvl.level} />
+        <View style={{ flex: 1, gap: 7 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
+            <Label tone={color.hi} style={{ letterSpacing: 2, fontSize: 12 }}>{t.status.exp}</Label>
+            <Text style={{ fontFamily: font.num, fontSize: 17, color: color.text }}>
+              {n(lvl.xpIntoLevel)}<Text style={{ fontSize: 13, color: color.muted }}> / {lvl.xpForLevel}</Text>
+            </Text>
+          </View>
+          <ExpBar ratio={(lvl.xpIntoLevel / lvl.xpForLevel) * k} />
+          <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>
+            <Text style={{ fontFamily: font.num, fontSize: 14, color: color.text }}>{lvl.xpForLevel - lvl.xpIntoLevel} </Text>
+            {fill(t.status.toNext, { level: lvl.level + 1 })}
+          </Text>
+        </View>
+      </View>
+
+      <View style={{ flexDirection: "row", gap: 22, marginTop: 14, paddingHorizontal: 18 }}>
+        <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>
+          {t.status.streak} <Text style={{ fontFamily: font.num, fontSize: 17, color: color.text }}>{currentStreak(player)}</Text> {t.status.days}
+        </Text>
+        <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>
+          {t.status.mainsToday} <Text style={{ fontFamily: font.num, fontSize: 17, color: color.text }}>{mainsDone}/{day.mains.length}</Text>
+        </Text>
+      </View>
+
+      <Pressable accessibilityRole="button" onPress={onOpenQuests} style={({ pressed }) => ({ marginTop: 22, marginHorizontal: 14, transform: [{ scale: pressed ? 0.99 : 1 }] })}>
+        <Frame kind="premium" cut={16} contentStyle={{ padding: 16, flexDirection: "row", alignItems: "center", gap: 14 }}>
+          {nextQ ? (
+            <>
+              <View style={{ flex: 1, gap: 3 }}>
+                <Label tone={color.hi} style={{ letterSpacing: 2 }}>{t.status.nextMain}</Label>
+                <Text style={{ fontFamily: font.bold, fontSize: 18, color: "#FFFFFF" }}>{nextQ.title}</Text>
+                <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>
+                  {fill(t.status.nextMainSub, { stat: nextQ.stat, min: nextQ.minutes })}
+                </Text>
+              </View>
+            </>
+          ) : (
+            <View style={{ flex: 1, gap: 3 }}>
+              <Label tone={color.reward} style={{ letterSpacing: 2 }}>{t.status.allDone}</Label>
+              <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{t.status.allDoneSub}</Text>
+            </View>
+          )}
+        </Frame>
+      </Pressable>
+
+      {!player.name ? (
+        <Frame style={{ marginTop: 12, marginHorizontal: 14 }} contentStyle={{ padding: 16, gap: 12 }}>
+          <Label tone={color.hi}>{t.home.setName}</Label>
+          <Field label={t.login.name} value={nameDraft} onChangeText={setNameDraft} autoCapitalize="words" />
+          <Button label={t.home.saveName} disabled={!nameDraft.trim()} onPress={() => setPlayerName(user.uid, nameDraft.trim())} />
+        </Frame>
+      ) : null}
+
+      <View style={{ marginTop: 28, paddingHorizontal: 18, gap: 6 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View style={{ width: 7, height: 7, transform: [{ rotate: "45deg" }], backgroundColor: synced ? color.accent : color.muted }} />
+          <Text style={{ fontFamily: font.body, fontSize: 13, color: synced ? color.accent : color.muted }}>{synced ? t.home.synced : t.home.syncing}</Text>
+        </View>
+        {Platform.OS !== "web" ? (
+          <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{Updates.isEmbeddedLaunch ? t.home.builtIn : t.home.overTheAir}</Text>
+        ) : null}
+        <Button kind="text" label={t.home.logout} onPress={() => signOut(auth)} style={{ alignSelf: "flex-start", paddingHorizontal: 0 }} />
+      </View>
+    </ScrollView>
+  );
+}

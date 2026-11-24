@@ -17,6 +17,18 @@ export function newDay(player, uid) {
   };
 }
 
+function yesterdayKey() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return todayKey(d);
+}
+
+// The streak still counts if the last full day was today or yesterday.
+export function currentStreak(player) {
+  const last = player?.lastAllMainsDate;
+  return last === todayKey() || last === yesterdayKey() ? player.streak ?? 0 : 0;
+}
+
 export function currentDay(player, uid) {
   return player?.day?.date === todayKey() ? player.day : newDay(player, uid);
 }
@@ -54,9 +66,14 @@ export async function completeQuest(uid, questId, slot) {
     if (slot === "main") day.mainCoins += coins;
 
     let bonus = 0;
+    let streak = player.streak ?? 0;
+    let lastAllMainsDate = player.lastAllMainsDate ?? null;
     if (slot === "main" && !day.bonusPaid && day.mains.every((x) => x.done)) {
       bonus = allMainsBonus(day.mainCoins);
       day.bonusPaid = true;
+      // Streak = days in a row with every main quest done.
+      streak = lastAllMainsDate === yesterdayKey() ? streak + 1 : 1;
+      lastAllMainsDate = day.date;
     }
 
     const totalXp = (player.xp ?? 0) + xp;
@@ -70,10 +87,12 @@ export async function completeQuest(uid, questId, slot) {
       level: after,
       statXp: { ...(player.statXp ?? {}), [q.stat]: (player.statXp?.[q.stat] ?? 0) + xp },
       lastDoneByStat: { ...(player.lastDoneByStat ?? {}), [q.stat]: day.date },
+      streak,
+      lastAllMainsDate,
       updatedAt: serverTimestamp(),
     }, { merge: true });
 
-    return { coins, xp, bonus, levelUp: after > before ? after : null, stat: q.stat };
+    return { coins, xp, bonus, levelUp: after > before ? after : null, stat: q.stat, streak };
   });
 
   // Quest log for balancing later. Separate write: if it fails, the reward still counts.

@@ -47,3 +47,6 @@ Docs: https://docs.expo.dev/eas/index.md
 - Firestore: each player owns `players/{uid}`. Rules are in `firestore.rules` and must be pasted into the Firebase console when they change.
 - The website is served from `/The-system` on GitHub Pages (`experiments.baseUrl` in app.json).
 - Expo CLI here runs with `EXPO_OFFLINE=1` when api.expo.dev is unreachable.
+- Native changes (a new library with native code, a config plugin) need a bump of `expo.version` in app.json and a new build. `runtimeVersion` follows the app version, so over-the-air updates only reach builds with the same version.
+- Versions: 1.0.0 = room 0 build; 1.1.0 = room 2 with the v0.1 design (adds react-native-svg). The `room-1` branch (app blocking) must move to 1.2.0 when it is merged.
+- Design v0.1 (see the rules doc): black and blue base, purple only for progress, gold for coins and titles, red only for the penalty. Shared pieces live in `src/components/sys.js`.

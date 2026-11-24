@@ -1,104 +1,241 @@
-import { useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+// Quest board (design v0.1, version B): one System window with today's goals, the reward and the penalty warning.
+import { useEffect, useRef, useState } from "react";
+import { Animated, Easing, ScrollView, Text, View } from "react-native";
+import Svg, { Polygon } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { completeQuest, currentDay, rewardPreview } from "../lib/day";
 import { questById, SIDE_QUESTS } from "../game/quests";
 import { ECONOMY } from "../game/economy";
-import { Button, Panel, glow } from "./ui";
+import { Coins, Frame, Glow, HexBadge, HexCheck, Label, SysButton, nativeDriver } from "./sys";
+import LevelUp from "./LevelUp";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
+const DEADLINE_HOUR = 21;
+const pad = (n) => String(n).padStart(2, "0");
 
-function QuestRow({ questId, done, onDone, busy }) {
+function useDeadline() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const end = new Date(now);
+  end.setHours(DEADLINE_HOUR, 0, 0, 0);
+  const left = Math.floor((end - now) / 1000);
+  if (left <= 0) return null;
+  return `${pad(Math.floor(left / 3600))}:${pad(Math.floor(left / 60) % 60)}:${pad(left % 60)}`;
+}
+
+// One of the three raised hexagons at the top: a main quest's stat, lit when it's done.
+function QuestHex({ stat, done }) {
   const { color, font } = useTheme();
-  const q = questById[questId];
   return (
-    <View style={{ gap: 8, paddingVertical: 10, borderTopWidth: 1, borderTopColor: color.line, opacity: done ? 0.55 : 1 }}>
-      <Text style={{ fontFamily: font.bodyMedium, fontSize: 16, lineHeight: 22, color: color.text }}>{q.title}</Text>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <Text style={{ fontFamily: font.display, fontSize: 13, color: color.accent }}>{q.stat}</Text>
-        <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>
-          {fill(t.quests.min, { m: q.minutes })} · {t.quests.difficulty[q.difficulty]}
-        </Text>
-      </View>
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <Text style={{ fontFamily: font.display, fontSize: 14, color: done ? color.muted : color.reward }}>
-          {done ? t.quests.completed : fill(t.quests.reward, onDone.preview)}
-        </Text>
-        {!done ? <Button label={t.quests.done} onPress={onDone.run} disabled={busy} style={{ paddingVertical: 10, minWidth: 96 }} /> : null}
+    <View style={{ width: 92, height: 100, alignItems: "center" }}>
+      <Svg width={92} height={96}>
+        <Polygon points="46,79 76,62 76,72 46,89" fill={done ? "rgba(150,200,255,0.45)" : "rgba(150,200,255,0.14)"} />
+        <Polygon points="46,79 16,62 16,72 46,89" fill={done ? "rgba(150,200,255,0.3)" : "rgba(150,200,255,0.08)"} />
+        <Polygon points="46,9 76,26 76,62 46,79 16,62 16,26" fill={done ? "rgba(111,168,238,0.6)" : "rgba(8,16,32,0.95)"}
+          stroke={done ? color.hi : "rgba(159,203,255,0.5)"} strokeWidth={1.5} />
+        <Polygon points="46,21 66,32.5 66,55.5 46,67 26,55.5 26,32.5" fill="none"
+          stroke={done ? "rgba(255,255,255,0.5)" : "rgba(159,203,255,0.25)"} strokeWidth={1} strokeDasharray="2 3" />
+      </Svg>
+      <View style={{ position: "absolute", top: 30, left: 0, right: 0, alignItems: "center" }}>
+        <Text style={{ fontFamily: font.bold, fontSize: 16, letterSpacing: 1, color: done ? "#FFFFFF" : color.muted }}>{stat}</Text>
+        <Text style={{ fontFamily: font.bold, fontSize: 10, color: done ? color.hi : color.muted }}>{done ? t.board.clear : t.board.open}</Text>
       </View>
     </View>
   );
 }
 
+function GoalRow({ questId, done, busy, onDone, last }) {
+  const { color, font } = useTheme();
+  const q = questById[questId];
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, paddingLeft: 14, paddingRight: 8,
+      borderBottomWidth: last ? 0 : 1, borderBottomColor: color.line, opacity: done ? 0.55 : 1 }}>
+      <HexBadge w={34} h={38} label={q.stat} labelSize={10} />
+      <View style={{ flex: 1, gap: 5 }}>
+        <Text style={{ fontFamily: font.bold, fontSize: 16, lineHeight: 21, color: "#FFFFFF" }}>{q.title}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <View style={{ flex: 1, height: 3, backgroundColor: "rgba(159,203,255,0.12)" }}>
+            <View style={{ height: 3, width: done ? "100%" : "0%", backgroundColor: color.accent }} />
+          </View>
+          <Text style={{ fontFamily: font.num, fontSize: 15, color: color.frame }}>
+            {fill(t.board.progress, { a: done ? q.minutes : 0, b: q.minutes })}
+          </Text>
+        </View>
+        <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>
+          {t.stats[q.stat]} · {t.quests.difficulty[q.difficulty]}
+        </Text>
+      </View>
+      <HexCheck done={done} disabled={busy} onPress={onDone}
+        label={fill(done ? t.board.isDone : t.board.markDone, { title: q.title })} />
+    </View>
+  );
+}
+
 export default function Quests({ user, player }) {
-  const theme = useTheme();
-  const { color, font } = theme;
+  const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const day = currentDay(player, user.uid);
+  const countdown = useDeadline();
   const [busy, setBusy] = useState(false);
+  const [guild, setGuild] = useState(false);
   const [toast, setToast] = useState(null);
+  const [levelUp, setLevelUp] = useState(null);
+  const toastAnim = useRef(new Animated.Value(0)).current;
 
   const mainsDone = day.mains.filter((m) => m.done).length;
+  const allDone = mainsDone === day.mains.length;
+  const pct = Math.round(ECONOMY.allMainsBonus * 100);
+  const openRewards = day.mains.filter((m) => !m.done).map((m) => rewardPreview(day, m.id));
+  const rewardCoins = openRewards.reduce((a, r) => a + r.coins, 0);
+  const rewardXp = openRewards.reduce((a, r) => a + r.xp, 0);
 
-  function action(questId, slot) {
-    return {
-      preview: rewardPreview(day, questId),
-      run: async () => {
-        setBusy(true);
-        try {
-          const r = await completeQuest(user.uid, questId, slot);
-          const line = r.bonus
-            ? fill(t.quests.earnedBonus, { coins: r.coins + r.bonus, bonus: r.bonus, xp: r.xp })
-            : fill(t.quests.earned, { coins: r.coins, xp: r.xp });
-          setToast({ line, level: r.levelUp ? fill(t.quests.levelUp, { level: r.levelUp }) : null });
-        } catch (e) {
-          if (e.message !== "already-done") setToast({ line: t.quests.error, error: true });
-        } finally {
-          setBusy(false);
-        }
-      },
-    };
+  function showToast(next) {
+    setToast(next);
+    toastAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(toastAnim, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: nativeDriver }),
+      Animated.delay(1800),
+      Animated.timing(toastAnim, { toValue: 0, duration: 400, useNativeDriver: nativeDriver }),
+    ]).start(({ finished }) => finished && setToast(null));
+  }
+
+  async function complete(questId, slot) {
+    setBusy(true);
+    try {
+      const r = await completeQuest(user.uid, questId, slot);
+      showToast({ coins: r.coins + r.bonus, bonus: r.bonus, xp: r.xp });
+      if (r.levelUp) setLevelUp({ level: r.levelUp, xp: (player.xp ?? 0) + r.xp, coins: r.coins + r.bonus });
+    } catch (e) {
+      if (e.message !== "already-done") showToast({ error: true });
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: color.bg }}
-      contentContainerStyle={{ padding: 24, paddingTop: insets.top + 24, paddingBottom: 40, gap: 20, maxWidth: 520, width: "100%", alignSelf: "center" }}>
-      <Text style={{ fontFamily: font.displayHeavy, fontSize: 30, color: color.text }}>{t.quests.today}</Text>
+    <View style={{ flex: 1, backgroundColor: color.bg }}>
+      <ScrollView style={{ flex: 1 }}
+        contentContainerStyle={{ paddingTop: insets.top + 14, paddingBottom: 40, maxWidth: 520, width: "100%", alignSelf: "center" }}>
+        <Glow height={440} at={0.26} />
+
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 18 }}>
+          <Label tone={color.hi} style={{ letterSpacing: 5, fontSize: 12 }}>{t.status.system}</Label>
+          <Coins value={player.coins ?? 0} size={18} />
+        </View>
+
+        <View style={{ alignItems: "center", gap: 4, marginTop: 20 }}>
+          <Text accessibilityRole="header" style={{ fontFamily: font.bold, fontSize: 26, letterSpacing: 1, color: "#FFFFFF" }}>{t.board.title}</Text>
+          <Text style={{ fontFamily: font.body, fontSize: 14, color: color.muted }}>{fill(t.board.sub, { n: day.mains.length, pct })}</Text>
+        </View>
+
+        <View style={{ flexDirection: "row", justifyContent: "center", gap: 4, marginTop: 16 }}>
+          {day.mains.map((m) => <QuestHex key={m.id} stat={questById[m.id].stat} done={m.done} />)}
+        </View>
+
+        {!day.start.done ? (
+          <Frame style={{ marginTop: 14, marginHorizontal: 14 }} cut={10} contentStyle={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8, paddingLeft: 16, paddingRight: 8 }}>
+            <View style={{ flex: 1, gap: 3 }}>
+              <Label tone={color.accent}>{t.board.start}</Label>
+              <Text style={{ fontFamily: font.bodyMedium, fontSize: 15, color: color.text }}>{questById.start.title}</Text>
+            </View>
+            <HexCheck size={34} disabled={busy} onPress={() => complete("start", "start")}
+              label={fill(t.board.markDone, { title: questById.start.title })} />
+          </Frame>
+        ) : null}
+
+        <Frame kind="premium" cut={16} corners style={{ marginTop: 14, marginHorizontal: 14 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: "rgba(159,203,255,0.18)" }}>
+            <Label tone={color.hi} style={{ letterSpacing: 4, fontSize: 12 }}>{t.board.goals}</Label>
+            <Text style={{ fontFamily: font.num, fontSize: 18, color: color.frame }}>
+              {mainsDone}<Text style={{ fontSize: 14, color: color.muted }}> / {day.mains.length}</Text>
+            </Text>
+          </View>
+          {day.mains.map((m, i) => (
+            <GoalRow key={m.id} questId={m.id} done={m.done} busy={busy} last={i === day.mains.length - 1}
+              onDone={() => complete(m.id, "main")} />
+          ))}
+          <View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 8, borderTopWidth: 1, borderTopColor: color.line }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Label>{t.board.reward}</Label>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <Coins value={rewardCoins} sign="+" size={18} />
+                <Text style={{ fontFamily: font.num, fontSize: 18, color: color.accent }}>+{rewardXp} <Text style={{ fontSize: 13 }}>{t.status.exp}</Text></Text>
+              </View>
+            </View>
+            <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>
+              {fill(t.board.bonusLine, { n: day.mains.length, pct })}
+            </Text>
+          </View>
+          {allDone ? (
+            <View style={{ paddingHorizontal: 16, paddingVertical: 13, borderTopWidth: 1, borderTopColor: "rgba(235,200,110,0.4)", alignItems: "center" }}>
+              <Label tone={color.reward}>{fill(t.board.allClear, { bonus: Math.round(day.mainCoins * ECONOMY.allMainsBonus) })}</Label>
+            </View>
+          ) : (
+            <View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 4, borderTopWidth: 1, borderTopColor: "rgba(255,46,69,0.35)", backgroundColor: "rgba(255,46,69,0.08)" }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Label tone={color.danger} style={{ letterSpacing: 4, fontSize: 12 }}>{t.board.warning}</Label>
+                {countdown ? (
+                  <Text style={{ fontFamily: font.num, fontSize: 20, color: color.danger, fontVariant: ["tabular-nums"] }}>{countdown}</Text>
+                ) : null}
+              </View>
+              <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: "#E6B3B9" }}>
+                {countdown ? fill(t.board.warningText, { time: `${DEADLINE_HOUR}:00` }) : t.board.deadlinePassed}
+              </Text>
+            </View>
+          )}
+        </Frame>
+
+        <View style={{ marginTop: 18, marginHorizontal: 14, gap: 12 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+            <Text style={{ flex: 1, fontFamily: font.body, fontSize: 14, color: color.muted }}>{t.board.guildTitle}</Text>
+            <SysButton label={guild ? t.board.guildClose : t.board.guildButton} onPress={() => setGuild((g) => !g)} />
+          </View>
+          {guild ? (
+            <Frame contentStyle={{ paddingVertical: 4 }}>
+              <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted, paddingHorizontal: 14, paddingTop: 10 }}>{t.board.guildHint}</Text>
+              {SIDE_QUESTS.map((q, i) => {
+                const r = rewardPreview(day, q.id);
+                return (
+                  <View key={q.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8, paddingLeft: 14, paddingRight: 8, borderBottomWidth: i === SIDE_QUESTS.length - 1 ? 0 : 1, borderBottomColor: color.line }}>
+                    <HexBadge w={30} h={34} label={q.stat} labelSize={9} />
+                    <View style={{ flex: 1, gap: 3 }}>
+                      <Text style={{ fontFamily: font.bodyMedium, fontSize: 15, color: color.text }}>{q.title}</Text>
+                      <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+                        <Coins value={r.coins} sign="+" size={15} />
+                        <Text style={{ fontFamily: font.num, fontSize: 15, color: color.accent }}>+{r.xp} {t.status.exp}</Text>
+                      </View>
+                    </View>
+                    <HexCheck size={32} disabled={busy} onPress={() => complete(q.id, "side")} label={fill(t.board.markDone, { title: q.title })} />
+                  </View>
+                );
+              })}
+            </Frame>
+          ) : null}
+        </View>
+      </ScrollView>
 
       {toast ? (
-        <Panel>
-          <Text style={{ fontFamily: font.display, fontSize: 17, color: toast.error ? color.danger : color.reward, ...(toast.error ? {} : glow(theme, "rgba(245,201,106,0.4)")) }}>
-            {toast.line}
-          </Text>
-          {toast.level ? <Text style={{ fontFamily: font.display, fontSize: 17, color: color.accent }}>{toast.level}</Text> : null}
-        </Panel>
+        <Animated.View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: insets.top + 54, alignItems: "center",
+          opacity: toastAnim, transform: [{ translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }}>
+          <Frame kind="premium" cut={10} contentStyle={{ flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 10, paddingHorizontal: 16 }}>
+            {toast.error ? (
+              <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.danger }}>{t.quests.error}</Text>
+            ) : (
+              <>
+                <Coins value={toast.coins} sign="+" size={22} />
+                <Text style={{ fontFamily: font.num, fontSize: 22, color: color.accent }}>+{toast.xp} <Text style={{ fontSize: 14 }}>{t.status.exp}</Text></Text>
+              </>
+            )}
+          </Frame>
+        </Animated.View>
       ) : null}
 
-      <Panel title={t.quests.startTitle}>
-        <QuestRow questId="start" done={day.start.done} busy={busy} onDone={action("start", "start")} />
-      </Panel>
-
-      <Panel title={t.quests.mainTitle}>
-        <Text style={{ fontFamily: font.body, fontSize: 14, lineHeight: 20, color: color.muted }}>{t.quests.mainHint}</Text>
-        {day.mains.map((m) => (
-          <QuestRow key={m.id} questId={m.id} done={m.done} busy={busy} onDone={action(m.id, "main")} />
-        ))}
-        <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: day.bonusPaid ? color.reward : color.muted, marginTop: 4 }}>
-          {fill(t.quests.progress, { done: mainsDone, total: day.mains.length })} ·{" "}
-          {day.bonusPaid
-            ? fill(t.quests.bonusPaid, { bonus: Math.round(day.mainCoins * ECONOMY.allMainsBonus) })
-            : fill(t.quests.bonusOpen, { pct: Math.round(ECONOMY.allMainsBonus * 100) })}
-        </Text>
-      </Panel>
-
-      <Panel title={t.quests.sideTitle}>
-        <Text style={{ fontFamily: font.body, fontSize: 14, lineHeight: 20, color: color.muted }}>{t.quests.sideHint}</Text>
-        {SIDE_QUESTS.map((q) => (
-          <QuestRow key={q.id} questId={q.id} done={false} busy={busy} onDone={action(q.id, "side")} />
-        ))}
-      </Panel>
-    </ScrollView>
+      <LevelUp data={levelUp} onClose={() => setLevelUp(null)} />
+    </View>
   );
 }

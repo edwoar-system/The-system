@@ -1,35 +1,63 @@
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import Svg, { Path, Polygon } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usePlayer } from "../lib/player";
-import Home from "./Home";
+import Status from "./Status";
 import Quests from "./Quests";
+import { Glow } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
-const TABS = ["status", "quests"];
+const TABS = ["status", "quests", "skills", "shop"];
 
-// Logged-in app: one live player document shared by all tabs, with a simple bottom tab bar.
+function TabIcon({ id, active, c }) {
+  const p = { fill: active ? "rgba(159,203,255,0.25)" : "none", stroke: c, strokeWidth: 1.6 };
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24">
+      {id === "status" ? <Polygon points="12,2.5 20.5,7.3 20.5,16.7 12,21.5 3.5,16.7 3.5,7.3" {...p} /> : null}
+      {id === "quests" ? <Path d="M6 3h12v18l-6-4-6 4z" {...p} /> : null}
+      {id === "skills" ? <Path d="M4 20V10M10 20V4M16 20v-7M22 20H2" {...p} fill="none" /> : null}
+      {id === "shop" ? <Path d="M4 8h16l-1.5 12h-13zM9 8a3 3 0 0 1 6 0" {...p} /> : null}
+    </Svg>
+  );
+}
+
+function Soon({ text }) {
+  const { color, font } = useTheme();
+  return (
+    <View style={{ flex: 1, backgroundColor: color.bg, alignItems: "center", justifyContent: "center", padding: 32 }}>
+      <Glow height={420} at={0.4} />
+      <Text style={{ fontFamily: font.body, fontSize: 15, textAlign: "center", color: color.muted }}>{text}</Text>
+    </View>
+  );
+}
+
+// Logged-in app: one live player document shared by all tabs, with the System tab bar.
 export default function Shell({ user }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const state = usePlayer(user.uid);
-  const [tab, setTab] = useState("quests");
+  const [tab, setTab] = useState("status");
 
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>
       <View style={{ flex: 1 }}>
-        {tab === "status" ? <Home user={user} {...state} /> : null}
-        {tab === "quests" ? (state.player ? <Quests user={user} player={state.player} /> : <Home user={user} {...state} />) : null}
+        {tab === "status" ? <Status user={user} {...state} onOpenQuests={() => setTab("quests")} /> : null}
+        {tab === "quests" ? (state.player ? <Quests user={user} player={state.player} /> : <Status user={user} {...state} />) : null}
+        {tab === "skills" ? <Soon text={t.soon.skills} /> : null}
+        {tab === "shop" ? <Soon text={t.soon.shop} /> : null}
       </View>
-      <View style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: color.line, backgroundColor: color.surface, paddingBottom: insets.bottom }}>
+      <View accessibilityRole="tablist" style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: color.line, backgroundColor: "rgba(1,4,10,0.96)", paddingBottom: Math.max(insets.bottom, 8) }}>
         {TABS.map((id) => {
           const active = tab === id;
+          const c = active ? color.hi : color.muted;
           return (
-            <Pressable key={id} accessibilityRole="tab" accessibilityState={{ selected: active }} onPress={() => setTab(id)}
-              style={{ flex: 1, alignItems: "center", paddingVertical: 14, gap: 6 }}>
-              <View style={{ width: 22, height: 3, backgroundColor: active ? color.accent : "transparent" }} />
-              <Text style={{ fontFamily: font.display, fontSize: 14, letterSpacing: 0.5, color: active ? color.accent : color.muted }}>{t.tabs[id]}</Text>
+            <Pressable key={id} accessibilityRole="tab" accessibilityLabel={t.tabs[id]} accessibilityState={{ selected: active }} onPress={() => setTab(id)}
+              style={{ flex: 1, alignItems: "center", paddingTop: 10, paddingBottom: 4, gap: 4 }}>
+              <View style={{ position: "absolute", top: -1, width: 28, height: 2, backgroundColor: active ? color.accent : "transparent" }} />
+              <TabIcon id={id} active={active} c={c} />
+              <Text style={{ fontFamily: font.bold, fontSize: 10, letterSpacing: 1, color: c }}>{t.tabs[id].toUpperCase()}</Text>
             </Pressable>
           );
         })}

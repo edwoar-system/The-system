@@ -49,3 +49,8 @@ export function levelFromXp(totalXp) {
   }
   return { level, xpIntoLevel: rest, xpForLevel: xpToNext(level) };
 }
+
+// A stat's value on the attribute hexagon, from the XP you earned in it. Grows fast at first, then slower.
+export function statValue(statXp = 0) {
+  return Math.floor(Math.sqrt(statXp / 4));
+}
