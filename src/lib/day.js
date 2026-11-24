@@ -74,7 +74,7 @@ export async function acceptQuest(uid, questId) {
 export function rewardPreview(day, questId) {
   const q = getQuest(questId);
   const times = day?.typeCounts?.[q.type] ?? 0;
-  return { coins: questCoins({ ...q, timesAlreadyToday: times }), xp: questXp({ ...q, timesAlreadyToday: times }) };
+  return { coins: q.trial ? 0 : questCoins({ ...q, timesAlreadyToday: times }), xp: questXp({ ...q, timesAlreadyToday: times }) };
 }
 
 // Completes a quest: coins, XP, stat XP and the all-mains bonus in one transaction.
@@ -114,7 +114,8 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
     }
 
     const times = day.typeCounts[q.type] ?? 0;
-    const coins = questCoins({ ...q, timesAlreadyToday: times });
+    // Trial parts pay EXP but no coins: the rank is the reward, and a high placement shouldn't flood you with coins.
+    const coins = slot === "trial" ? 0 : questCoins({ ...q, timesAlreadyToday: times });
     const xp = questXp({ ...q, timesAlreadyToday: times });
     day.typeCounts[q.type] = times + 1;
     if (slot === "main") day.mainCoins += coins;

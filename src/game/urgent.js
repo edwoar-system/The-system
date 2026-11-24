@@ -9,7 +9,7 @@ export const URGENT = {
   minGapMinutes: 90, // at least this long between two offers
   randomChance: 0.2, // chance per check when you're not idle
   checkEveryMinutes: 30, // how often a random check may happen
-  urgencyBonus: 4, // flat coins on top of the task, so a 5-minute task is still worth accepting
+  urgencyBonus: 2, // flat coins on top of the task, so a 5-minute task is still worth accepting
   dayStartHour: 8,
   dayEndHour: 22,
   defaultPerDay: 2,

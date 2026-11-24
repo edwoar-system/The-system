@@ -1,8 +1,9 @@
 // The coin and XP formula. Pure functions only, so the numbers are easy to test and tune.
-// Design: see the doc "The System — wat we willen" (Economie). Anchor: a normal good day ≈ 60 coins ≈ 60 min screen time.
+// Design: see the doc "The System — wat we willen" (Economie). Anchor (24 Nov): a good day, all main quests plus
+// 1–2 extra quests, ≈ 30 coins ≈ 30 minutes of a sealed app. Saving up over days buys longer sessions.
 
 export const ECONOMY = {
-  coinsPerEffortMinute: 0.5, // 1 hour of real work = 30 minutes of screen time
+  coinsPerEffortMinute: 0.2, // 1 hour of real work = 12 minutes of screen time
   difficulty: { easy: 0.8, normal: 1, hard: 1.3 },
   urgentMultiplier: 1.5,
   choiceMultiplier: 1.2,
@@ -10,7 +11,7 @@ export const ECONOMY = {
   repeatFalloff: [1, 0.7, 0.4, 0.2], // same quest type again on one day pays less
   tierBonus: 0.05, // harder quest tiers (unlocked by skill rank) pay +5% per tier
   xpPerEffortMinute: 1,
-  dailyScreenTimeTarget: 60, // minutes; tune after 1–2 weeks of real data
+  dailyScreenTimeTarget: 30, // minutes; tune after 1–2 weeks of real data
 };
 
 export function repeatFactor(timesAlreadyToday) {
