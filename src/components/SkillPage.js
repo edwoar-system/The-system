@@ -75,6 +75,7 @@ export default function SkillPage({ user, player, id, onBack, onRequest }) {
   const st = skillStatus(v);
 
   const [placement, setPlacement] = useState(null); // a higher target rank
+  const [more, setMore] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [rankUp, setRankUp] = useState(null);
@@ -259,29 +260,39 @@ export default function SkillPage({ user, player, id, onBack, onRequest }) {
           </View>
         </Frame>
 
-        {/* Ladder */}
-        <Frame cut={12} style={{ marginTop: 12 }} contentStyle={{ padding: 16 }}>
-          <Text style={{ fontFamily: font.bold, fontSize: 16, color: color.text, marginBottom: 6 }}>{t.skills.ladder}</Text>
-          {ladderRows.map(({ r, i, text }) => {
-            const cur = i === v.rank;
-            return (
-              <View key={r} style={{ flexDirection: "row", gap: 12, paddingVertical: 9, borderTopWidth: 1, borderTopColor: color.line, alignItems: "flex-start" }}>
-                <Text style={{ width: 28, fontFamily: font.num, fontSize: 18, color: cur ? "#FFFFFF" : i < v.rank ? "#8EA4C8" : "#5B6F94" }}>{r}</Text>
-                <Text style={{ flex: 1, fontFamily: cur ? font.bodyBold : font.body, fontSize: 14, lineHeight: 20, color: cur ? "#FFFFFF" : i < v.rank ? "#B8C7E3" : color.muted }}>{text}</Text>
-              </View>
-            );
-          })}
-        </Frame>
-
-        {/* How it works */}
-        <Frame cut={12} style={{ marginTop: 12 }} contentStyle={{ padding: 16, gap: 14 }}>
-          <Info title={t.skills.howRank} text={habit ? L.target : L.note} />
-          <Info title={t.skills.quests} text={L.quests} />
-          <Info title={t.skills.earn} text={L.earn} />
-          <Info title={t.skills.test} text={L.test} />
-        </Frame>
-
         <SysButton label={t.skills.request} onPress={onRequest} style={{ marginTop: 18 }} />
+
+        {/* The full ladder and how the skill works: folded, it's reference, not something you need every visit. */}
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded: more }} onPress={() => setMore((m) => !m)}
+          style={{ marginTop: 14, minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 4, borderTopWidth: 1, borderTopColor: color.line }}>
+          <Text style={{ fontFamily: font.bodyBold, fontSize: 14, color: color.accent }}>{more ? t.skills.less : t.skills.more}</Text>
+          <Text style={{ fontFamily: font.bold, fontSize: 18, color: color.muted }}>{more ? "−" : "+"}</Text>
+        </Pressable>
+        {more ? (
+          <>
+          {/* Ladder */}
+          <Frame cut={12} style={{ marginTop: 12 }} contentStyle={{ padding: 16 }}>
+            <Text style={{ fontFamily: font.bold, fontSize: 16, color: color.text, marginBottom: 6 }}>{t.skills.ladder}</Text>
+            {ladderRows.map(({ r, i, text }) => {
+              const cur = i === v.rank;
+              return (
+                <View key={r} style={{ flexDirection: "row", gap: 12, paddingVertical: 9, borderTopWidth: 1, borderTopColor: color.line, alignItems: "flex-start" }}>
+                  <Text style={{ width: 28, fontFamily: font.num, fontSize: 18, color: cur ? "#FFFFFF" : i < v.rank ? "#8EA4C8" : "#5B6F94" }}>{r}</Text>
+                  <Text style={{ flex: 1, fontFamily: cur ? font.bodyBold : font.body, fontSize: 14, lineHeight: 20, color: cur ? "#FFFFFF" : i < v.rank ? "#B8C7E3" : color.muted }}>{text}</Text>
+                </View>
+              );
+            })}
+          </Frame>
+
+          {/* How it works */}
+          <Frame cut={12} style={{ marginTop: 12 }} contentStyle={{ padding: 16, gap: 14 }}>
+            <Info title={t.skills.howRank} text={habit ? L.target : L.note} />
+            <Info title={t.skills.quests} text={L.quests} />
+            <Info title={t.skills.earn} text={L.earn} />
+            <Info title={t.skills.test} text={L.test} />
+          </Frame>
+          </>
+        ) : null}
       </ScrollView>
       {sheet ? <QuestSheet user={user} player={player} questId={sheet.id} slot="trial" done={sheet.done} onClose={() => setSheet(null)} onResult={onResult} /> : null}
       <CheckIn uid={user.uid} data={check} onClose={() => setCheck(null)} />

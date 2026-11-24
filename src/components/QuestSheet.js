@@ -66,7 +66,7 @@ export default function QuestSheet({ user, player, questId, slot, done, onClose,
   if (!q) return null;
   const seconds = elapsed + (runningSince != null ? Math.max(0, (now - runningSince) / 1000) : 0);
   const day = currentDay(player, user.uid);
-  const reward = rewardPreview(day, questId);
+  const reward = rewardPreview(day, questId, player.profile);
   const skill = q.skill ? skillById[q.skill] : null;
   const v = q.skill && skill ? skillView(q.skill, player.skills?.[q.skill]) : null;
 

@@ -8,16 +8,15 @@ import { skillById } from "./guild";
 import { dayNum, skillView, trialState, TRIAL_DAYS } from "./skills";
 import { quoteOfDay } from "./quotes";
 import { quickById, quickToday } from "./quick";
+import { dayTimes } from "./profile";
 import { t } from "../i18n";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 
-export const NOTIFY_KINDS = ["urgent", "deadline", "penalty", "water", "quote", "trial", "rust", "morning"];
-export const NOTIFY_DEFAULTS = { urgent: true, deadline: true, penalty: true, water: true, quote: true, trial: true, rust: true, morning: false };
+export const NOTIFY_KINDS = ["morning", "urgent", "deadline", "penalty", "water", "trial", "rust"];
+export const NOTIFY_DEFAULTS = { morning: true, urgent: true, deadline: true, penalty: true, water: true, trial: true, rust: true };
 export const WATER_HOURS = [10, 12, 14, 16, 18];
-export const QUOTE_HOUR = 9;
 export const DEADLINE_WARNING_HOUR = 20;
-export const MORNING_HOUR = 8;
 const LOOK_AHEAD_DAYS = 2; // today and tomorrow; rescheduled every time the app opens or the player changes
 const MAX_RUST = 3;
 
@@ -40,13 +39,17 @@ const fromDayNum = (n, hour) => {
   return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), hour, 0, 0, 0);
 };
 
-// Urgent quest times for one day: spread over the waking hours, at least 90 minutes apart.
-export function urgentTimes(uid, dateKey, count, base) {
+// Urgent quest times for one day: spread over your waking hours (an hour after waking until an hour
+// before bed, within 8:00–22:00), one per slot.
+export function urgentTimes(uid, dateKey, count, base, profile = null) {
   const rand = seeded(`${uid}:${dateKey}`);
-  const span = (URGENT.dayEndHour - URGENT.dayStartHour) * 60 - 30;
+  const { wake, bed } = dayTimes(profile);
+  const start = Math.max(URGENT.dayStartHour, wake + 1) * 60;
+  const end = Math.min(URGENT.dayEndHour, bed - 1) * 60;
+  const span = Math.max(60, end - start - 30);
   const slot = span / Math.max(1, count);
   return Array.from({ length: count }, (_, i) => {
-    const minute = Math.round(URGENT.dayStartHour * 60 + i * slot + rand() * (slot - 45));
+    const minute = Math.round(start + i * slot + rand() * Math.max(0, slot - 45));
     return at(base, 0, Math.floor(minute / 60), minute % 60);
   });
 }
@@ -69,7 +72,7 @@ export function notificationPlan(player, uid, now = new Date()) {
     if (s.urgent) {
       const perDay = player.urgentPerDay ?? URGENT.defaultPerDay;
       const done = d === 0 && player.urgentToday?.date === key ? player.urgentToday.count : 0;
-      urgentTimes(uid, key, perDay, base).slice(done).forEach((date, i) => add({
+      urgentTimes(uid, key, perDay, base, player.profile).slice(done).forEach((date, i) => add({
         id: `urgent-${key}-${i}`, date, title: t.notify.urgentTitle, body: t.notify.urgentBody, data: { kind: "urgent" },
       }));
     }
@@ -88,10 +91,6 @@ export function notificationPlan(player, uid, now = new Date()) {
           body: fill(t.notify.waterBody, { n: had, goal }), data: { kind: "quests" } }));
       }
     }
-    if (s.quote) {
-      const q = quoteOfDay(key, 0, player.profile?.schools);
-      add({ id: `quote-${key}`, date: at(base, 0, QUOTE_HOUR), title: t.notify.quoteTitle, body: `${q.text} (${q.who})`, data: { kind: "status" } });
-    }
     // Your own reminders ("don't forget"): daily ones every day, one-off ones on their date.
     (player.reminders ?? []).forEach((r) => {
       if (r.repeat !== "daily" && r.date !== key) return;
@@ -99,8 +98,13 @@ export function notificationPlan(player, uid, now = new Date()) {
       if (!Number.isFinite(hh) || !Number.isFinite(mm)) return;
       add({ id: `rem-${r.id}-${key}`, date: at(base, 0, hh, mm), title: t.notify.reminderTitle, body: r.text, data: { kind: "status" } });
     });
+    // Morning: the day's quote and your start quest, around your wake time (never the exact same minute).
     if (s.morning) {
-      add({ id: `morning-${key}`, date: at(base, 0, MORNING_HOUR), title: t.notify.morningTitle, body: t.notify.morningBody, data: { kind: "quests" } });
+      const { wake } = dayTimes(player.profile);
+      const minute = Math.round(wake * 60 + seeded(`${uid}:${key}:m`)() * 30);
+      const q = quoteOfDay(key, 0, player.profile?.schools);
+      add({ id: `morning-${key}`, date: at(base, 0, Math.floor(minute / 60), minute % 60), title: t.notify.morningTitle,
+        body: `${q.text} (${q.who}) ${t.notify.morningBody}`, data: { kind: "quests" } });
     }
   }
 

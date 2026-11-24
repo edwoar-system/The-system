@@ -188,11 +188,12 @@ export function guildQuest(id) {
 }
 
 // Three suggestions: skills you haven't trained for the longest first, shuffled by the reroll seed.
-export function suggestSkills(stat, lastDoneBySkill = {}, seed = 0) {
+// liked: skills from your interests come first.
+export function suggestSkills(stat, lastDoneBySkill = {}, seed = 0, liked = null) {
   let t = (seed + 1) * 2654435761 + stat.charCodeAt(0);
   const r = () => { t = (t + 0x6d2b79f5) | 0; let x = Math.imul(t ^ (t >>> 15), 1 | t); x ^= x + Math.imul(x ^ (x >>> 7), 61 | x); return ((x ^ (x >>> 14)) >>> 0) / 4294967296; };
   return GUILD[stat]
-    .map((s) => ({ s, k: (lastDoneBySkill[s.id] ?? "") + String(r()).slice(1, 6) }))
+    .map((s) => ({ s, k: (liked?.has(s.id) ? "0" : "1") + (lastDoneBySkill[s.id] ?? "") + String(r()).slice(1, 6) }))
     .sort((a, b) => (a.k < b.k ? -1 : 1))
     .slice(0, 3)
     .map((x) => x.s);

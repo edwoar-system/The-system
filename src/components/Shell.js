@@ -94,7 +94,7 @@ export default function Shell({ user }) {
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>
       <View style={{ flex: 1 }}>
-        {tab === "status" ? <Status user={user} {...state} onOpenQuests={() => setTab("quests")} /> : null}
+        {tab === "status" ? <Status user={user} {...state} onOpenQuests={() => setTab("quests")} onOpenSettings={() => setTab("settings")} /> : null}
         {tab === "quests" ? (state.player ? <Quests user={user} player={state.player} focus={focus} onFocusDone={() => setFocus(null)} onOpenSkill={(id) => { setSkillFocus(id); setTab("skills"); }} /> : <Status user={user} {...state} />) : null}
         {tab === "skills" ? (state.player ? <Skills user={user} player={state.player} onGoToQuest={(f) => { setFocus(f); setTab("quests"); }} focusSkill={skillFocus} onFocusDone={() => setSkillFocus(null)} /> : <Status user={user} {...state} />) : null}
         {tab === "shop" ? <Soon text={t.soon.shop} /> : null}

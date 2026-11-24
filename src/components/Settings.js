@@ -1,11 +1,11 @@
-// Settings tab: profile, info for fair rank norms, the System settings, quest history and the account.
+// Settings tab: profile, Tune the System (questionnaire), quotes, the System settings, reminders, quest history and the account.
 import { useEffect, useState } from "react";
 import { Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
 import * as Updates from "expo-updates";
 import { signOut } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth } from "../lib/firebase";
-import { setNotify, setPlayerName, setProfile, setReminders } from "../lib/player";
+import { setNotify, setPlayerName, setReminders } from "../lib/player";
 import { askNotifyPermission, notifyPermission, notifySupported } from "../lib/notify";
 import { NOTIFY_KINDS, notifySettings } from "../game/notify";
 import { setUrgentPerDay } from "../lib/urgent";
@@ -17,6 +17,8 @@ import { todayKey } from "../game/quests";
 import { Coins, Frame, Glow, Label, SysButton } from "./sys";
 import { Button } from "./ui";
 import { SeverityChips, UrgentChips } from "./systemChoices";
+import Tune from "./Tune";
+import QuoteLibrary from "./QuoteLibrary";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
@@ -173,10 +175,8 @@ export default function Settings({ user, player, synced }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const [name, setName] = useState(player.name ?? "");
-  const [age, setAge] = useState(player.profile?.age ? String(player.profile.age) : "");
-  const [sex, setSex] = useState(player.profile?.sex ?? null);
-  const [weight, setWeight] = useState(player.profile?.weight ? String(player.profile.weight) : "");
-  const [saved, setSaved] = useState(null); // "name" | "profile"
+  const [saved, setSaved] = useState(null); // "name"
+  const [quotes, setQuotes] = useState(false);
 
   const today = todayKey();
   const severity = severityFor(player, today);
@@ -186,12 +186,6 @@ export default function Settings({ user, player, synced }) {
     await setPlayerName(user.uid, name.trim());
     setSaved("name");
   }
-  async function saveProfile() {
-    const num = (v) => { const n = Number(v.replace(",", ".")); return v.trim() && Number.isFinite(n) && n > 0 ? n : null; };
-    await setProfile(user.uid, { age: num(age), sex, weight: num(weight) });
-    setSaved("profile");
-  }
-
   return (
     <ScrollView style={{ flex: 1, backgroundColor: color.bg }} keyboardShouldPersistTaps="handled"
       contentContainerStyle={{ paddingTop: insets.top + 14, paddingBottom: 40, paddingHorizontal: 14, maxWidth: 520, width: "100%", alignSelf: "center" }}>
@@ -209,27 +203,14 @@ export default function Settings({ user, player, synced }) {
         </View>
       </Section>
 
-      <Section title={t.settings.about} sub={t.settings.aboutSub}>
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <Input label={t.settings.age} value={age} onChangeText={(v) => { setAge(v); setSaved(null); }} keyboardType="number-pad" width={90} />
-          <View style={{ flex: 1 }}><Input label={t.settings.weight} value={weight} onChangeText={(v) => { setWeight(v); setSaved(null); }} keyboardType="decimal-pad" /></View>
-        </View>
-        <View style={{ gap: 6 }}>
-          <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: color.muted }}>{t.settings.sex}</Text>
-          <View style={{ flexDirection: "row", gap: 6 }}>
-            {["male", "female", "other"].map((s) => {
-              const on = sex === s;
-              return (
-                <Pressable key={s} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => { setSex(on ? null : s); setSaved(null); }}
-                  style={{ flex: 1, minHeight: 44, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: on ? color.frame : "rgba(159,203,255,0.22)", backgroundColor: on ? "rgba(159,203,255,0.16)" : "transparent" }}>
-                  <Text style={{ fontFamily: font.bold, fontSize: 14, color: on ? "#FFFFFF" : color.muted }}>{t.settings.sexes[s]}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-        <SysButton label={(saved === "profile" ? t.settings.saved : t.settings.save).toUpperCase()} onPress={saveProfile} />
+      <Section title={t.tune.title} sub={t.tune.sub}>
+        <Tune user={user} player={player} />
       </Section>
+
+      <Section title={t.quote.section} sub={t.quote.sectionSub}>
+        <SysButton label={t.quote.open} onPress={() => setQuotes(true)} />
+      </Section>
+      {quotes ? <QuoteLibrary mine={player.profile?.schools ?? []} onClose={() => setQuotes(false)} /> : null}
 
       <Section title={t.settings.system}>
         <View style={{ gap: 8 }}>

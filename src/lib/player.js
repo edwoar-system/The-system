@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, onSnapshot, setDoc, updateDoc, increment, serverTimestamp } from "firebase/firestore";
+import { deleteField, doc, onSnapshot, setDoc, updateDoc, increment, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "./firebase";
 
 // Who is logged in (undefined = still checking, null = nobody).
@@ -56,6 +56,12 @@ export function lockSetup(uid, { urgentPerDay, penaltySeverity }) {
 // Profile info for fair rank norms: age, sex and bodyweight (all optional).
 export function setProfile(uid, profile) {
   return updateDoc(doc(db, "players", uid), { profile, updatedAt: serverTimestamp() });
+}
+
+// Saves one part of the questionnaire: only the given fields change (null removes one).
+export function patchProfile(uid, patch) {
+  const fields = Object.fromEntries(Object.entries(patch).map(([k, v]) => [`profile.${k}`, v ?? deleteField()]));
+  return updateDoc(doc(db, "players", uid), { ...fields, updatedAt: serverTimestamp() });
 }
 
 // Turns one kind of notification on or off (see game/notify.js).

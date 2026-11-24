@@ -1,4 +1,4 @@
-// System messages: one line of old wisdom a day, from the four Guild schools.
+// System messages: one line of old wisdom a day. Browse them all in the quote library.
 // Written as short paraphrases in our own words (the sources are ancient texts), with the author and work.
 import { todayKey } from "./quests";
 
@@ -40,9 +40,29 @@ export const QUOTES = [
   { school: "buddhism", text: "Before enlightenment, chop wood, carry water. After enlightenment, chop wood, carry water.", who: "Zen saying", work: "Chan tradition" },
   { school: "buddhism", text: "Not knowing is the most intimate.", who: "Dizang", work: "Book of Serenity" },
   { school: "buddhism", text: "When you sit, sit. When you walk, walk. Above all, don't wobble.", who: "Yunmen", work: "Zen tradition" },
+  // Greek philosophy
+  { school: "greek", text: "You never step into the same river twice.", who: "Heraclitus", work: "Fragments" },
+  { school: "greek", text: "Character is fate.", who: "Heraclitus", work: "Fragments" },
+  { school: "greek", text: "We become brave by doing brave things, and fair by doing fair things.", who: "Aristotle", work: "Nicomachean Ethics" },
+  { school: "greek", text: "One swallow doesn't make a spring, and one good day doesn't make a good life.", who: "Aristotle", work: "Nicomachean Ethics" },
+  { school: "greek", text: "A life without examining it is not worth living.", who: "Socrates", work: "Plato, Apology" },
+  // The warrior's way
+  { school: "warrior", text: "Today, beat the person you were yesterday.", who: "Miyamoto Musashi", work: "The Book of Five Rings" },
+  { school: "warrior", text: "Do nothing that is of no use.", who: "Miyamoto Musashi", work: "The Book of Five Rings" },
+  { school: "warrior", text: "Learn to see what the eye can't see.", who: "Miyamoto Musashi", work: "The Book of Five Rings" },
+  { school: "warrior", text: "Know the enemy and know yourself, and a hundred battles hold no danger.", who: "Sun Tzu", work: "The Art of War" },
+  { school: "warrior", text: "The one who wins has already won before the fight begins.", who: "Sun Tzu", work: "The Art of War" },
+  { school: "warrior", text: "Fall seven times, stand up eight.", who: "Japanese proverb", work: "Japanese proverb" },
+  // Confucianism
+  { school: "confucian", text: "Knowing what you know, and knowing what you don't: that is knowledge.", who: "Confucius", work: "Analects" },
+  { school: "confucian", text: "When you meet someone better than you, think about becoming like them.", who: "Confucius", work: "Analects" },
+  { school: "confucian", text: "A great person never loses the heart they had as a child.", who: "Mencius", work: "Mencius" },
 ];
 
-export const SCHOOL_NAMES = { stoicism: "Stoicism", taoism: "Taoism", absurdism: "Existentialism", buddhism: "Buddhism and Zen" };
+export const SCHOOL_NAMES = {
+  stoicism: "Stoicism", taoism: "Taoism", absurdism: "Existentialism", buddhism: "Buddhism and Zen",
+  greek: "Greek philosophy", warrior: "The warrior's way", confucian: "Confucianism",
+};
 
 function hash(s) {
   let h = 2166136261;
@@ -51,7 +71,7 @@ function hash(s) {
 }
 
 // The quote for a day (the same all day). shift moves to the next one ("another").
-// schools: the player's favourite schools, if chosen (from the questionnaire later).
+// schools: the player's favourite schools, if chosen in Tune the System.
 export function quoteOfDay(dateKey = todayKey(), shift = 0, schools = null) {
   const pool = schools?.length ? QUOTES.filter((q) => schools.includes(q.school)) : QUOTES;
   const list = pool.length ? pool : QUOTES;

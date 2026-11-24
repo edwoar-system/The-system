@@ -16,7 +16,8 @@ import { BodyReport } from "./Body";
 import CheckIn from "./CheckIn";
 import QuickLog from "./QuickLog";
 import { QUICK, goalFor, quickToday } from "../game/quick";
-import { trialQuestId, trialState } from "../game/skills";
+import { dayNum, trialQuestId, trialState, weekNum } from "../game/skills";
+import { dutiesToday } from "../game/profile";
 import { RANKS, ladderById as ladders } from "../game/ladders";
 import { skillById } from "../game/guild";
 import { useTheme } from "../theme";
@@ -117,6 +118,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
     const st = ladders[skillId] ? trialState(tr, ladders[skillId], player.skills?.[skillId]?.ticks) : null;
     return st ? { skillId, ...st } : null;
   }).filter(Boolean);
+  const duties = dutiesToday(player, day.date, weekNum(dayNum(day.date)));
   const toastAnim = useRef(new Animated.Value(0)).current;
 
   const quickCounts = quickToday(player);
@@ -127,7 +129,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
   const mainsDone = day.mains.filter((m) => m.done).length;
   const allDone = mainsDone === day.mains.length;
   const pct = Math.round(ECONOMY.allMainsBonus * 100);
-  const openRewards = day.mains.filter((m) => !m.done).map((m) => rewardPreview(day, m.id));
+  const openRewards = day.mains.filter((m) => !m.done).map((m) => rewardPreview(day, m.id, player.profile));
   const rewardCoins = openRewards.reduce((a, r) => a + r.coins, 0);
   const rewardXp = openRewards.reduce((a, r) => a + r.xp, 0);
 
@@ -270,6 +272,33 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
               <View style={{ height: 6 }} />
             </Frame>
           ) : null}
+          {duties.length ? (
+            <Frame cut={12}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", paddingHorizontal: 14, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: color.line }}>
+                <Label tone={color.hi}>{t.board.duties}</Label>
+                <Text style={{ fontFamily: font.num, fontSize: 16, color: color.frame }}>{duties.filter((d) => d.done).length}<Text style={{ fontSize: 13, color: color.muted }}> / {duties.length}</Text></Text>
+              </View>
+              {[...duties.filter((d) => !d.done), ...duties.filter((d) => d.done)].map((d, i, all) => {
+                const id = `d:${d.id}`;
+                const r = rewardPreview(day, id, player.profile);
+                return (
+                  <View key={id} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 14, paddingRight: 8, opacity: d.done ? 0.55 : 1,
+                    borderBottomWidth: i === all.length - 1 ? 0 : 1, borderBottomColor: color.line }}>
+                    <Pressable accessibilityRole="button" accessibilityHint={t.board.openHint} onPress={() => setSheet({ id, slot: "duty", done: d.done })}
+                      style={({ pressed }) => ({ flex: 1, gap: 4, opacity: pressed ? 0.7 : 1 })}>
+                      <Text style={{ fontFamily: font.bold, fontSize: 15, lineHeight: 20, color: "#FFFFFF" }}>{d.name}</Text>
+                      <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+                        <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{d.done ? t.board.dutyDone[d.freq] : t.board.dutyFreq[d.freq]}</Text>
+                        {d.done ? null : <Coins value={r.coins} sign="+" size={14} />}
+                      </View>
+                    </Pressable>
+                    <HexCheck size={30} done={d.done} disabled={busy} onPress={() => complete(id, "duty")}
+                      label={fill(d.done ? t.board.isDone : t.board.markDone, { title: d.name })} />
+                  </View>
+                );
+              })}
+            </Frame>
+          ) : null}
           {day.guild.length ? (
             <Frame cut={12}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", paddingHorizontal: 14, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: color.line }}>
@@ -279,7 +308,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
               {[...guildOpen, ...guildDone].map((g, i, all) => {
                 const q = getQuest(g.id);
                 if (!q) return null;
-                const r = rewardPreview(day, g.id);
+                const r = rewardPreview(day, g.id, player.profile);
                 return (
                   <View key={g.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 14, paddingRight: 8, opacity: g.done ? 0.55 : 1,
                     borderBottomWidth: i === all.length - 1 ? 0 : 1, borderBottomColor: color.line }}>

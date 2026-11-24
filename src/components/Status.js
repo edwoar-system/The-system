@@ -12,7 +12,9 @@ import { Coins, Frame, Glow, Label, hexPoints } from "./sys";
 import StatShape from "./StatShape";
 import Setup from "./Setup";
 import { BodyCard } from "./Body";
+import QuoteLibrary from "./QuoteLibrary";
 import { quoteOfDay } from "../game/quotes";
+import { PARTS, partsDone } from "../game/profile";
 import { todayKey } from "../game/quests";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
@@ -76,28 +78,51 @@ function ExpBar({ ratio }) {
   );
 }
 
-function QuoteCard({ quote, onNext }) {
+function QuoteCard({ quote, onNext, onLibrary }) {
   const { color, font } = useTheme();
   return (
     <View style={{ marginTop: 20, marginHorizontal: 18, paddingLeft: 14, borderLeftWidth: 2, borderLeftColor: color.frame, gap: 6 }}>
       <Label tone={color.hi}>{t.quote.title}</Label>
       <Text style={{ fontFamily: font.bodyMedium, fontSize: 16, lineHeight: 23, color: "#FFFFFF" }}>{quote.text}</Text>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <Text style={{ flex: 1, fontFamily: font.body, fontSize: 12, color: color.muted }}>{quote.who === quote.work ? quote.who : `${quote.who}, ${quote.work}`}</Text>
-        <Pressable accessibilityRole="button" onPress={onNext} style={{ minHeight: 40, justifyContent: "center", paddingLeft: 12 }}>
+      <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{quote.who === quote.work ? quote.who : `${quote.who}, ${quote.work}`}</Text>
+      <View style={{ flexDirection: "row", gap: 18 }}>
+        <Pressable accessibilityRole="button" onPress={onNext} style={{ minHeight: 40, justifyContent: "center" }}>
           <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.accent }}>{t.quote.another}</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" onPress={onLibrary} style={{ minHeight: 40, justifyContent: "center" }}>
+          <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.accent }}>{t.quote.all}</Text>
         </Pressable>
       </View>
     </View>
   );
 }
 
-export default function Status({ user, player, error, onOpenQuests }) {
+// A small nudge to the questionnaire, until most of it is answered.
+function TunePrompt({ profile, onPress }) {
+  const { color, font } = useTheme();
+  const done = partsDone(profile);
+  const n = PARTS.filter((p) => done[p]).length;
+  if (n >= PARTS.length - 1) return null;
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => ({ marginTop: 12, marginHorizontal: 14, opacity: pressed ? 0.8 : 1 })}>
+      <Frame cut={12} contentStyle={{ padding: 14, flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <View style={{ flex: 1, gap: 3 }}>
+          <Text style={{ fontFamily: font.bold, fontSize: 15, color: "#FFFFFF" }}>{t.tune.promptTitle}</Text>
+          <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{fill(t.tune.prompt, { n, of: PARTS.length })}</Text>
+        </View>
+        <Text style={{ fontFamily: font.bold, fontSize: 18, color: color.muted }}>›</Text>
+      </Frame>
+    </Pressable>
+  );
+}
+
+export default function Status({ user, player, error, onOpenQuests, onOpenSettings }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const [nameDraft, setNameDraft] = useState("");
   const [locking, setLocking] = useState(false);
   const [quoteShift, setQuoteShift] = useState(0);
+  const [library, setLibrary] = useState(false);
   const k = useCountUp();
 
   if (error) {
@@ -164,7 +189,8 @@ export default function Status({ user, player, error, onOpenQuests }) {
         </Text>
       </View>
 
-      <QuoteCard quote={quoteOfDay(todayKey(), quoteShift, player.profile?.schools)} onNext={() => setQuoteShift((n) => n + 1)} />
+      <QuoteCard quote={quoteOfDay(todayKey(), quoteShift, player.profile?.schools)} onNext={() => setQuoteShift((n) => n + 1)} onLibrary={() => setLibrary(true)} />
+      {library ? <QuoteLibrary mine={player.profile?.schools ?? []} onClose={() => setLibrary(false)} /> : null}
 
       <Pressable accessibilityRole="button" onPress={onOpenQuests} style={({ pressed }) => ({ marginTop: 22, marginHorizontal: 14, transform: [{ scale: pressed ? 0.99 : 1 }] })}>
         <Frame kind="premium" cut={16} contentStyle={{ padding: 16, flexDirection: "row", alignItems: "center", gap: 14 }}>
@@ -188,6 +214,8 @@ export default function Status({ user, player, error, onOpenQuests }) {
       </Pressable>
 
       <BodyCard player={player} />
+
+      {player.setupLocked && onOpenSettings ? <TunePrompt profile={player.profile} onPress={onOpenSettings} /> : null}
 
       {!player.name ? (
         <Frame style={{ marginTop: 12, marginHorizontal: 14 }} contentStyle={{ padding: 16, gap: 12 }}>

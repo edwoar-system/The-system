@@ -1,6 +1,6 @@
 // Harder guild quests, unlocked by your rank in the skill. Tier I is the quest in guild.js (ranks F–D).
 // Tier II = ranks C–B, tier III = rank A and up. [quest, minutes, difficulty]
-// Coins still come from minutes and difficulty; a higher tier adds +5% per tier (ECONOMY.tierBonus).
+// Coins come from minutes and difficulty only; a higher tier is the challenge, not a coin bonus.
 
 export const TIER_RANKS = [0, 3, 5]; // the rank that unlocks tier I, II, III
 export const tierForRank = (rank) => (rank >= 5 ? 2 : rank >= 3 ? 1 : 0);

@@ -4,6 +4,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { acceptQuest, currentDay, rewardPreview, MAX_GUILD_QUESTS } from "../lib/day";
+import { interestSkills } from "../game/profile";
 import { GUILD, GYM_COUNTS, GYM_LENGTHS, GYM_SESSIONS, PHILOSOPHY, guildQuest, skillById, suggestSkills } from "../game/guild";
 import { rankLetter, skillView } from "../game/skills";
 import { GYM_TIER_BANDS, TIERS, TIER_RANKS, tierForRank } from "../game/tiers";
@@ -63,7 +64,7 @@ export default function Guild({ user, player, onClose, initialSkill, onAccepted 
   const readIdx = path ? player.philosophy?.[path.id] ?? 0 : 0;
   const reading = path?.readings[readIdx];
   if (screen === "reading" && reading) questId = `g:philo:${path.id}:${readIdx}`;
-  const reward = questId ? rewardPreview(day, questId) : null;
+  const reward = questId ? rewardPreview(day, questId, player.profile) : null;
 
   async function accept() {
     setBusy(true);
@@ -205,7 +206,7 @@ export default function Guild({ user, player, onClose, initialSkill, onAccepted 
               </Pressable>
             </View>
             <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
-              {suggestSkills(stat, player.lastDoneBySkill, seed).map((s) => (
+              {suggestSkills(stat, player.lastDoneBySkill, seed, interestSkills(player.profile)).map((s) => (
                 <Pressable key={s.id} accessibilityRole="button" onPress={() => openSkill(s)} style={{ flex: 1 }}>
                   <Frame kind="premium" cut={10} contentStyle={{ minHeight: 118, padding: 10, gap: 6 }}>
                     <HexBadge w={26} h={30} label={rankOf(s.id)} labelSize={11} />

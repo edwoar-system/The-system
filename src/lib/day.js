@@ -6,13 +6,17 @@ import { guildQuest } from "../game/guild";
 import { ladderById } from "../game/ladders";
 import { dayNum, habitRank, isHabit, passTrial, recordTraining, skillView, SKILL_RULES, trialQuest, trialState, weekNum } from "../game/skills";
 import { tierForRank } from "../game/tiers";
+import { dutyQuest, interestSkills, mountainFactor } from "../game/profile";
 import { addLoad, coverage, questLoad } from "../game/muscles";
 
 export const MAX_GUILD_QUESTS = 6;
 
 // Any quest by id: the fixed catalogue, a guild quest ("g:...") or a rank-trial part ("t:...").
 export function getQuest(id) {
-  return questById[id] ?? (id.startsWith("t:") ? trialQuest(id) : guildQuest(id));
+  if (questById[id]) return questById[id];
+  if (id.startsWith("t:")) return trialQuest(id);
+  if (id.startsWith("d:")) return dutyQuest(id);
+  return guildQuest(id);
 }
 
 const rankXp = (from, to) => {
@@ -27,7 +31,7 @@ export function newDay(player, uid) {
   return {
     date,
     start: { id: "start", done: false },
-    mains: pickMainQuests({ date, uid, lastDoneByStat: player?.lastDoneByStat ?? {}, mainSlots: player?.mainSlots ?? 3 })
+    mains: pickMainQuests({ date, uid, lastDoneByStat: player?.lastDoneByStat ?? {}, mainSlots: player?.mainSlots ?? 3, liked: interestSkills(player?.profile) })
       .map((id) => ({ id, done: false })),
     guild: [],
     typeCounts: {},
@@ -71,10 +75,12 @@ export async function acceptQuest(uid, questId) {
 }
 
 // Preview of what a quest pays right now (diminishing returns included).
-export function rewardPreview(day, questId) {
+// profile: the player's questionnaire answers (for the personal mountain factor).
+export function rewardPreview(day, questId, profile = null) {
   const q = getQuest(questId);
   const times = day?.typeCounts?.[q.type] ?? 0;
-  return { coins: q.trial ? 0 : questCoins({ ...q, timesAlreadyToday: times }), xp: questXp({ ...q, timesAlreadyToday: times }) };
+  const mountain = mountainFactor(profile, q.type);
+  return { coins: q.trial ? 0 : questCoins({ ...q, timesAlreadyToday: times, mountain }), xp: questXp({ ...q, timesAlreadyToday: times }) };
 }
 
 // Completes a quest: coins, XP, stat XP and the all-mains bonus in one transaction.
@@ -89,6 +95,7 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
     const day = JSON.parse(JSON.stringify(currentDay(player, uid)));
     const today = dayNum(day.date);
     let trial = null; // the updated trial when this is a trial part
+    let duties = null; // the updated duties list when this is a duty
 
     if (slot === "start") {
       if (day.start.done) throw new Error("already-done");
@@ -101,6 +108,15 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
       const g = day.guild.find((x) => x.id === questId && !x.done);
       if (!g) throw new Error("already-done");
       g.done = true;
+    } else if (slot === "duty") {
+      const week = weekNum(today);
+      const d = player.duties ?? {};
+      const todayList = d.date === day.date ? [...(d.today ?? [])] : [];
+      const weekList = d.week === week ? [...(d.thisWeek ?? [])] : [];
+      const list = q.freq === "daily" ? todayList : weekList;
+      if (list.includes(q.duty)) throw new Error("already-done");
+      list.push(q.duty);
+      duties = { date: day.date, today: todayList, week, thisWeek: weekList };
     } else if (slot === "trial") {
       const ladder = ladderById[q.skill];
       const st = trialState(player.trials?.[q.skill], ladder, player.skills?.[q.skill]?.ticks, today);
@@ -115,7 +131,7 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
 
     const times = day.typeCounts[q.type] ?? 0;
     // Trial parts pay EXP but no coins: the rank is the reward, and a high placement shouldn't flood you with coins.
-    const coins = slot === "trial" ? 0 : questCoins({ ...q, timesAlreadyToday: times });
+    const coins = slot === "trial" ? 0 : questCoins({ ...q, timesAlreadyToday: times, mountain: mountainFactor(player.profile, q.type) });
     const xp = questXp({ ...q, timesAlreadyToday: times });
     day.typeCounts[q.type] = times + 1;
     if (slot === "main") day.mainCoins += coins;
@@ -176,6 +192,7 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
       ...(q.skill ? { lastDoneBySkill: { ...(player.lastDoneBySkill ?? {}), [q.skill]: day.date } } : {}),
       ...(skills ? { skills } : {}),
       ...(muscleLoad ? { muscleLoad } : {}),
+      ...(duties ? { duties } : {}),
       ...(skillUp?.xp ? { skillBest: { ...(player.skillBest ?? {}), [q.skill]: skillUp.rank } } : {}),
       ...(trial ? { trials: { [q.skill]: trial.complete ? deleteField() : { rank: trial.rank, started: trial.started, done: trial.done } } } : {}),
       ...(q.school ? { philosophy: { ...(player.philosophy ?? {}), [q.school]: Math.max(player.philosophy?.[q.school] ?? 0, q.reading + 1) } } : {}),
