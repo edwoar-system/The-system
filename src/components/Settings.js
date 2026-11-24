@@ -5,7 +5,8 @@ import * as Updates from "expo-updates";
 import { signOut } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth } from "../lib/firebase";
-import { setNotify, setPlayerName, setProof, setReminders } from "../lib/player";
+import { setNotify, setPlayerName, setPrivacy, setProof, setReminders } from "../lib/player";
+import { PRIVACY_KEYS, privacySettings } from "../game/social";
 import { loadProof } from "../lib/proof";
 import { PROOF_KINDS, proofSettings } from "../game/proof";
 import { askNotifyPermission, notifyPermission, notifySupported } from "../lib/notify";
@@ -150,6 +151,25 @@ function ProofChoice({ user, player }) {
   );
 }
 
+// What your friends can see.
+function Privacy({ user, player }) {
+  const { color, font } = useTheme();
+  const on = privacySettings(player);
+  return (
+    <View>
+      {PRIVACY_KEYS.map((k, i) => (
+        <View key={k} style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 52, borderTopWidth: i ? 1 : 0, borderTopColor: color.line }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{t.privacy.keys[k]}</Text>
+          </View>
+          <Switch value={on[k]} onValueChange={(v) => setPrivacy(user.uid, k, v)} accessibilityLabel={t.privacy.keys[k]}
+            trackColor={{ false: "#1A2740", true: color.frame }} thumbColor="#FFFFFF" />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 // A proof photo from the quest log, full screen.
 function ProofView({ uid, logId, onClose }) {
   const { color, font } = useTheme();
@@ -268,6 +288,10 @@ export default function Settings({ user, player, synced }) {
 
       <Section title={t.proof.title} sub={t.proof.sub}>
         <ProofChoice user={user} player={player} />
+      </Section>
+
+      <Section title={t.privacy.title} sub={t.privacy.sub}>
+        <Privacy user={user} player={player} />
       </Section>
 
       <Section title={t.reminders.title} sub={t.reminders.sub}>

@@ -63,6 +63,11 @@ export function setProof(uid, kind, on) {
   return updateDoc(doc(db, "players", uid), { [`proof.${kind}`]: on, updatedAt: serverTimestamp() });
 }
 
+// What friends can see ("stats", "skills", "streak", "today", "honesty").
+export function setPrivacy(uid, key, on) {
+  return updateDoc(doc(db, "players", uid), { [`privacy.${key}`]: on, updatedAt: serverTimestamp() });
+}
+
 // Saves one part of the questionnaire: only the given fields change (null removes one).
 export function patchProfile(uid, patch) {
   const fields = Object.fromEntries(Object.entries(patch).map(([k, v]) => [`profile.${k}`, v ?? deleteField()]));

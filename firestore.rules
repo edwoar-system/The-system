@@ -8,5 +8,43 @@ service cloud.firestore {
     match /players/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
+
+    // Friend codes: anyone signed in can look one up; you can only claim or change your own.
+    match /codes/{code} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow update: if request.auth != null && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
+
+    function signedIn() { return request.auth != null; }
+    function isFriend(uid) {
+      return exists(/databases/$(database)/documents/public/$(uid)/friends/$(request.auth.uid));
+    }
+    function hasRequest(to, from) {
+      return exists(/databases/$(database)/documents/public/$(to)/requests/$(from));
+    }
+
+    // Your public card: only you write it; you and your friends read it.
+    match /public/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isFriend(uid));
+      allow write: if signedIn() && request.auth.uid == uid;
+
+      // A friend request to {uid} from {from}: only the sender creates it; either side can see or remove it.
+      match /requests/{from} {
+        allow read, delete: if signedIn() && (request.auth.uid == uid || request.auth.uid == from);
+        allow create, update: if signedIn() && request.auth.uid == from && from != uid;
+      }
+
+      // {fid} is a friend of {uid}. Written when {uid} or {fid} accepts the other's request.
+      match /friends/{fid} {
+        allow read: if signedIn() && (request.auth.uid == uid || request.auth.uid == fid);
+        allow create, update: if signedIn() && (
+          (request.auth.uid == uid && hasRequest(uid, fid)) ||
+          (request.auth.uid == fid && hasRequest(fid, uid))
+        );
+        allow delete: if signedIn() && (request.auth.uid == uid || request.auth.uid == fid);
+      }
+    }
   }
 }
