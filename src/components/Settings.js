@@ -51,12 +51,10 @@ function History({ uid }) {
   if (!items) return <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{t.settings.loading}</Text>;
   if (error) return <Text style={{ fontFamily: font.body, fontSize: 13, color: color.dangerSoft }}>{t.settings.historyError}</Text>;
   if (!items.length) return <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{t.settings.historyEmpty}</Text>;
-  let lastDate = null;
   return (
     <View>
-      {items.map((it) => {
-        const header = it.date !== lastDate ? it.date : null;
-        lastDate = it.date;
+      {items.map((it, i) => {
+        const header = i === 0 || items[i - 1].date !== it.date ? it.date : null;
         return (
           <View key={it.id}>
             {header ? <Text style={{ marginTop: 10, marginBottom: 2, fontFamily: font.bold, fontSize: 11, letterSpacing: 2, color: color.muted }}>{header}</Text> : null}
