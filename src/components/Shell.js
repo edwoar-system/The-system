@@ -15,7 +15,7 @@ import { checkPenalty, dismissNotice } from "../lib/penalty";
 import { onNotificationTap, setupNotifications, syncNotifications } from "../lib/notify";
 import { offerNotifiedUrgent } from "../lib/urgent";
 import { settleTrolls, syncPublic, useTrolls } from "../lib/social";
-import { trollById, trollQueue } from "../game/social";
+import { trollById, trollQueue, trollTitleFor } from "../game/social";
 import { SKINS, activeAppTime } from "../game/shop";
 import { leftText } from "./Shop";
 import { ensureDay, setQuestCache } from "../lib/day";
@@ -64,7 +64,7 @@ function TabIcon({ id, active, c }) {
 }
 
 // An open troll quest: shown on every tab until it's done (with app blocking, your apps stay locked too).
-function TrollBanner({ troll, more, onPress }) {
+function TrollBanner({ troll, player, more, onPress }) {
   const { font } = useTheme();
   const insets = useSafeAreaInsets();
   const x = trollById[troll.troll];
@@ -74,7 +74,7 @@ function TrollBanner({ troll, more, onPress }) {
         style={({ pressed }) => ({ marginHorizontal: 10, marginTop: 4, paddingHorizontal: 14, paddingVertical: 10, gap: 2, borderWidth: 1, borderColor: "#F6B45A", backgroundColor: pressed ? "rgba(40,28,10,0.98)" : "rgba(20,14,6,0.97)" })}>
         <Text style={{ fontFamily: font.bold, fontSize: 11, letterSpacing: 2, color: "#F6B45A" }}>{t.troll.bannerKicker}</Text>
         <Text numberOfLines={1} style={{ fontFamily: font.bodyBold, fontSize: 14, color: "#FFFFFF" }}>
-          {fill(t.troll.banner, { title: x?.title ?? "", name: troll.fromName })}{more > 0 ? `  ${fill(t.troll.bannerMore, { n: more })}` : ""}
+          {fill(t.troll.banner, { title: trollTitleFor(x, player), name: troll.fromName })}{more > 0 ? `  ${fill(t.troll.bannerMore, { n: more })}` : ""}
         </Text>
       </Pressable>
     </View>
@@ -228,7 +228,7 @@ function ShellBody({ user, state }) {
         {tab === "friends" ? (state.player ? <Friends user={user} player={state.player} /> : <Status user={user} {...state} />) : null}
         {tab === "settings" ? (state.player ? <Settings user={user} player={state.player} synced={state.synced} /> : <Status user={user} {...state} />) : null}
         {!trollQ.active.length && activeAppTime(player) && !penaltyView ? <AppTimeBanner appTime={player.appTime} /> : null}
-        {trollQ.active.length && tab !== "quests" && !penaltyView ? <TrollBanner troll={trollQ.active[0]} more={trollQ.active.length + trollQ.waiting.length - 1} onPress={() => goTo({ tab: "quests" })} /> : null}
+        {trollQ.active.length && tab !== "quests" && !penaltyView ? <TrollBanner troll={trollQ.active[0]} player={player} more={trollQ.active.length + trollQ.waiting.length - 1} onPress={() => goTo({ tab: "quests" })} /> : null}
         {trail.length > 0 && !penaltyView ? <BackPill place={trail[trail.length - 1]} onPress={goBack} /> : null}
       </View>
       {player && !penaltyView ? <Urgent user={user} player={player} /> : null}

@@ -5,6 +5,7 @@ import { levelFromXp, statValue } from "./economy";
 import { STATS, todayKey } from "./quests";
 import { LADDERS } from "./ladders";
 import { skillView } from "./skills";
+import { DIFF_FACTOR, MAX_PUSHUPS, RANK_FACTOR, RUN_KM, difficultyOf, nice } from "./difficulty";
 
 export const PRIVACY_KEYS = ["stats", "skills", "streak", "today", "honesty"];
 export const PRIVACY_DEFAULTS = { stats: true, skills: true, streak: true, today: true, honesty: false };
@@ -71,12 +72,19 @@ export function activeAgo(dateKey, today = todayKey()) {
 // You get no coins for it (a little EXP). At most MAX_OPEN_TROLLS are open on you at once; the rest wait in line.
 export const TROLL_LEVELS = { easy: 5, medium: 15, hard: 30 }; // coins the sender pays
 export const MAX_OPEN_TROLLS = 3;
+// Amounts fit the person who gets it: `scale` says how.
+//   max:  a share of their max push-ups (from their push-up rank)
+//   body: a base amount for a rank-C person, scaled by their push-up rank (general body strength)
+//   run:  a share of a comfortable distance for their running rank (km)
+//   time: minutes or seconds, scaled by their difficulty only
+// Their difficulty setting (Easy … Extreme) multiplies it once more.
+// Hard ones can always be proven: a photo is needed, and `place` ones also check you're at that kind of place.
 export const TROLLS = [
   // easy
-  { id: "squats", level: "easy", stat: "STR", minutes: 2, title: "20 squats" },
-  { id: "pushups", level: "easy", stat: "STR", minutes: 2, title: "15 push-ups" },
-  { id: "plank", level: "easy", stat: "STR", minutes: 2, title: "Plank for 60 seconds" },
-  { id: "jacks", level: "easy", stat: "AGI", minutes: 2, title: "40 jumping jacks" },
+  { id: "squats", level: "easy", name: "Squats", stat: "STR", minutes: 2, title: "{n} squats", scale: { by: "body", base: 20 }, hint: "squats, sized to them" },
+  { id: "pushups", level: "easy", name: "Push-ups", stat: "STR", minutes: 2, title: "{n} push-ups", scale: { by: "max", mult: 0.5 }, hint: "half their max push-ups" },
+  { id: "plank", level: "easy", name: "Plank", stat: "STR", minutes: 2, title: "Plank for {n} seconds", scale: { by: "body", base: 60 }, hint: "a plank, sized to them" },
+  { id: "jacks", level: "easy", name: "Jumping jacks", stat: "AGI", minutes: 2, title: "{n} jumping jacks", scale: { by: "body", base: 40 }, hint: "jumping jacks, sized to them" },
   { id: "water", level: "easy", stat: "VIT", minutes: 1, title: "Drink a full glass of water" },
   { id: "bed", level: "easy", stat: "VIT", minutes: 2, title: "Make your bed properly (yes, again)" },
   { id: "grateful", level: "easy", stat: "WIL", minutes: 3, title: "Write down three things you're grateful for" },
@@ -84,29 +92,56 @@ export const TROLLS = [
   { id: "compliment", level: "easy", stat: "CHA", minutes: 2, title: "Give someone a real compliment" },
   { id: "joke", level: "easy", stat: "CHA", minutes: 2, title: "Tell your family your worst joke" },
   // medium
-  { id: "squats100", level: "medium", stat: "STR", minutes: 10, title: "100 squats, any sets" },
-  { id: "pushups50", level: "medium", stat: "STR", minutes: 10, title: "50 push-ups, any sets" },
-  { id: "burpees30", level: "medium", stat: "AGI", minutes: 8, title: "30 burpees" },
-  { id: "run2", level: "medium", stat: "AGI", minutes: 15, title: "Run 2 km" },
+  { id: "squats100", level: "medium", name: "Squats, any sets", stat: "STR", minutes: 10, title: "{n} squats, any sets", scale: { by: "body", base: 100 }, hint: "a lot of squats, sized to them" },
+  { id: "pushups50", level: "medium", name: "Push-ups, any sets", stat: "STR", minutes: 10, title: "{n} push-ups, any sets", scale: { by: "max", mult: 1.5 }, hint: "1.5× their max push-ups" },
+  { id: "burpees30", level: "medium", name: "Burpees", stat: "AGI", minutes: 8, title: "{n} burpees", scale: { by: "body", base: 30 }, hint: "burpees, sized to them" },
+  { id: "run2", level: "medium", name: "A run", stat: "AGI", minutes: 15, title: "Run {n} km", scale: { by: "run", mult: 0.5 }, hint: "an easy run for their level" },
+  { id: "wallsit", level: "medium", name: "Wall sit", stat: "STR", minutes: 6, title: "{n} min of wall sit in total", scale: { by: "body", base: 4 }, hint: "a wall sit, sized to them" },
   { id: "cold1", level: "medium", stat: "VIT", minutes: 3, title: "A full minute of cold at the end of your shower" },
   { id: "room", level: "medium", stat: "VIT", minutes: 20, title: "Clean your room until the floor and desk are clear" },
-  { id: "nophone30", level: "medium", stat: "WIL", minutes: 30, title: "30 minutes without your phone" },
-  { id: "read20", level: "medium", stat: "INT", minutes: 25, title: "Read 20 pages" },
+  { id: "nophone30", level: "medium", name: "No phone", stat: "WIL", minutes: 30, title: "{n} minutes without your phone", scale: { by: "time", base: 45 }, hint: "time without their phone" },
+  { id: "nosugar", level: "medium", stat: "WIL", minutes: 10, title: "No sugar until tomorrow" },
+  { id: "read20", level: "medium", name: "Reading", stat: "INT", minutes: 25, title: "Read {n} pages", scale: { by: "time", base: 20 }, hint: "pages of a book" },
   { id: "call", level: "medium", stat: "CHA", minutes: 10, title: "Call someone instead of texting them" },
   { id: "thanks", level: "medium", stat: "CHA", minutes: 5, title: "Thank someone who helped you this week, out loud" },
-  // hard
-  { id: "pushups150", level: "hard", stat: "STR", minutes: 25, title: "150 push-ups, any sets" },
-  { id: "wallsit5", level: "hard", stat: "STR", minutes: 10, title: "5 minutes of wall sit in total" },
-  { id: "run5", level: "hard", stat: "AGI", minutes: 30, title: "Run 5 km" },
-  { id: "burpees100", level: "hard", stat: "AGI", minutes: 20, title: "100 burpees, any sets" },
-  { id: "cold3", level: "hard", stat: "VIT", minutes: 5, title: "Three minutes of cold at the end of your shower" },
-  { id: "nosugar", level: "hard", stat: "WIL", minutes: 10, title: "No sugar until tomorrow" },
-  { id: "nophone2h", level: "hard", stat: "WIL", minutes: 120, title: "Two hours without your phone" },
-  { id: "study60", level: "hard", stat: "INT", minutes: 60, title: "One focused hour of study, phone in another room" },
-  { id: "letter", level: "hard", stat: "CHA", minutes: 30, title: "Write a real letter to someone you care about" },
+  // hard: always provable (photo), some also at a place (location)
+  { id: "run5", level: "hard", name: "A run", stat: "AGI", minutes: 30, title: "Run {n} km", scale: { by: "run", mult: 1 }, hint: "a real run for their level", proof: "Screenshot of the run (Strava, Apple Health, your watch)" },
+  { id: "gym45", level: "hard", stat: "STR", minutes: 45, title: "Train 45 minutes at a gym", place: "gym", proof: "A photo at the gym" },
+  { id: "climb", level: "hard", stat: "STR", minutes: 60, title: "An hour of climbing or bouldering", place: "climbing", proof: "A photo at the wall" },
+  { id: "swim", level: "hard", name: "Swimming", stat: "AGI", minutes: 30, title: "Swim {n} lengths", scale: { by: "body", base: 30 }, hint: "lengths in a pool, sized to them", place: "pool", proof: "A photo at the pool" },
+  { id: "parkpush", level: "hard", name: "Push-ups in a park", stat: "STR", minutes: 20, title: "{n} push-ups in a park", scale: { by: "max", mult: 2 }, hint: "2× their max push-ups, outside", place: "park", proof: "A photo in the park" },
+  { id: "library", level: "hard", stat: "INT", minutes: 60, title: "Study 60 minutes in a library", place: "library", proof: "A photo of your books or notes there" },
+  { id: "steps", level: "hard", name: "Steps", stat: "VIT", minutes: 90, title: "Walk {n} steps today", scale: { by: "time", base: 12000 }, hint: "a lot of steps", proof: "Screenshot of your step count" },
+  { id: "cleanall", level: "hard", stat: "VIT", minutes: 45, title: "Clean your whole room, closet included", proof: "A photo of the clean room" },
+  { id: "cook", level: "hard", stat: "VIT", minutes: 60, title: "Cook a full meal for the people you live with", proof: "A photo of the meal on the table" },
+  { id: "letter", level: "hard", stat: "CHA", minutes: 30, title: "Write a real letter to someone you care about", proof: "A photo of the letter (you can cover the words)" },
+  // Old ones, still open on some players from before proof: they can be finished without proof, but not sent anymore.
+  { id: "pushups150", level: "hard", legacy: true, stat: "STR", minutes: 25, title: "150 push-ups, any sets" },
+  { id: "wallsit5", level: "hard", legacy: true, stat: "STR", minutes: 10, title: "5 minutes of wall sit in total" },
+  { id: "burpees100", level: "hard", legacy: true, stat: "AGI", minutes: 20, title: "100 burpees, any sets" },
+  { id: "cold3", level: "hard", legacy: true, stat: "VIT", minutes: 5, title: "Three minutes of cold at the end of your shower" },
+  { id: "nophone2h", level: "hard", legacy: true, stat: "WIL", minutes: 120, title: "Two hours without your phone" },
+  { id: "study60", level: "hard", legacy: true, stat: "INT", minutes: 60, title: "One focused hour of study, phone in another room" },
 ];
 export const trollById = Object.fromEntries(TROLLS.map((x) => [x.id, x]));
 export const trollXp = (troll) => Math.max(3, Math.min(30, Math.round((troll?.minutes ?? 2) * 1.2)));
+
+// The amount for this person: from their rank in the skill and their difficulty setting.
+export function trollAmount(x, player) {
+  if (!x?.scale) return null;
+  const f = DIFF_FACTOR[difficultyOf(player)];
+  const rankOf = (id) => player?.skills?.[id]?.rank ?? 0;
+  const { by, base, mult } = x.scale;
+  if (by === "max") return nice(MAX_PUSHUPS[rankOf("pushups")] * mult * f);
+  if (by === "run") return Math.max(1, Math.round(RUN_KM[rankOf("running")] * mult * f * 2) / 2);
+  if (by === "body") return nice(base * RANK_FACTOR[rankOf("pushups")] * f);
+  return nice(base * f);
+}
+// The title as the receiver sees it ("15 push-ups"), or with a hint for the sender ("Push-ups: half their max").
+const fmt = (n) => (n >= 1000 ? String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",") : String(n));
+export const trollTitleFor = (x, player) => (x?.scale ? x.title.replace("{n}", fmt(trollAmount(x, player))) : x?.title ?? "");
+export const trollTitleForSender = (x) => (x?.scale ? `${x.name} (${x.hint})` : x?.title ?? "");
+export const trollNeedsProof = (x) => x?.level === "hard" && !x.legacy;
 
 // Sender titles: earned by how many of your troll quests friends finished. Each gives coins back.
 export const TROLL_TITLES = [

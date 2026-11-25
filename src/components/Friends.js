@@ -1,9 +1,9 @@
 // Friends tab: your friend code, adding someone by code, requests, and your friends' cards.
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Modal, Pressable, ScrollView, Share, Text, TextInput, View } from "react-native";
+import { Animated, Easing, Image, Modal, Pressable, ScrollView, Share, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { acceptRequest, declineRequest, findByCode, myCode, removeFriend, sendRequest, sendTroll, useFriends, useRequests, useSentTrolls } from "../lib/social";
-import { activeAgo, cleanCode, MAX_FRIENDS, TROLLS, TROLL_LEVELS, nextTrollTitle, trollById, trollTitle } from "../game/social";
+import { activeAgo, cleanCode, MAX_FRIENDS, TROLLS, TROLL_LEVELS, nextTrollTitle, trollById, trollTitle, trollTitleForSender } from "../game/social";
 import { RANKS } from "../game/ladders";
 import { skillById } from "../game/guild";
 import { doneFeel, lockFeel, tapFeel } from "../lib/haptics";
@@ -68,7 +68,7 @@ export function TrollPicker({ name, coins, onPick, onClose }) {
   const [level, setLevel] = useState("easy");
   const cost = TROLL_LEVELS[level];
   const can = coins >= cost;
-  const list = TROLLS.filter((x) => x.level === level);
+  const list = TROLLS.filter((x) => x.level === level && !x.legacy);
   return (
     <Modal animationType="slide" visible onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: color.bg }}>
@@ -100,7 +100,10 @@ export function TrollPicker({ name, coins, onPick, onClose }) {
               <Pressable key={x.id} accessibilityRole="button" disabled={!can} onPress={() => onPick(x.id)}
                 style={({ pressed }) => ({ minHeight: 52, flexDirection: "row", alignItems: "center", gap: 12, borderTopWidth: i ? 1 : 0, borderTopColor: color.line, opacity: !can ? 0.4 : pressed ? 0.7 : 1 })}>
                 <Text style={{ width: 34, fontFamily: font.bold, fontSize: 11, letterSpacing: 1, color: color.accent }}>{x.stat}</Text>
-                <Text style={{ flex: 1, fontFamily: font.bodyMedium, fontSize: 15, color: "#FFFFFF" }}>{x.title}</Text>
+                <View style={{ flex: 1, gap: 2, paddingVertical: 6 }}>
+                  <Text style={{ fontFamily: font.bodyMedium, fontSize: 15, color: "#FFFFFF" }}>{trollTitleForSender(x)}</Text>
+                  {x.level === "hard" ? <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{x.place ? fill(t.troll.proofPlace, { place: t.troll.places[x.place] }) : t.troll.proofPhoto}</Text> : null}
+                </View>
               </Pressable>
             ))}
           </Frame>
@@ -131,9 +134,15 @@ function TrollSection({ me, myName, myCoins, trollsDone, friend }) {
       {sent.map((x) => (
         <View key={x.id} style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: color.line }}>
           <View style={{ flex: 1, gap: 2 }}>
-            <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: "#FFFFFF" }}>{trollById[x.troll]?.title ?? x.troll}</Text>
+            <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: "#FFFFFF" }}>{x.title ?? trollTitleForSender(trollById[x.troll]) ?? x.troll}</Text>
             <Text style={{ fontFamily: font.body, fontSize: 12, color: x.status === "done" ? color.accent : color.muted }}>{t.troll.status[x.status] ?? t.troll.status.new}</Text>
+            {x.hasPhoto || x.place ? (
+              <Text style={{ fontFamily: font.body, fontSize: 12, color: color.accent }}>
+                {[x.hasPhoto ? t.troll.gotPhoto : null, x.place?.ok ? fill(t.troll.gotPlace, { place: x.place.name ?? t.troll.places[x.place.kind] }) : null].filter(Boolean).join("  ·  ")}
+              </Text>
+            ) : null}
           </View>
+          {x.photo ? <Image source={{ uri: x.photo }} accessibilityLabel={t.troll.gotPhoto} style={{ width: 48, height: 48 }} /> : null}
           <Coins value={x.cost} sign="-" size={13} />
         </View>
       ))}

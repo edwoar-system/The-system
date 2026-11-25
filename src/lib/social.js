@@ -6,8 +6,9 @@
 import { useEffect, useState } from "react";
 import { collection, doc, getDoc, getDocs, onSnapshot, query, runTransaction, serverTimestamp, setDoc, where, writeBatch } from "firebase/firestore";
 import { db } from "./firebase";
-import { TROLL_LEVELS, cardSignature, cleanCode, friendCode, publicCard, trollById, trollTitle, trollXp } from "../game/social";
+import { TROLL_LEVELS, cardSignature, cleanCode, friendCode, publicCard, trollById, trollNeedsProof, trollTitle, trollTitleFor, trollXp } from "../game/social";
 import { levelFromXp } from "../game/economy";
+import { todayKey } from "../game/quests";
 import { currentDay, currentStreak } from "./day";
 
 let lastSig = null;
@@ -149,10 +150,13 @@ export function useSentTrolls(me, friendUid) {
   useEffect(() => {
     if (!key) return;
     const subs = key.split(",").map((id) => onSnapshot(doc(db, "public", friendUid, "trolls", id),
-      (snap) => setStatus((s) => ({ ...s, [id]: snap.exists() ? snap.data().status : "gone" })), () => {}));
+      (snap) => setStatus((s) => ({ ...s, [id]: snap.exists() ? snap.data() : { status: "gone" } })), () => {}));
     return () => subs.forEach((u) => u());
   }, [key, friendUid]);
-  return sent.map((x) => ({ ...x, status: x.settled ? "done" : status[x.id] ?? "new" }));
+  return sent.map((x) => {
+    const d = status[x.id];
+    return { ...x, status: x.settled ? "done" : d?.status ?? "new", title: x.title ?? d?.title ?? null, photo: d?.photo ?? null, hasPhoto: x.hasPhoto ?? !!d?.photo, place: x.place ?? d?.place ?? null };
+  });
 }
 
 // Troll quests sent to you that aren't done.
@@ -166,22 +170,35 @@ export function useTrolls(uid) {
   return list;
 }
 
-// Done: a little EXP and stat EXP, no coins. The sender sees it straight away.
-export async function completeTroll(uid, troll) {
+// Done: a little EXP and stat EXP, no coins. The sender sees it straight away, with what you did and your proof.
+// proof: { photo (data URI), place: { kind, ok, name } } — needed for hard troll quests.
+export async function completeTroll(uid, troll, player, proof = null) {
   const x = trollById[troll.troll];
   if (!x) return null;
+  if (trollNeedsProof(x) && !proof?.photo) throw new Error("need-proof");
+  if (x.place && !proof?.place?.ok) throw new Error("need-place");
   const xp = trollXp(x);
   const playerRef = doc(db, "players", uid);
   const trollRef = doc(db, "public", uid, "trolls", troll.id);
-  return runTransaction(db, async (tx) => {
+  const title = trollTitleFor(x, player);
+  const logRef = doc(collection(db, "players", uid, "log"));
+  const r = await runTransaction(db, async (tx) => {
     const p = (await tx.get(playerRef)).data() ?? {};
     const tr = await tx.get(trollRef);
     if (!tr.exists() || tr.data().status === "done") return null;
     const total = (p.xp ?? 0) + xp;
     tx.set(playerRef, { xp: total, level: levelFromXp(total).level, statXp: { ...(p.statXp ?? {}), [x.stat]: (p.statXp?.[x.stat] ?? 0) + xp }, updatedAt: serverTimestamp() }, { merge: true });
-    tx.update(trollRef, { status: "done", doneAtMs: Date.now() });
+    tx.update(trollRef, {
+      status: "done", doneAtMs: Date.now(), title,
+      ...(proof?.photo ? { photo: proof.photo } : {}),
+      ...(proof?.place ? { place: { kind: proof.place.kind, ok: !!proof.place.ok, name: proof.place.name ?? null } } : {}),
+    });
+    tx.set(logRef, { questId: `troll:${x.id}`, title, coins: 0, xp, stat: x.stat, slot: "troll", date: todayKey(), at: serverTimestamp(), ...(proof?.photo ? { proof: "photo" } : {}) });
     return { xp, stat: x.stat, levelUp: levelFromXp(total).level > levelFromXp(p.xp ?? 0).level ? levelFromXp(total).level : null };
   });
+  // The photo also goes with the entry in your quest log.
+  if (r && proof?.photo) await setDoc(doc(db, "players", uid, "proof", logRef.id), { image: proof.photo, at: serverTimestamp() }).catch(() => {});
+  return r;
 }
 
 // For the sender: counts finished troll quests toward your title and pays your title's share back.
@@ -192,7 +209,13 @@ export async function settleTrolls(me) {
   for (const d of snap.docs) {
     const s = d.data();
     let status = null;
-    try { const tr = await getDoc(doc(db, "public", s.friend, "trolls", d.id)); status = tr.exists() ? tr.data().status : "gone"; } catch { continue; }
+    let info = {};
+    try {
+      const tr = await getDoc(doc(db, "public", s.friend, "trolls", d.id));
+      status = tr.exists() ? tr.data().status : "gone";
+      // Keep what they did and their proof check with your own list (the photo stays on their troll quest).
+      if (tr.exists()) info = { title: tr.data().title ?? null, place: tr.data().place ?? null, hasPhoto: !!tr.data().photo };
+    } catch { continue; }
     if (status !== "done" && status !== "gone") continue;
     back += await runTransaction(db, async (tx) => {
       const meRef = doc(db, "players", me);
@@ -203,7 +226,7 @@ export async function settleTrolls(me) {
       const done = status === "done" ? (p.trollsDone ?? 0) + 1 : p.trollsDone ?? 0;
       const title = trollTitle(done);
       const coins = status === "done" && title ? Math.round(s.cost * title.back) : 0;
-      tx.update(sentRef, { settled: true, result: status });
+      tx.update(sentRef, { settled: true, result: status, ...info });
       tx.set(meRef, { trollsDone: done, coins: (p.coins ?? 0) + coins, updatedAt: serverTimestamp() }, { merge: true });
       return coins;
     });

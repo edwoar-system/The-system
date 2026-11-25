@@ -26,8 +26,9 @@ import { QUICK, goalFor, quickToday } from "../game/quick";
 import { dayNum, trialQuestId, trialState, weekNum } from "../game/skills";
 import { dutiesToday, dutyDay } from "../game/profile";
 import { ASK_SLOTS, needsProof } from "../game/proof";
-import { completeTroll, useTrolls } from "../lib/social";
-import { trollById, trollQueue, trollXp } from "../game/social";
+import { useTrolls } from "../lib/social";
+import { trollById, trollNeedsProof, trollQueue, trollTitleFor, trollXp } from "../game/social";
+import TrollDo from "./TrollDo";
 import { RANKS, ladderById as ladders } from "../game/ladders";
 import { skillById } from "../game/guild";
 import { useTheme } from "../theme";
@@ -121,6 +122,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
   const [check, setCheck] = useState(null); // check-in after an important quest: { logId, title }
   // Opened from somewhere else (a quest just accepted in the guild): start with that quest open.
   const [sheet, setSheet] = useState(focus ?? null); // { id, slot, done }
+  const [trollOpen, setTrollOpen] = useState(null);
   useEffect(() => {
     if (focus) onFocusDone?.();
   }, [focus, onFocusDone]);
@@ -409,16 +411,18 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
               {trollQ.active.map((tr, i) => {
                 const x = trollById[tr.troll];
                 if (!x) return null;
+                const title = trollTitleFor(x, player);
                 return (
-                  <View key={tr.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 14, paddingRight: 8,
-                    borderBottomWidth: i === trollQ.active.length - 1 && !trollQ.waiting.length ? 0 : 1, borderBottomColor: color.line }}>
+                  <Pressable key={tr.id} accessibilityRole="button" accessibilityHint={t.board.openHint} onPress={() => setTrollOpen(tr)}
+                    style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 14, paddingRight: 14, opacity: pressed ? 0.75 : 1,
+                      borderBottomWidth: i === trollQ.active.length - 1 && !trollQ.waiting.length ? 0 : 1, borderBottomColor: color.line })}>
                     <View style={{ flex: 1, gap: 4 }}>
-                      <Text style={{ fontFamily: font.bold, fontSize: 15, lineHeight: 20, color: "#FFFFFF" }}>{x.title}</Text>
+                      <Text style={{ fontFamily: font.bold, fontSize: 15, lineHeight: 20, color: "#FFFFFF" }}>{title}</Text>
                       <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{fill(t.troll.from, { name: tr.fromName, xp: trollXp(x), level: t.troll.levels[x.level] })}</Text>
+                      {trollNeedsProof(x) ? <Text style={{ fontFamily: font.body, fontSize: 12, color: "#F6B45A" }}>{x.place ? fill(t.troll.proofPlace, { place: t.troll.places[x.place] }) : t.troll.proofPhoto}</Text> : null}
                     </View>
-                    <HexCheck size={30} done={false} disabled={busy} label={fill(t.board.markDone, { title: x.title })}
-                      onPress={() => completeTroll(user.uid, tr).then((r) => { if (r) { doneFeel(); showToast({ coins: 0, bonus: 0, xp: r.xp }); if (r.levelUp) setLevelUp({ level: r.levelUp, xp: (player.xp ?? 0) + r.xp, coins: 0 }); } }).catch(() => showToast({ error: true }))} />
-                  </View>
+                    <Text style={{ fontFamily: font.bold, fontSize: 18, color: color.muted }}>›</Text>
+                  </Pressable>
                 );
               })}
               {trollQ.waiting.length ? (
@@ -520,6 +524,8 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
         </Animated.View>
       ) : null}
 
+      {trollOpen ? <TrollDo user={user} player={player} troll={trollOpen} onClose={() => setTrollOpen(null)}
+        onDone={(r) => { if (r) { showToast({ coins: 0, bonus: 0, xp: r.xp }); if (r.levelUp) setLevelUp({ level: r.levelUp, xp: (player.xp ?? 0) + r.xp, coins: 0 }); } }} /> : null}
       {schedOpen ? <Schedule user={user} player={player} onClose={() => setSchedOpen(false)} /> : null}
       {sheet && sheet.id.startsWith("gs:") && !sheet.done ? (
         <GymSession user={user} player={player} questId={sheet.id} slot={sheet.slot} onClose={() => setSheet(null)} onResult={(r) => onResult(r, sheet.id)} />
