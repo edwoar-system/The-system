@@ -21,6 +21,7 @@ import { effectFactor } from "../game/effects";
 import { weatherNow } from "./weather";
 import { DIFF_TIER, difficultyOf } from "../game/difficulty";
 import { trainMuscles } from "./muscles";
+import { CHALLENGE_COINS, CHALLENGE_XP } from "../game/morning";
 
 export const MAX_GUILD_QUESTS = 6;
 
@@ -57,8 +58,9 @@ export function newDay(player, uid) {
   const tired = tiredSet(player?.fatigue);
   const slots = player?.mainSlots ?? 3;
   const liked = interestSkills(player?.profile);
-  const programs = dueSessions(player, date).slice(0, slots);
-  const outside = Math.min(slots - programs.length, widenBy(currentStreak(player)));
+  // Program sessions are side quests of their own (day.programs): extra, never in the way of your main quests or streak.
+  const programs = dueSessions(player, date);
+  const outside = Math.min(slots, widenBy(currentStreak(player)));
   // Every skill you're into has a guild quest, at the tier your rank in it unlocks.
   const programSkills = new Set(programs.map((id) => programQuest(id, player)?.skill).filter(Boolean));
   const extra = [...liked].filter((id) => !programSkills.has(id)).map((id) => {
@@ -70,7 +72,7 @@ export function newDay(player, uid) {
     const tier = Math.max(0, Math.min(2, base + DIFF_TIER[difficultyOf(player)]));
     return guildQuest(tier ? `g:${id}:${tier}` : `g:${id}`) ?? guildQuest(`g:${id}`);
   }).filter(Boolean);
-  const mains = [...programs, ...pickMainQuests({ date, uid, lastDoneByStat: player?.lastDoneByStat ?? {}, mainSlots: slots - programs.length, liked, tired, outside, extra })];
+  const mains = pickMainQuests({ date, uid, lastDoneByStat: player?.lastDoneByStat ?? {}, mainSlots: slots, liked, tired, outside, extra });
   const gym = gymToday(player?.gym, date, (muscles) => Object.entries(muscles).some(([m, k]) => k >= 0.7 && tired.has(m)));
   if (gym) {
     const at = mains.findIndex((id) => !id.startsWith("p:") && getQuest(id, player)?.stat === "STR");
@@ -91,6 +93,7 @@ export function newDay(player, uid) {
     ...(side ? { side: { id: side, done: false } } : {}),
     ...(gym ? { gym: { planned: gym.planned, index: gym.index, swapped: gym.swapped, allTired: !!gym.allTired } } : {}),
     guild: [],
+    programs: programs.map((id) => ({ id, done: false })),
     typeCounts: {},
     mainCoins: 0,
     bonusPaid: false,
@@ -233,6 +236,31 @@ export async function tickStart(uid, part, which = "start") {
   });
 }
 
+// The morning check-in: how you slept, what today is, whether there's time for the morning quests, your plan.
+export async function saveCheckin(uid, checkin) {
+  const ref = doc(db, "players", uid);
+  return runTransaction(db, async (tx) => {
+    const player = (await tx.get(ref)).data() ?? {};
+    const day = player.day?.date === todayKey() ? player.day : newDay(player, uid);
+    tx.set(ref, { day: { ...day, checkin: { ...checkin, at: Date.now() } }, updatedAt: serverTimestamp() }, { merge: true });
+  });
+}
+
+// Today's morning challenge done: a few coins and EXP on top of the morning.
+export async function doChallenge(uid) {
+  const ref = doc(db, "players", uid);
+  return runTransaction(db, async (tx) => {
+    const player = (await tx.get(ref)).data() ?? {};
+    const day = player.day?.date === todayKey() ? player.day : newDay(player, uid);
+    if (day.challengeDone) throw new Error("already-done");
+    tx.set(ref, { day: { ...day, challengeDone: true }, coins: (player.coins ?? 0) + CHALLENGE_COINS, xp: (player.xp ?? 0) + CHALLENGE_XP, updatedAt: serverTimestamp() }, { merge: true });
+    return { coins: CHALLENGE_COINS, xp: CHALLENGE_XP };
+  });
+}
+
+// The tiny version of a quest pays this share of the full reward.
+export const TINY_FACTOR = 0.3;
+
 // Puts a guild quest on today's board.
 export async function acceptQuest(uid, questId) {
   const q = getQuest(questId);
@@ -294,6 +322,11 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
     } else if (slot === "side") {
       if (!day.side || day.side.id !== questId || day.side.done) throw new Error("already-done");
       day.side.done = true;
+    } else if (slot === "program") {
+      // Boards from before programs had their own list keep the session among the mains.
+      const p = (day.programs ?? []).find((x) => x.id === questId && !x.done) ?? day.mains.find((x) => x.id === questId && !x.done);
+      if (!p) throw new Error("already-done");
+      p.done = true;
     }
     if (slot === "duty" || (slot === "main" && questId.startsWith("d:"))) {
       const week = weekNum(today);
@@ -322,9 +355,11 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
 
     const times = day.typeCounts[q.type] ?? 0;
     // Trial parts pay EXP but no coins: the rank is the reward, and a high placement shouldn't flood you with coins.
-    const coins = slot === "trial" ? 0 : questCoins({ ...q, timesAlreadyToday: times, mountain: mountainFactor(player.profile, q.type) });
+    // The tiny version (2-minute rule) counts as done, so the habit and streak live, but pays less.
+    const tinyF = opts.tiny ? TINY_FACTOR : 1;
+    const coins = slot === "trial" ? 0 : Math.round(questCoins({ ...q, timesAlreadyToday: times, mountain: mountainFactor(player.profile, q.type) }) * tinyF);
     // Status effects (hydrated, well-rested, bad sleep…) move EXP by up to 15%.
-    const xp = Math.round(questXp({ ...q, timesAlreadyToday: times }) * effectFactor(player));
+    const xp = Math.round(questXp({ ...q, timesAlreadyToday: times }) * effectFactor(player) * tinyF);
     day.typeCounts[q.type] = times + 1;
     if (slot === "main") day.mainCoins += coins;
 

@@ -25,7 +25,7 @@ export function useCourse(uid, courseId) {
 }
 
 // Training time for the skill: a training day, minutes and a little EXP (like a quick log).
-async function practise(uid, skill, minutes) {
+export async function practise(uid, skill, minutes) {
   if (!skillById[skill]) return null;
   return runTransaction(db, async (tx) => {
     const player = (await tx.get(playerRef(uid))).data() ?? {};

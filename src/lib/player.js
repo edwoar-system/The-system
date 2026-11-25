@@ -101,6 +101,11 @@ export function saveCustomSkill(uid, id, data) {
   return updateDoc(doc(db, "players", uid), { [`customSkills.${id}`]: data, updatedAt: serverTimestamp() });
 }
 
+// Your morning: items, the daily challenge on/off, the check-in on/off.
+export function setMorning(uid, morning) {
+  return updateDoc(doc(db, "players", uid), { morning, updatedAt: serverTimestamp() });
+}
+
 // The quick-log buttons you pinned (ids from game/quick.js).
 export function setQuickPins(uid, pins) {
   return updateDoc(doc(db, "players", uid), { quickPins: pins, updatedAt: serverTimestamp() });

@@ -14,6 +14,8 @@ import { acceptQuest } from "../lib/day";
 import { toggleFavQuote } from "../lib/player";
 import { webSearchUrl, wikiArticle, wikiSearch } from "../lib/wiki";
 import Course from "./Course";
+import Paths from "./Paths";
+import { PATHS } from "../game/paths";
 import QuoteLibrary from "./QuoteLibrary";
 import QuotePage from "./QuotePage";
 import { Frame, Glow, Label, SysButton } from "./sys";
@@ -283,6 +285,7 @@ export default function Learn({ user, player, onOpenSkill, onGoToQuest, focusCou
   }
 
   const shelves = [
+    { id: "paths", go: () => setPage({ kind: "paths" }), n: PATHS.length },
     { id: "courses", go: () => setPage({ kind: "courseList" }), n: COURSES.length },
     { id: "quotes", go: () => setPage({ kind: "quotes" }), n: QUOTES.length },
     { id: "philosophy", go: () => setPage({ kind: "philoList" }), n: PHILOSOPHY.length },
@@ -351,6 +354,11 @@ export default function Learn({ user, player, onOpenSkill, onGoToQuest, focusCou
           <Frame cut={12} contentStyle={{ paddingHorizontal: 14, paddingVertical: 4 }}>
             {PHILOSOPHY.map((p, i) => <Row key={p.id} first={i === 0} title={SCHOOL_NAMES[p.id] ?? p.name} sub={fill(t.learn.readings, { who: p.who, n: player.philosophy?.[p.id] ?? 0, of: p.readings.length })} onPress={() => setPage({ kind: "philo", id: p.id, back: "philoList" })} />)}
           </Frame>
+        </Page>
+      ) : null}
+      {page?.kind === "paths" ? (
+        <Page title={t.learn.shelves.paths.title} sub={t.learn.shelves.paths.sub} onClose={() => setPage(null)}>
+          <Paths user={user} player={player} />
         </Page>
       ) : null}
       {page?.kind === "courseList" ? (

@@ -81,15 +81,65 @@ function MakeProgram({ uid, onDone }) {
   );
 }
 
-function Browse({ user, player, onClose }) {
+// Everything about one program: why it helps, how it works, tips and every session with what to do and why.
+function ProgramInfo({ id, p, on, full, onStart, onBack }) {
+  const { color, font } = useTheme();
+  const groups = [];
+  p.sessions.forEach((ses, k) => {
+    const week = Math.floor(k / p.perWeek) + 1;
+    if (!groups[week - 1]) groups[week - 1] = [];
+    groups[week - 1].push({ ...ses, n: k + 1 });
+  });
+  const H = ({ children }) => <Text style={{ marginTop: 6, fontFamily: font.bold, fontSize: 11, letterSpacing: 3, color: color.hi }}>{children}</Text>;
+  return (
+    <View style={{ gap: 10 }}>
+      <Pressable accessibilityRole="button" onPress={onBack} style={{ minHeight: 44, justifyContent: "center", alignSelf: "flex-start" }}>
+        <Text style={{ fontFamily: font.bodyBold, fontSize: 14, color: color.accent }}>{`‹ ${t.programs.allPrograms}`}</Text>
+      </Pressable>
+      <Text style={{ fontFamily: font.bold, fontSize: 11, letterSpacing: 3, color: color.accent }}>{fill(t.programs.meta, { s: p.stat, n: p.sessions.length, w: p.perWeek })}</Text>
+      <Text accessibilityRole="header" style={{ fontFamily: font.bold, fontSize: 24, color: "#FFFFFF" }}>{p.name}</Text>
+      <Text style={{ fontFamily: font.body, fontSize: 14, lineHeight: 20, color: color.text }}>{p.sub}</Text>
+      {p.why ? <><H>{t.programs.whyTitle}</H><Text style={{ fontFamily: font.body, fontSize: 14, lineHeight: 21, color: color.text }}>{p.why}</Text></> : null}
+      <H>{t.programs.howTitle}</H>
+      {[fill(t.programs.how1, { n: p.perWeek, w: Math.ceil(p.sessions.length / p.perWeek) }), t.programs.how2, t.programs.how3, fill(t.programs.how4, { b: PROGRAM_DONE_BONUS })].map((line, i) => (
+        <Text key={i} style={{ fontFamily: font.body, fontSize: 13, lineHeight: 19, color: color.text }}>{`•  ${line}`}</Text>
+      ))}
+      {p.tips?.length ? <><H>{t.programs.tipsTitle}</H>{p.tips.map((tip, i) => <Text key={i} style={{ fontFamily: font.body, fontSize: 13, lineHeight: 19, color: color.text }}>{`•  ${tip}`}</Text>)}</> : null}
+      {on ? <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.accent }}>{t.programs.following}</Text> : (
+        <View style={{ gap: 8, marginTop: 4 }}>
+          <SysButton label={t.programs.startTomorrow} disabled={full} onPress={() => onStart(id, false)} />
+          <Pressable accessibilityRole="button" disabled={full} onPress={() => onStart(id, true)} style={{ minHeight: 40, alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: full ? color.muted : color.accent }}>{t.programs.startToday}</Text>
+          </Pressable>
+          <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted, textAlign: "center" }}>{full ? fill(t.programs.max, { n: MAX_PROGRAMS }) : t.programs.startNote}</Text>
+        </View>
+      )}
+      <H>{t.programs.sessionsTitle}</H>
+      {groups.map((list, w) => (
+        <Frame key={w} cut={10} contentStyle={{ padding: 12, gap: 8 }}>
+          <Label tone={color.muted}>{fill(t.programs.weekN, { n: w + 1 })}</Label>
+          {list.map((ses) => (
+            <View key={ses.n} style={{ gap: 3, paddingTop: 8, borderTopWidth: 1, borderTopColor: color.line }}>
+              <Text style={{ fontFamily: font.bodyBold, fontSize: 14, color: "#FFFFFF" }}>{ses.title}<Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{`  ·  ${ses.minutes} min`}</Text></Text>
+              {ses.detail ? <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.text }}>{ses.detail}</Text> : null}
+              {ses.why ? <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted, fontStyle: "italic" }}>{`${t.programs.whyShort} ${ses.why}`}</Text> : null}
+            </View>
+          ))}
+        </Frame>
+      ))}
+    </View>
+  );
+}
+
+function Browse({ user, player, onClose, initial = null }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const [making, setMaking] = useState(false);
   const [msg, setMsg] = useState(null);
-  const [peek, setPeek] = useState(null); // program whose sessions are shown
+  const [info, setInfo] = useState(initial); // program shown in full
   const active = Object.keys(player.programs ?? {});
   const full = active.length >= MAX_PROGRAMS;
-  const start = (id) => startProgram(user.uid, id).then(() => { doneFeel(); setMsg(t.programs.started); }).catch((e) => setMsg(e.message === "max" ? fill(t.programs.max, { n: MAX_PROGRAMS }) : t.programs.failed));
+  const start = (id, today = false) => startProgram(user.uid, id, today).then(() => { doneFeel(); setMsg(today ? t.programs.startedToday : t.programs.started); setInfo(null); }).catch((e) => setMsg(e.message === "max" ? fill(t.programs.max, { n: MAX_PROGRAMS }) : t.programs.failed));
   return (
     <Modal animationType="slide" visible onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: color.bg }}>
@@ -97,35 +147,30 @@ function Browse({ user, player, onClose }) {
           <Pressable accessibilityRole="button" onPress={onClose} style={{ minHeight: 44, justifyContent: "center", alignSelf: "flex-start" }}>
             <Text style={{ fontFamily: font.bodyBold, fontSize: 14, color: color.accent }}>{`‹ ${t.programs.back}`}</Text>
           </Pressable>
-          <Text accessibilityRole="header" style={{ fontFamily: font.bold, fontSize: 24, color: "#FFFFFF" }}>{t.programs.browseTitle}</Text>
-          <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{fill(t.programs.browseSub, { n: MAX_PROGRAMS, b: PROGRAM_DONE_BONUS })}</Text>
+          {info ? null : <Text accessibilityRole="header" style={{ fontFamily: font.bold, fontSize: 24, color: "#FFFFFF" }}>{t.programs.browseTitle}</Text>}
+          {info ? null : <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{fill(t.programs.browseSub, { n: MAX_PROGRAMS, b: PROGRAM_DONE_BONUS })}</Text>}
           {msg ? <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.accent }}>{msg}</Text> : null}
-          {PROGRAM_IDS.map((id) => {
+          {info && programById(info, player) ? <ProgramInfo id={info} p={programById(info, player)} on={active.includes(info)} full={full} onStart={start} onBack={() => setInfo(null)} /> : null}
+          {info ? null : PROGRAM_IDS.map((id) => {
             const p = PROGRAMS[id];
             const on = active.includes(id);
             return (
               <Frame key={id} cut={12} contentStyle={{ padding: 14, gap: 6 }}>
-                <Text style={{ fontFamily: font.bold, fontSize: 17, color: "#FFFFFF" }}>{p.name}</Text>
+                <Pressable accessibilityRole="button" onPress={() => setInfo(id)}><Text style={{ fontFamily: font.bold, fontSize: 17, color: "#FFFFFF" }}>{p.name}</Text></Pressable>
                 <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.text }}>{p.sub}</Text>
                 <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{fill(t.programs.meta, { s: p.stat, n: p.sessions.length, w: p.perWeek })}</Text>
-                <Pressable accessibilityRole="button" accessibilityState={{ expanded: peek === id }} onPress={() => setPeek(peek === id ? null : id)} style={{ minHeight: 36, justifyContent: "center" }}>
-                  <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.accent }}>{peek === id ? t.programs.hideSessions : fill(t.programs.showSessions, { n: p.sessions.length })}</Text>
+                <Pressable accessibilityRole="button" onPress={() => setInfo(id)} style={{ minHeight: 36, justifyContent: "center" }}>
+                  <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.accent }}>{t.programs.moreInfo}</Text>
                 </Pressable>
-                {peek === id ? p.sessions.map((ses, k) => (
-                  <View key={k} style={{ gap: 2, paddingVertical: 6, borderTopWidth: 1, borderTopColor: color.line }}>
-                    <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: "#FFFFFF" }}>{`${k + 1}. ${ses.title}`}<Text style={{ fontFamily: font.body, color: color.muted }}>{`  ·  ${ses.minutes} min`}</Text></Text>
-                    <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.text }}>{ses.detail}</Text>
-                  </View>
-                )) : null}
-                <SysButton label={on ? t.programs.following : t.programs.start} disabled={on || full} onPress={() => start(id)} style={{ marginTop: 4 }} />
+                <SysButton label={on ? t.programs.following : t.programs.startTomorrow} disabled={on || full} onPress={() => start(id)} style={{ marginTop: 4 }} />
               </Frame>
             );
           })}
-          <Frame cut={12} contentStyle={{ padding: 14, gap: 10 }}>
+          {info ? null : <Frame cut={12} contentStyle={{ padding: 14, gap: 10 }}>
             <Label tone={color.hi}>{t.programs.ownTitle}</Label>
             <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{t.programs.ownSub}</Text>
             {making ? <MakeProgram uid={user.uid} onDone={() => { setMaking(false); setMsg(t.programs.created); }} /> : <SysButton label={t.programs.make} onPress={() => setMaking(true)} />}
-          </Frame>
+          </Frame>}
         </ScrollView>
       </View>
     </Modal>
@@ -135,14 +180,14 @@ function Browse({ user, player, onClose }) {
 // The Programs section on the Skills tab: your focus, your active programs and their next session.
 export default function ProgramsSection({ user, player }) {
   const { color, font } = useTheme();
-  const [browsing, setBrowsing] = useState(false);
+  const [browsing, setBrowsing] = useState(false); // true, or a program id to open on its info page
   const today = todayKey();
   const liked = interestSkills(player.profile);
   const focusNames = INTERESTS.filter((i) => (player.profile?.interests ?? []).includes(i.id)).map((i) => i.name);
   const outside = widenBy(currentStreak(player));
   const entries = Object.entries(player.programs ?? {});
   const due = dueSessions(player, today);
-  const onBoard = (id) => player.day?.date === today && (player.day.mains ?? []).some((m) => !m.done && m.id.startsWith(`p:${id}:`));
+  const onBoard = (id) => player.day?.date === today && [...(player.day.programs ?? []), ...(player.day.mains ?? [])].some((m) => !m.done && m.id.startsWith(`p:${id}:`));
   return (
     <View style={{ gap: 10 }}>
       <Frame cut={14} contentStyle={{ padding: 16, gap: 8 }}>
@@ -192,6 +237,11 @@ export default function ProgramsSection({ user, player }) {
                   ) : null}
                 </View>
               ) : null}
+              {PROGRAMS[id] ? (
+                <Pressable accessibilityRole="button" onPress={() => setBrowsing(id)} style={{ minHeight: 32, justifyContent: "center", alignSelf: "flex-start" }}>
+                  <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.accent }}>{t.programs.about}</Text>
+                </Pressable>
+              ) : null}
               <Pressable accessibilityRole="button" onPress={() => stopProgram(user.uid, id).catch(() => {})} style={{ minHeight: 32, justifyContent: "center", alignSelf: "flex-start" }}>
                 <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: color.muted }}>{finished ? t.programs.remove : t.programs.stop}</Text>
               </Pressable>
@@ -199,7 +249,7 @@ export default function ProgramsSection({ user, player }) {
           );
         })}
       </Frame>
-      {browsing ? <Browse user={user} player={player} onClose={() => setBrowsing(false)} /> : null}
+      {browsing ? <Browse user={user} player={player} initial={typeof browsing === "string" ? browsing : null} onClose={() => setBrowsing(false)} /> : null}
     </View>
   );
 }

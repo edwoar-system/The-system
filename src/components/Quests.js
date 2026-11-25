@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { END_PARTS, FREE_FIT_SWAPS, START_PARTS, boardSource, buyExtraTime, refreshOpenMains, completeQuest, currentDay, getQuest, rewardPreview, swapToFit, tickStart } from "../lib/day";
+import { END_PARTS, FREE_FIT_SWAPS, boardSource, doChallenge, buyExtraTime, refreshOpenMains, completeQuest, currentDay, getQuest, rewardPreview, swapToFit, tickStart } from "../lib/day";
 import { useSituation } from "../lib/location";
 import { useWeather } from "../lib/weather";
 import { fitsSituation, isOutdoor } from "../game/effort";
@@ -27,10 +27,12 @@ import Schedule from "./Schedule";
 import { busyBlocks, hhmm, suggestTimes } from "../game/schedule";
 import QuickLog from "./QuickLog";
 import Hud from "./Hud";
-import Welcome from "./Welcome";
+import Welcome, { needsWelcome } from "./Welcome";
+import MorningCheckin from "./MorningCheckin";
+import { CHALLENGE_COINS, challengeOf, morningById, morningToday, wantsCheckin } from "../game/morning";
 import { minutesOf, reminderDone, remindersOn } from "../game/reminders";
 import { tickReminder } from "../lib/player";
-import { showClear } from "../lib/popup";
+import { showClear, showSystem } from "../lib/popup";
 import { QUICK, goalFor, quickToday } from "../game/quick";
 import { dayNum, trialQuestId, trialState, weekNum } from "../game/skills";
 import { dutiesToday, dutyDay } from "../game/profile";
@@ -157,8 +159,8 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
   const countdown = useDeadline();
   const [busy, setBusy] = useState(false);
   const [guild, setGuild] = useState(false);
-  const guildOpen = day.guild.filter((g) => !g.done);
-  const guildDone = day.guild.filter((g) => g.done);
+  // Program sessions: their own list (boards made before this keep them among the mains until tomorrow).
+  const programList = day.programs ?? [];
   const urgentOpen = ["offered", "active", "followup"].includes(player.urgent?.status);
   const [toast, setToast] = useState(null);
   const [levelUp, setLevelUp] = useState(null);
@@ -231,6 +233,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
   const rewardXp = openRewards.reduce((a, r) => a + r.xp, 0);
   const [showCleared, setShowCleared] = useState(false);
   const todaysReminders = remindersOn(player);
+  const morningNow = morningToday(player, day);
   // Quests you do bit by bit all day (water) are never the "Now" quest unless nothing else is left.
   const allDayIds = new Set(QUICK.filter((it) => it.allDay).flatMap((it) => (Array.isArray(it.quest) ? it.quest : [it.quest])));
   const nowHour = nowD.getHours() + nowD.getMinutes() / 60;
@@ -296,12 +299,15 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
     setBusy(true);
     try {
       const ticks = await tickStart(user.uid, part, which);
-      if (which === "start" && part === "water") {
-        const w = await quickLog(user.uid, "water").catch(() => null);
-        if (w?.completed) onResult(w.completed, w.completedQuest);
+      // Water in the morning counts as glasses toward today's water (500 ml = 2 glasses).
+      if (which === "start" && morningById[part]?.water) {
+        for (let i = 0; i < morningById[part].water; i++) {
+          const w = await quickLog(user.uid, "water").catch(() => null);
+          if (w?.completed) { onResult(w.completed, w.completedQuest); break; }
+        }
       }
       if (which === "end" && part === "teeth") await logCheck(user.uid, "teeth").catch(() => null);
-      const parts = which === "end" ? END_PARTS : START_PARTS;
+      const parts = which === "end" ? END_PARTS : morningNow.items;
       if (parts.every((p) => ticks[p])) {
         const r = await completeQuest(user.uid, which, which);
         doneFeel();
@@ -328,8 +334,22 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
     }
   }
 
+  // The daily morning challenge: optional, a few coins and EXP.
+  async function challenge() {
+    setBusy(true);
+    try {
+      const r = await doChallenge(user.uid);
+      doneFeel();
+      showSystem({ title: t.morning.challengeDone, lines: [t.morning.challenges[challengeOf(day.date, user.uid)], fill(t.morning.challengeReward, { c: r.coins, x: r.xp })], tone: "buff" });
+    } catch (e) {
+      if (e.message !== "already-done") showToast({ error: true });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function checklist(which, parts, ticks) {
-    const words = which === "end" ? t.board.endParts : t.board.startParts;
+    const words = which === "end" ? t.board.endParts : t.morning.items;
     return (
       <Frame style={{ marginTop: 14, marginHorizontal: 14 }} cut={10} contentStyle={{ paddingVertical: 10, paddingHorizontal: 16, gap: 6 }}>
         <Label tone={color.accent}>{which === "end" ? t.board.end : t.board.start}</Label>
@@ -347,6 +367,54 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
             </View>
           );
         })}
+        {which === "start" && morningNow.challenge ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 48, marginTop: 4, paddingTop: 8, borderTopWidth: 1, borderTopColor: color.line }}>
+            <View style={{ flex: 1, gap: 1 }}>
+              <Text style={{ fontFamily: font.bold, fontSize: 10, letterSpacing: 2, color: color.purple }}>{fill(t.morning.challengeLabel, { c: CHALLENGE_COINS })}</Text>
+              <Text style={{ fontFamily: font.bodyMedium, fontSize: 15, color: day.challengeDone ? color.muted : color.text }}>{t.morning.challenges[challengeOf(day.date, user.uid)]}</Text>
+            </View>
+            <HexCheck size={30} done={!!day.challengeDone} disabled={busy || !!day.challengeDone} onPress={challenge}
+              label={fill(day.challengeDone ? t.board.isDone : t.board.markDone, { title: t.morning.challenges[challengeOf(day.date, user.uid)] })} />
+          </View>
+        ) : null}
+      </Frame>
+    );
+  }
+
+  // A list of extra quests (guild, programs): title, done count, rows with reward and a check.
+  function questList(title, list, slot, hint) {
+    const open = list.filter((g) => !g.done);
+    const done = list.filter((g) => g.done);
+    return (
+      <Frame cut={12}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", paddingHorizontal: 14, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: color.line }}>
+          <Label tone={color.hi}>{title}</Label>
+          <Text style={{ fontFamily: font.num, fontSize: 16, color: color.frame }}>{done.length}<Text style={{ fontSize: 13, color: color.muted }}> / {list.length}</Text></Text>
+        </View>
+        {[...open, ...done].map((g, i, all) => {
+          const q = getQuest(g.id);
+          if (!q) return null;
+          const r = rewardPreview(day, g.id, player.profile);
+          return (
+            <View key={g.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 14, paddingRight: 8, opacity: g.done ? 0.55 : 1,
+              borderBottomWidth: i === all.length - 1 ? 0 : 1, borderBottomColor: color.line }}>
+              <HexBadge w={30} h={34} label={q.stat} labelSize={9} />
+              <Pressable accessibilityRole="button" accessibilityHint={t.board.openHint} onPress={() => setSheet({ id: g.id, slot, done: g.done })}
+                style={({ pressed }) => ({ flex: 1, gap: 4, opacity: pressed ? 0.7 : 1 })}>
+                <Text style={{ fontFamily: font.bold, fontSize: 15, lineHeight: 20, color: "#FFFFFF" }}>{q.title}</Text>
+                {g.done ? null : (
+                  <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+                    <Coins value={r.coins} sign="+" size={15} />
+                    <Text style={{ fontFamily: font.num, fontSize: 15, color: color.accent }}>+{r.xp} {t.status.exp}</Text>
+                  </View>
+                )}
+              </Pressable>
+              <HexCheck size={34} done={g.done} disabled={busy} onPress={() => complete(g.id, slot)}
+                label={fill(g.done ? t.board.isDone : t.board.markDone, { title: q.title })} />
+            </View>
+          );
+        })}
+        <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted, paddingHorizontal: 14, paddingBottom: 10 }}>{hint}</Text>
       </Frame>
     );
   }
@@ -368,7 +436,14 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
             onStart={() => setSheet({ id: nowQuest.id, slot: "main", done: false })} onDone={() => complete(nowQuest.id, "main")} onQuick={() => nowQuick(nowQuest.id)} />
         ) : null}
 
-        {!day.start.done ? checklist("start", START_PARTS, day.startTicks) : null}
+        {day.checkin?.plan ? (
+          <Text style={{ marginTop: 10, marginHorizontal: 18, fontFamily: font.bodyMedium, fontSize: 13, color: color.text }}>
+            <Text style={{ fontFamily: font.bold, fontSize: 10, letterSpacing: 2, color: color.accent }}>{`${t.morning.planLabel}  `}</Text>{day.checkin.plan}
+          </Text>
+        ) : null}
+        {/* Your morning (Settings → Morning), as much as the check-in said there's time for. */}
+        {!day.start.done && (morningNow.items.length || morningNow.challenge) ? checklist("start", morningNow.items, day.startTicks) : null}
+        {day.start.done && morningNow.challenge && !day.challengeDone && nowD.getHours() < 13 ? checklist("start", [], day.startTicks) : null}
 
         {/* Your own reminders for today (Settings), to tick off. */}
         {todaysReminders.length ? (
@@ -505,38 +580,9 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
 
         <View style={{ marginTop: 18, marginHorizontal: 14, gap: 12 }}>
           {/* Guild quests you took sit right under your goals, not at the bottom. */}
-          {day.guild.length ? (
-            <Frame cut={12}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", paddingHorizontal: 14, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: color.line }}>
-                <Label tone={color.hi}>{t.board.guildQuests}</Label>
-                <Text style={{ fontFamily: font.num, fontSize: 16, color: color.frame }}>{guildDone.length}<Text style={{ fontSize: 13, color: color.muted }}> / {day.guild.length}</Text></Text>
-              </View>
-              {[...guildOpen, ...guildDone].map((g, i, all) => {
-                const q = getQuest(g.id);
-                if (!q) return null;
-                const r = rewardPreview(day, g.id, player.profile);
-                return (
-                  <View key={g.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 14, paddingRight: 8, opacity: g.done ? 0.55 : 1,
-                    borderBottomWidth: i === all.length - 1 ? 0 : 1, borderBottomColor: color.line }}>
-                    <HexBadge w={30} h={34} label={q.stat} labelSize={9} />
-                    <Pressable accessibilityRole="button" accessibilityHint={t.board.openHint} onPress={() => setSheet({ id: g.id, slot: "guild", done: g.done })}
-                      style={({ pressed }) => ({ flex: 1, gap: 4, opacity: pressed ? 0.7 : 1 })}>
-                      <Text style={{ fontFamily: font.bold, fontSize: 15, lineHeight: 20, color: "#FFFFFF" }}>{q.title}</Text>
-                      {g.done ? null : (
-                        <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-                          <Coins value={r.coins} sign="+" size={15} />
-                          <Text style={{ fontFamily: font.num, fontSize: 15, color: color.accent }}>+{r.xp} {t.status.exp}</Text>
-                        </View>
-                      )}
-                    </Pressable>
-                    <HexCheck size={34} done={g.done} disabled={busy} onPress={() => complete(g.id, "guild")}
-                      label={fill(g.done ? t.board.isDone : t.board.markDone, { title: q.title })} />
-                  </View>
-                );
-              })}
-              <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted, paddingHorizontal: 14, paddingBottom: 10 }}>{t.board.guildHint}</Text>
-            </Frame>
-          ) : null}
+          {day.guild.length ? questList(t.board.guildQuests, day.guild, "guild", t.board.guildHint) : null}
+          {/* Program sessions: extra side quests from the programs you follow (they don't count for the streak). */}
+          {programList.length ? questList(t.board.programQuests, programList, "program", t.board.programHint) : null}
           {trials.length ? (
             <Frame cut={12} tone={color.purple}>
               <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: color.line }}>
@@ -715,6 +761,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
       <BodyReport data={check ? null : body} onClose={() => setBody(null)} onOpenSkill={onOpenSkill} />
       <RankUp data={check || body ? null : rankUp} onClose={() => setRankUp(null)} />
       {!sheet && !check && !body && !levelUp && !rankUp ? <Welcome user={user} player={player} onOpenAssess={onOpenAssess} /> : null}
+      {!sheet && !check && !body && !levelUp && !rankUp && !needsWelcome(player) && wantsCheckin(player, day, nowD) ? <MorningCheckin user={user} player={player} /> : null}
       <LevelUp data={check || body || rankUp ? null : levelUp} onClose={() => setLevelUp(null)} />
     </View>
   );

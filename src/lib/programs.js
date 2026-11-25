@@ -6,22 +6,24 @@ import { todayKey } from "../game/quests";
 
 const ref = (uid) => doc(db, "players", uid);
 
-// Today's board already made: put the first session on it right away, instead of waiting for tomorrow.
+// Put a session on today's program list right away (when you ask for it; otherwise it starts tomorrow).
 function withSession(p, id, done) {
   const today = todayKey();
-  if (p.day?.date !== today || !Array.isArray(p.day.mains)) return {};
+  if (p.day?.date !== today) return {};
   const qid = `p:${id}:${done}`;
-  if (p.day.mains.some((m) => m.id === qid || m.id.startsWith(`p:${id}:`))) return {};
-  return { day: { mains: [...p.day.mains, { id: qid, done: false }] } };
+  const list = p.day.programs ?? [];
+  if (list.some((m) => m.id.startsWith(`p:${id}:`)) || (p.day.mains ?? []).some((m) => m.id.startsWith(`p:${id}:`))) return {};
+  return { day: { programs: [...list, { id: qid, done: false }] } };
 }
 
-export async function startProgram(uid, id) {
+export async function startProgram(uid, id, today = false) {
   return runTransaction(db, async (tx) => {
     const p = (await tx.get(ref(uid))).data() ?? {};
     const active = Object.entries(p.programs ?? {}).filter(([, st]) => !st.paused).length;
     if (!p.programs?.[id] && active >= MAX_PROGRAMS) throw new Error("max");
     const done = p.programs?.[id]?.done ?? 0;
-    tx.set(ref(uid), { programs: { [id]: { started: todayKey(), done } }, ...withSession(p, id, done), updatedAt: serverTimestamp() }, { merge: true });
+    // The first session comes on tomorrow's board (today is already planned); "start today" adds it now.
+    tx.set(ref(uid), { programs: { [id]: { started: todayKey(), done } }, ...(today ? withSession(p, id, done) : {}), updatedAt: serverTimestamp() }, { merge: true });
   });
 }
 
@@ -48,7 +50,7 @@ export async function createProgram(uid, c) {
     const list = [...(p.customPrograms ?? []), { ...c, id }];
     tx.set(ref(uid), {
       customPrograms: list,
-      ...(active < MAX_PROGRAMS ? { programs: { [id]: { started: todayKey(), done: 0 } }, ...withSession(p, id, 0) } : {}),
+      ...(active < MAX_PROGRAMS ? { programs: { [id]: { started: todayKey(), done: 0 } } } : {}),
       updatedAt: serverTimestamp(),
     }, { merge: true });
     return id;

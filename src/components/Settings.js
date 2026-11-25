@@ -5,7 +5,7 @@ import * as Updates from "expo-updates";
 import { signOut } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth } from "../lib/firebase";
-import { setDifficulty, setFeelSetting, setNotify, setPrivacy, setProof, setReminders } from "../lib/player";
+import { setDifficulty, setFeelSetting, setMorning, setNotify, setPrivacy, setProof, setReminders } from "../lib/player";
 import { difficultyOf } from "../game/difficulty";
 import { hhmm } from "../game/schedule";
 import { changeName } from "../lib/shop";
@@ -40,6 +40,7 @@ import Schedule from "./Schedule";
 import { TEMPLATES } from "../game/gym";
 import { parseTime } from "../game/reminders";
 import { askWebNotifications } from "../lib/reminders";
+import { MORNING_DEFAULT, MORNING_ITEMS, MORNING_MAX } from "../game/morning";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
@@ -348,6 +349,47 @@ function ProofChoice({ user, player }) {
 }
 
 // Sound and vibration on or off.
+// Your morning: which small wins start your day, the daily challenge and the morning check-in.
+function Morning({ user, player }) {
+  const { color, font } = useTheme();
+  const track = useTrack();
+  const items = player.morning?.items ?? MORNING_DEFAULT;
+  const challenge = player.morning?.challenge !== false;
+  const checkin = player.morning?.checkin !== false;
+  const save = (next) => track(setMorning(user.uid, { items, challenge, checkin, ...next })).catch(() => {});
+  const toggleItem = (id) => {
+    const next = items.includes(id) ? items.filter((x) => x !== id) : [...items, id];
+    if (!next.length || next.length > MORNING_MAX) return;
+    save({ items: next });
+  };
+  return (
+    <View style={{ gap: 8 }}>
+      <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{fill(t.morning.pickSub, { n: MORNING_MAX })}</Text>
+      {MORNING_ITEMS.map((it) => {
+        const on = items.includes(it.id);
+        return (
+          <Pressable key={it.id} accessibilityRole="checkbox" accessibilityState={{ checked: on }} onPress={() => toggleItem(it.id)}
+            style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 46, paddingHorizontal: 12, borderWidth: 1,
+              borderColor: on ? color.frame : "rgba(159,203,255,0.18)", backgroundColor: pressed ? "rgba(159,203,255,0.16)" : on ? "rgba(159,203,255,0.08)" : "transparent" })}>
+            <Text style={{ width: 18, fontFamily: font.bold, fontSize: 15, color: on ? color.accent : color.muted }}>{on ? "✓" : "+"}</Text>
+            <Text style={{ flex: 1, fontFamily: font.bodyBold, fontSize: 14, color: on ? "#FFFFFF" : color.text }}>{t.morning.items[it.id]}</Text>
+            <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{fill(t.morning.min, { n: it.minutes })}</Text>
+          </Pressable>
+        );
+      })}
+      {[["challenge", challenge, t.morning.challengeToggle, t.morning.challengeToggleSub], ["checkin", checkin, t.morning.checkinToggle, t.morning.checkinToggleSub]].map(([k, on, label, sub]) => (
+        <View key={k} style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 52 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: font.bodyBold, fontSize: 14, color: color.text }}>{label}</Text>
+            <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{sub}</Text>
+          </View>
+          <Switch accessibilityLabel={label} value={on} onValueChange={(v) => save({ [k]: v })} trackColor={{ false: "#1A2740", true: color.frame }} thumbColor="#FFFFFF" />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function Feel({ user, player }) {
   const { color, font } = useTheme();
   const track = useTrack();
@@ -497,6 +539,10 @@ export default function Settings({ user, player, synced }) {
 
       <Section title={t.tune.title} sub={t.tune.sub} {...fold("s2")}>
         <Tune user={user} player={player} />
+      </Section>
+
+      <Section title={t.morning.section} sub={t.morning.sectionSub} {...fold("morning")}>
+        <Morning user={user} player={player} />
       </Section>
 
       <Section title={t.agenda.title} sub={t.agenda.sub} {...fold("agenda")}>

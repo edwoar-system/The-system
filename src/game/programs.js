@@ -17,9 +17,9 @@ const strengthSessions = () => {
   ];
   const out = [];
   weeks.forEach((w, i) => {
-    out.push({ title: `Push and core (week ${i + 1})`, detail: `${w.push}, then ${w.core}. 90 s rest between sets.`, minutes: 25, skill: "pushups" });
-    out.push({ title: `Pull and legs (week ${i + 1})`, detail: `${w.pull}, then ${w.legs}. 90 s rest between sets.`, minutes: 30, skill: "pullups" });
-    out.push({ title: `Skills (week ${i + 1})`, detail: `${w.skill}. Rest 2 min between holds; stop before your form breaks.`, minutes: 25, skill: "handstand" });
+    out.push({ title: `Push and core (week ${i + 1})`, detail: `${w.push}, then ${w.core}. 90 s rest between sets.`, minutes: 25, skill: "pushups", why: "Chest, shoulders and triceps grow when the push gets a little harder each week; a strong core links them, so every other move gets easier." });
+    out.push({ title: `Pull and legs (week ${i + 1})`, detail: `${w.pull}, then ${w.legs}. 90 s rest between sets.`, minutes: 30, skill: "pullups", why: "Pulling balances all the pushing (healthier shoulders, better posture), and legs hold half your muscle: skipping them caps your strength." });
+    out.push({ title: `Skills (week ${i + 1})`, detail: `${w.skill}. Rest 2 min between holds; stop before your form breaks.`, minutes: 25, skill: "handstand", why: "Planche and front lever are mostly about tendons and body tension. Short, perfect holds train them; tired, sloppy ones don't." });
   });
   return out;
 };
@@ -33,6 +33,7 @@ const meditationSessions = () => {
   ];
   return weeks.flatMap((w, i) => Array.from({ length: 7 }, (_, d) => ({
     title: `Meditate ${w.min} min (week ${i + 1}, day ${d + 1})`, detail: w.how, minutes: w.min, skill: "meditation",
+    why: "Every time you notice you drifted and come back, that's one rep for your attention. The drifting isn't failing; it's the exercise.",
   })));
 };
 
@@ -48,7 +49,8 @@ const stretchSessions = () => {
     const [area, moves] = focus[i % focus.length];
     const min = 10 + Math.floor(i / 10) * 5;
     const hold = 30 + Math.floor(i / 10) * 15;
-    return { title: `Stretch: ${area.toLowerCase()} (day ${i + 1})`, detail: `${moves}. Hold each ${hold} s, both sides, breathe out into it. Never stretch into pain.`, minutes: min, skill: "stretch" };
+    return { title: `Stretch: ${area.toLowerCase()} (day ${i + 1})`, detail: `${moves}. Hold each ${hold} s, both sides, breathe out into it. Never stretch into pain.`, minutes: min, skill: "stretch",
+      why: "Flexibility comes from your nervous system learning a position is safe. Daily, calm holds teach it faster than one long painful session." };
   });
 };
 
@@ -62,18 +64,29 @@ const snowboardSessions = () => {
   ];
   const out = [];
   weeks.forEach((w, i) => {
-    out.push({ title: `Snowboard legs (week ${i + 1})`, detail: `${w.legs}. Then core: Russian twists 3×20, side plank 3×30 s each.`, minutes: 25, skill: "pistol" });
-    out.push({ title: `Snowboard balance (week ${i + 1})`, detail: w.balance, minutes: 15, skill: "balance" });
-    out.push({ title: `Snowboard jumps and tricks (week ${i + 1})`, detail: `${w.jump}. Warm up first; land soft, knees over toes.`, minutes: 20, skill: "balance" });
+    out.push({ title: `Snowboard legs (week ${i + 1})`, detail: `${w.legs}. Then core: Russian twists 3×20, side plank 3×30 s each.`, minutes: 25, skill: "pistol",
+      why: "Riding is one long half-squat. Strong quads and glutes keep your stance low and stop the burn after three runs; the core turns the board from your hips." });
+    out.push({ title: `Snowboard balance (week ${i + 1})`, detail: w.balance, minutes: 15, skill: "balance",
+      why: "Edge control is lots of tiny corrections in your ankles, knees and hips. Training on something wobbly teaches them before you're on snow." });
+    out.push({ title: `Snowboard jumps and tricks (week ${i + 1})`, detail: `${w.jump}. Warm up first; land soft, knees over toes.`, minutes: 20, skill: "balance",
+      why: "Soft landings protect your knees, pops are the start of every ollie, and spinning on land teaches you where you are in the air." });
   });
   return out;
 };
 
 export const PROGRAMS = {
-  strength: { name: "Calisthenics strength", stat: "STR", perWeek: 3, weeks: 6, sub: "Push, pull, legs, core and planche and front lever basics. Harder every week.", sessions: strengthSessions() },
-  meditation: { name: "Meditation, 5 to 20 minutes", stat: "WIL", perWeek: 7, weeks: 4, sub: "A new technique every week: breath, body scan, noting, open awareness.", sessions: meditationSessions() },
-  stretch: { name: "30 days of mobility", stat: "AGI", perWeek: 7, weeks: 5, sub: "Hips, hamstrings, shoulders, splits. Longer holds every 10 days.", sessions: stretchSessions() },
-  snowboard: { name: "Snowboard prep", stat: "AGI", perWeek: 3, weeks: 5, sub: "Legs, balance, jumps and trick drills on land, before the season.", sessions: snowboardSessions() },
+  strength: { name: "Calisthenics strength", stat: "STR", perWeek: 3, weeks: 6, sub: "Push, pull, legs, core and planche and front lever basics. Harder every week.", sessions: strengthSessions(),
+    why: "Muscles grow when the work gets a little harder over time (progressive overload). Three full-body sessions a week, each a step up from the last, is the simplest way to get there with no gym. Six weeks is long enough to see it in the mirror and in your numbers.",
+    tips: ["Leave 1–2 reps in the tank on most sets; only the last set goes close to failure.", "Sleep and protein do half the work: aim for 8 hours and some protein at every meal.", "Can't do a step yet? Do the previous week's version; the program waits."] },
+  meditation: { name: "Meditation, 5 to 20 minutes", stat: "WIL", perWeek: 7, weeks: 4, sub: "A new technique every week: breath, body scan, noting, open awareness.", sessions: meditationSessions(),
+    why: "Meditation trains attention: noticing where your mind went and bringing it back. That is the same skill you use to stay on a task, to calm down before a test, or to catch an impulse before you act on it. Starting at 5 minutes and adding a little each week makes it a habit before it feels like work.",
+    tips: ["Same time and place every day, for example right after brushing your teeth.", "Sit up, eyes closed or soft on the floor. A timer, no music.", "A busy mind is not a bad session. Coming back is the whole point."] },
+  stretch: { name: "30 days of mobility", stat: "AGI", perWeek: 7, weeks: 5, sub: "Hips, hamstrings, shoulders, splits. Longer holds every 10 days.", sessions: stretchSessions(),
+    why: "Sitting all day tightens hips and hamstrings and rounds the shoulders. A short session every day works better than a long one once a week, because flexibility is your nervous system getting used to a position. After 30 days most people move noticeably freer and get fewer aches in training.",
+    tips: ["Warm up first: 2 minutes of walking or jumping jacks.", "Breathe out slowly as you go deeper; never bounce.", "Mild stretch feeling: good. Sharp or joint pain: stop."] },
+  snowboard: { name: "Snowboard prep", stat: "AGI", perWeek: 3, weeks: 5, sub: "Legs, balance, jumps and trick drills on land, before the season.", sessions: snowboardSessions(),
+    why: "The first days on the board are hard on unprepared legs: burning quads, wobbly edges and sore knees from bad landings. Five weeks of legs, balance and jump work before you go means more runs per day, more control on your edges and fewer injuries, so you spend the trip learning instead of recovering.",
+    tips: ["Do the sessions in your snowboard stance (regular or goofy) where you can.", "Land every jump soft and quiet, knees over your toes.", "Finish the program in the week before you leave, not on the trip."] },
 };
 export const PROGRAM_IDS = Object.keys(PROGRAMS);
 

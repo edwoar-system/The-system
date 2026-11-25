@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { completeQuest, currentDay, getQuest, rewardPreview, swapMain } from "../lib/day";
+import { TINY_FACTOR, completeQuest, currentDay, getQuest, rewardPreview, swapMain } from "../lib/day";
 import { skillById } from "../game/guild";
 import { RANKS } from "../game/ladders";
 import { skillView } from "../game/skills";
@@ -156,13 +156,13 @@ export default function QuestSheet({ user, player, questId, slot, done, onClose,
     } finally { setBusy(false); }
   }
 
-  async function complete() {
+  async function complete(tiny = false) {
     setBusy(true);
     setError(null);
     const log = mode === "count" && count > 0 ? { value: count, unit: "reps" } : mode === "timer" && seconds >= 1 ? { value: Math.round(seconds), unit: "seconds" } : null;
     try {
       // Sets already logged counted their minutes; don't count them twice.
-      const r = await completeQuest(user.uid, questId, slot, setItem ? null : log, setsLogged ? { quick: true } : {});
+      const r = await completeQuest(user.uid, questId, slot, setItem ? null : log, { ...(setsLogged ? { quick: true } : {}), ...(tiny === true ? { tiny: true } : {}) });
       // Close the sheet first: the clear window opens once it's gone (an iPhone sheet would cover it).
       onClose();
       setTimeout(() => onResult?.(r), Platform.OS === "web" ? 0 : 380);
@@ -198,14 +198,34 @@ export default function QuestSheet({ user, player, questId, slot, done, onClose,
               <SysButton label={t.course.openCourse} onPress={() => onOpenCourse(courseForSkill(q.skill).id)} />
             ) : null}
 
+            {/* What the quest does for you, and the 2-minute version for days without time or energy. */}
+            {q.why && (done || !needsWhy(q)) ? (
+              <View style={{ gap: 4 }}>
+                <Label>{t.sheet.why}</Label>
+                <Text style={{ fontFamily: font.body, fontSize: 14, lineHeight: 20, color: "#CAD6EC" }}>{q.why}</Text>
+              </View>
+            ) : null}
+
             {/* A hard quest comes with a reason to start now (and a quote to go with it). */}
             {!done && needsWhy(q) ? (() => { const w = whyNow(q, todayKey()); return (
               <View style={{ gap: 6, padding: 12, borderLeftWidth: 2, borderLeftColor: color.purple, backgroundColor: "rgba(168,126,255,0.07)" }}>
                 <Text style={{ fontFamily: font.bold, fontSize: 11, letterSpacing: 3, color: color.purple }}>{t.sheet.whyNow}</Text>
-                <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, lineHeight: 20, color: "#FFFFFF" }}>{w.line}</Text>
+                <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, lineHeight: 20, color: "#FFFFFF" }}>{q.why ? `${q.why} ${w.line}` : w.line}</Text>
                 <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.text, fontStyle: "italic" }}>{`"${w.quote.text}"`}<Text style={{ fontStyle: "normal", color: color.muted }}>{`  ${w.quote.who}`}</Text></Text>
               </View>
             ); })() : null}
+
+            {!done && q.tiny && slot === "main" ? (
+              <View style={{ gap: 8, padding: 12, borderWidth: 1, borderColor: "rgba(159,203,255,0.22)" }}>
+                <Label>{t.sheet.tinyTitle}</Label>
+                <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, lineHeight: 20, color: "#FFFFFF" }}>{q.tiny}</Text>
+                <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{fill(t.sheet.tinySub, { p: Math.round(TINY_FACTOR * 100) })}</Text>
+                <Pressable accessibilityRole="button" disabled={busy} onPress={() => complete(true)}
+                  style={({ pressed }) => ({ minHeight: 42, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: color.frame, backgroundColor: pressed ? "rgba(159,203,255,0.2)" : "transparent" })}>
+                  <Text style={{ fontFamily: font.bold, fontSize: 12, letterSpacing: 1.5, color: "#FFFFFF" }}>{t.sheet.tinyDone}</Text>
+                </Pressable>
+              </View>
+            ) : null}
 
             {q.counts ? (
               <View style={{ gap: 4 }}>
