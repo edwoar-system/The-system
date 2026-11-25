@@ -15,6 +15,8 @@ import { onNotificationTap, setupNotifications, syncNotifications } from "../lib
 import { offerNotifiedUrgent } from "../lib/urgent";
 import { settleTrolls, syncPublic, useTrolls } from "../lib/social";
 import { trollById, trollQueue } from "../game/social";
+import { activeAppTime } from "../game/shop";
+import { leftText } from "./Shop";
 import { ensureDay, setGymCache } from "../lib/day";
 import { todayKey } from "../game/quests";
 import { setFeel, tapFeel } from "../lib/haptics";
@@ -68,6 +70,22 @@ function TrollBanner({ troll, more, onPress }) {
           {fill(t.troll.banner, { title: x?.title ?? "", name: troll.fromName })}{more > 0 ? `  ${fill(t.troll.bannerMore, { n: more })}` : ""}
         </Text>
       </Pressable>
+    </View>
+  );
+}
+
+// App time from the shop: how much is left, on every tab.
+function AppTimeBanner({ appTime }) {
+  const { color, font } = useTheme();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 15000); return () => clearInterval(id); }, []);
+  if (appTime.end <= now) return null;
+  const kind = appTime.kind === "mixed" ? t.shop.mixed : t.shop.kinds[appTime.kind];
+  return (
+    <View pointerEvents="none" style={{ position: "absolute", right: 12, bottom: 10 }}>
+      <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: color.frame, backgroundColor: "rgba(6,14,30,0.95)" }}>
+        <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: "#FFFFFF" }}>{fill(t.shop.banner, { kind, left: leftText(appTime.end - now) })}</Text>
+      </View>
     </View>
   );
 }
@@ -182,6 +200,7 @@ export default function Shell({ user }) {
           onGoToQuest={(f, fromSkill) => goTo({ tab: "quests", focus: f }, { tab: "skills", skillFocus: fromSkill ?? undefined })} /> : <Status user={user} {...state} />) : null}
         {tab === "friends" ? (state.player ? <Friends user={user} player={state.player} /> : <Status user={user} {...state} />) : null}
         {tab === "settings" ? (state.player ? <Settings user={user} player={state.player} synced={state.synced} /> : <Status user={user} {...state} />) : null}
+        {!trollQ.active.length && activeAppTime(player) && !penaltyView ? <AppTimeBanner appTime={player.appTime} /> : null}
         {trollQ.active.length && tab !== "quests" && !penaltyView ? <TrollBanner troll={trollQ.active[0]} more={trollQ.active.length + trollQ.waiting.length - 1} onPress={() => goTo({ tab: "quests" })} /> : null}
         {trail.length > 0 && !penaltyView ? <BackPill place={trail[trail.length - 1]} onPress={goBack} /> : null}
       </View>

@@ -13,8 +13,8 @@ import { t } from "../i18n";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 
-export const NOTIFY_KINDS = ["morning", "urgent", "deadline", "penalty", "water", "trial", "rust"];
-export const NOTIFY_DEFAULTS = { morning: true, urgent: true, deadline: true, penalty: true, water: true, trial: true, rust: true };
+export const NOTIFY_KINDS = ["morning", "urgent", "deadline", "penalty", "water", "trial", "rust", "apptime"];
+export const NOTIFY_DEFAULTS = { morning: true, urgent: true, deadline: true, penalty: true, water: true, trial: true, rust: true, apptime: true };
 export const WATER_HOURS = [10, 12, 14, 16, 18];
 export const DEADLINE_WARNING_HOUR = 20;
 const LOOK_AHEAD_DAYS = 2; // today and tomorrow; rescheduled every time the app opens or the player changes
@@ -130,6 +130,13 @@ export function notificationPlan(player, uid, now = new Date()) {
       .slice(0, MAX_RUST)
       .forEach((v) => add({ id: `rust-${v.id}`, date: fromDayNum(todayN + v.rustIn - 2, 18), title: t.notify.rustTitle,
         body: fill(t.notify.rustBody, { skill: skillById[v.id]?.name ?? v.id }), data: { kind: "skill", skill: v.id } }));
+  }
+
+  // App time from the shop: a warning 5 minutes before the end, and when it's over.
+  const app = player.appTime;
+  if (s.apptime && app?.end > now.getTime()) {
+    if (app.end - 5 * 60000 > now.getTime()) add({ id: `app-5-${app.end}`, date: new Date(app.end - 5 * 60000), title: t.notify.appSoonTitle, body: t.notify.appSoonBody, data: { kind: "status" } });
+    add({ id: `app-end-${app.end}`, date: new Date(app.end), title: t.notify.appEndTitle, body: t.notify.appEndBody, data: { kind: "status" } });
   }
 
   return out.sort((a, b) => a.date - b.date);

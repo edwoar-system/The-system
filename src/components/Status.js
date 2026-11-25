@@ -16,6 +16,7 @@ import QuoteLibrary from "./QuoteLibrary";
 import QuotePage from "./QuotePage";
 import StatInfo from "./StatInfo";
 import { HabitsCard } from "./Habits";
+import Shop from "./Shop";
 import { trollTitle } from "../game/social";
 import { FeedbackButton } from "./Feedback";
 import { quoteOfDay } from "../game/quotes";
@@ -134,6 +135,7 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
   const [library, setLibrary] = useState(false);
   const [info, setInfo] = useState(null); // a stat to explain
   const [quotePage, setQuotePage] = useState(false);
+  const [shop, setShop] = useState(false);
   const k = useCountUp();
 
   if (error) {
@@ -167,7 +169,11 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
         <Label tone={color.hi} style={{ letterSpacing: 5, fontSize: 12 }}>{t.status.system}</Label>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
           <FeedbackButton user={user} player={player} />
-          <Coins value={n(player.coins ?? 0)} size={18} />
+          <Pressable accessibilityRole="button" accessibilityLabel={`${t.shop.open}, ${player.coins ?? 0}`} onPress={() => setShop(true)} hitSlop={6}
+            style={({ pressed }) => ({ minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 10, paddingRight: 4, borderWidth: 1, borderColor: "rgba(242,201,76,0.35)", opacity: pressed ? 0.7 : 1 })}>
+            <Coins value={n(player.coins ?? 0)} size={18} />
+            <Text style={{ fontFamily: font.bold, fontSize: 11, letterSpacing: 1, color: color.muted }}>{t.shop.open.toUpperCase()} ›</Text>
+          </Pressable>
         </View>
       </View>
 
@@ -212,6 +218,7 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
 
       <QuoteCard quote={quote} onOpen={() => setQuotePage(true)} onNext={() => setQuoteShift((n) => n + 1)} onLibrary={() => setLibrary(true)} />
       {library ? <QuoteLibrary mine={player.profile?.schools ?? []} favs={favs} onStar={star} onClose={() => setLibrary(false)} /> : null}
+      {shop ? <Shop user={user} player={player} onClose={() => setShop(false)} /> : null}
       {quotePage ? <QuotePage quote={quote} starred={favs.includes(quote.id)} onStar={() => star(quote.id)} onClose={() => setQuotePage(false)} /> : null}
 
       <Pressable accessibilityRole="button" onPress={onOpenQuests} style={({ pressed }) => ({ marginTop: 22, marginHorizontal: 14, transform: [{ scale: pressed ? 0.99 : 1 }] })}>

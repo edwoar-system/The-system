@@ -251,7 +251,7 @@ function History({ uid, honesty }) {
                   <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: color.accent }}>{t.proof.photo}</Text>
                 </Pressable>
               ) : it.proof === "none" ? <Text style={{ fontFamily: font.body, fontSize: 12, color: "#F6B45A" }}>{t.proof.none}</Text> : null}
-              <Coins value={(it.coins ?? 0) + (it.bonus ?? 0)} sign="+" size={14} />
+              <Coins value={Math.abs((it.coins ?? 0) + (it.bonus ?? 0))} sign={(it.coins ?? 0) + (it.bonus ?? 0) < 0 ? "−" : "+"} size={14} />
             </View>
           </View>
         );
