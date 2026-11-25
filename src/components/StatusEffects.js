@@ -21,14 +21,15 @@ function Bar({ label, value, max, text, tone, action }) {
         {action}
       </View>
       <View accessibilityRole="progressbar" accessibilityValue={{ min: 0, max, now: Math.min(value, max) }}
-        style={{ height: 10, backgroundColor: "rgba(159,203,255,0.1)", borderWidth: 1, borderColor: "rgba(159,203,255,0.22)" }}>
+        style={{ height: 6, backgroundColor: "rgba(159,203,255,0.1)" }}>
         <View style={{ width: `${pct * 100}%`, height: "100%", backgroundColor: tone }} />
       </View>
     </View>
   );
 }
 
-export default function StatusEffects({ user, player, onOpenHabits }) {
+// bare: no frame or title, for inside the Body screen.
+export default function StatusEffects({ user, player, onOpenHabits, bare = false }) {
   const { color, font } = useTheme();
   const [open, setOpen] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -41,10 +42,12 @@ export default function StatusEffects({ user, player, onOpenHabits }) {
     try { await quickLog(user.uid, "water"); tapFeel(); } catch { /* try again */ } finally { setBusy(false); }
   }
 
+  const Wrap = bare ? View : Frame;
+  const wrapProps = bare ? { style: { gap: 18 } } : { cut: 14, contentStyle: { padding: 16, gap: 14 } };
   return (
-    <Frame cut={14} contentStyle={{ padding: 16, gap: 14 }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
-        <Label tone={color.hi}>{t.effects.title}</Label>
+    <Wrap {...wrapProps}>
+      <View style={{ flexDirection: "row", justifyContent: bare ? "center" : "space-between", alignItems: "baseline" }}>
+        {bare ? null : <Label tone={color.hi}>{t.effects.title}</Label>}
         {sum ? <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: sum > 0 ? color.accent : "#F6B45A" }}>{fill(t.effects.total, { sign: sum > 0 ? "+" : "−", n: Math.abs(sum) })}</Text> : null}
       </View>
 
@@ -85,6 +88,6 @@ export default function StatusEffects({ user, player, onOpenHabits }) {
         <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.effects.none}</Text>
       )}
       {open ? <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.text }}>{fill(t.effects.why[open], effects.find((e) => e.id === open)?.vars)}</Text> : null}
-    </Frame>
+    </Wrap>
   );
 }
