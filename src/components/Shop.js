@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { APP_KINDS, LENGTHS, activeAppTime } from "../game/shop";
+import { APP_KINDS, CAPPED, LENGTHS, activeAppTime, priceFor, rateAt, refundFor, usedToday } from "../game/shop";
+import { todayKey } from "../game/quests";
 import { trollQueue } from "../game/social";
 import { buyAppTime, endAppTime } from "../lib/shop";
 import { useTrolls } from "../lib/social";
@@ -30,16 +31,26 @@ export default function Shop({ user, player, onClose }) {
   const coins = player.coins ?? 0;
   const active = activeAppTime(player, now);
 
-  async function buy(l) {
+  const used = usedToday(player, kind, todayKey());
+  const rate = rateAt(kind, used);
+  const refund = refundFor(active, now);
+
+  async function buy(minutes) {
     setBusy(true);
     setMsg(null);
     try {
-      await buyAppTime(user.uid, kind, l.minutes, fill(t.shop.logTitle, { kind: t.shop.kinds[kind], min: l.minutes }));
+      await buyAppTime(user.uid, kind, minutes, fill(t.shop.logTitle, { kind: t.shop.kinds[kind], min: minutes }));
       doneFeel();
-      setMsg({ ok: true, text: fill(t.shop.bought, { min: l.minutes }) });
+      setMsg({ ok: true, text: fill(t.shop.bought, { min: minutes }) });
     } catch (e) {
-      setMsg({ ok: false, text: e.message === "no-coins" ? t.shop.noCoins : t.shop.failed });
+      setMsg({ ok: false, text: e.message === "no-coins" ? t.shop.noCoins : e.message === "other-kind" ? t.shop.otherKind : t.shop.failed });
     } finally { setBusy(false); }
+  }
+  async function end() {
+    try {
+      const r = await endAppTime(user.uid, t.shop.refundTitle);
+      setMsg({ ok: true, text: r.coins ? fill(t.shop.refunded, { n: r.coins }) : t.shop.ended });
+    } catch { setMsg({ ok: false, text: t.shop.failed }); }
   }
 
   return (
@@ -59,8 +70,8 @@ export default function Shop({ user, player, onClose }) {
             <Frame kind="premium" cut={12} contentStyle={{ padding: 16, gap: 6 }}>
               <Label tone={color.hi}>{t.shop.active}</Label>
               <Text style={{ fontFamily: font.bold, fontSize: 20, color: "#FFFFFF" }}>{fill(t.shop.activeLine, { kind: active.kind === "mixed" ? t.shop.mixed : t.shop.kinds[active.kind], left: leftText(active.end - now) })}</Text>
-              <Pressable accessibilityRole="button" onPress={() => endAppTime(user.uid).catch(() => {})} style={{ minHeight: 40, justifyContent: "center", alignSelf: "flex-start" }}>
-                <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.muted }}>{t.shop.endNow}</Text>
+              <Pressable accessibilityRole="button" onPress={end} style={{ minHeight: 40, justifyContent: "center", alignSelf: "flex-start" }}>
+                <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.accent }}>{refund.coins ? fill(t.shop.endNow, { n: refund.coins }) : t.shop.endNowNone}</Text>
               </Pressable>
             </Frame>
           ) : null}
@@ -87,19 +98,22 @@ export default function Shop({ user, player, onClose }) {
                   );
                 })}
               </View>
-              {LENGTHS.map((l) => {
-                const can = coins >= l.coins;
-                const save = l.minutes - l.coins;
+              {CAPPED.includes(kind) ? (
+                <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: rate > 1 ? "#F6B45A" : color.text }}>
+                  {fill(t.shop.usedToday, { m: used, kind: t.shop.kinds[kind].toLowerCase() })} {rate === 1 ? fill(t.shop.rate1, { left: 60 - used }) : rate === 2 ? fill(t.shop.rate2, { left: 120 - used }) : t.shop.rate3}
+                </Text>
+              ) : <Text style={{ fontFamily: font.body, fontSize: 13, color: color.text }}>{t.shop.otherFlat}</Text>}
+              {LENGTHS.map((m) => {
+                const cost = priceFor(kind, m, used);
+                const can = coins >= cost;
                 return (
-                  <View key={l.minutes} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: color.line }}>
+                  <View key={m} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: color.line }}>
                     <View style={{ flex: 1, gap: 2 }}>
-                      <Text style={{ fontFamily: font.bold, fontSize: 17, color: "#FFFFFF" }}>{leftText(l.minutes * 60000)}</Text>
-                      <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>
-                        {fill(t.shop.perMin, { p: (l.coins / l.minutes).toFixed(2) })}{save > 0 ? `  ·  ${fill(t.shop.saving, { n: save })}` : ""}
-                      </Text>
+                      <Text style={{ fontFamily: font.bold, fontSize: 17, color: "#FFFFFF" }}>{leftText(m * 60000)}</Text>
+                      {cost > m ? <Text style={{ fontFamily: font.body, fontSize: 12, color: "#F6B45A" }}>{fill(t.shop.pricier, { n: cost - m })}</Text> : null}
                     </View>
-                    <Coins value={l.coins} size={16} />
-                    <SysButton label={can ? t.shop.buy : fill(t.shop.needMore, { n: l.coins - coins })} disabled={!can || busy} onPress={() => buy(l)} style={{ minHeight: 44, minWidth: 96 }} />
+                    <Coins value={cost} size={16} />
+                    <SysButton label={can ? t.shop.buy : fill(t.shop.needMore, { n: cost - coins })} disabled={!can || busy} onPress={() => buy(m)} style={{ minHeight: 44, minWidth: 96 }} />
                   </View>
                 );
               })}
