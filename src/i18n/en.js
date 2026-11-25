@@ -894,7 +894,7 @@ export default {
     shelves: {
       quotes: { title: "Quotes", sub: "Every System message: what it means, who said it, how to use it today. Star the ones you like." },
       philosophy: { title: "Philosophy", sub: "Reading paths with a question for each reading. Do the next one as a quest." },
-      languages: { title: "Languages", sub: "How to start Japanese, Latin or any language, with first phrases and tables." },
+      languages: { title: "Languages", sub: "How to start Japanese, Korean, Mandarin, Spanish, French, German, Italian, Portuguese, Latin or any other language, with first phrases." },
       skills: { title: "Skill guides", sub: "Every skill: how to train it, the ranks and examples. Opens the skill's page." },
       words: { title: "System words", sub: "What quests, coins, ranks, trials and the rest mean, in plain words." },
     },

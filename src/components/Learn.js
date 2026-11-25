@@ -151,7 +151,7 @@ function LanguagePage({ id, onClose, onWiki, onOpenSkill }) {
           <Label tone={color.hi}>{tb.title.toUpperCase()}</Label>
           {tb.rows.map(([a, b]) => (
             <View key={a} style={{ flexDirection: "row", gap: 10 }}>
-              <Text style={{ width: 130, fontFamily: font.bodyBold, fontSize: 14, color: "#FFFFFF" }}>{a}</Text>
+              <Text style={{ width: 130, fontFamily: a.length <= 2 ? undefined : font.bodyBold, fontSize: a.length <= 2 ? 22 : 14, color: "#FFFFFF" }}>{a}</Text>
               <Text style={{ flex: 1, fontFamily: font.body, fontSize: 14, color: color.muted }}>{b}</Text>
             </View>
           ))}
