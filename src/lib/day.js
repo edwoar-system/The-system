@@ -1,13 +1,14 @@
 import { collection, deleteField, doc, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import { allMainsBonus, levelFromXp, questCoins, questXp } from "../game/economy";
-import { pickMainQuests, questById, todayKey } from "../game/quests";
+import { QUESTS, pickMainQuests, questById, todayKey } from "../game/quests";
 import { guildQuest } from "../game/guild";
 import { ladderById } from "../game/ladders";
 import { dayNum, habitRank, isHabit, passTrial, recordTraining, skillView, SKILL_RULES, trialQuest, trialState, weekNum } from "../game/skills";
 import { tierForRank } from "../game/tiers";
 import { dutyQuest, interestSkills, mountainFactor } from "../game/profile";
-import { questLoad, tiredSet } from "../game/muscles";
+import { hitsTired, questLoad, tiredSet } from "../game/muscles";
+import { swapPrice } from "../game/shop";
 import { gymToday, splitQuest } from "../game/gym";
 import { penaltyDue } from "../game/penalty";
 import { trainMuscles } from "./muscles";
@@ -84,7 +85,36 @@ export async function ensureDay(uid) {
     if (player.day?.date === todayKey()) return;
     // Yesterday's board still waiting for the penalty check: leave it, the check runs first.
     if (player.day && penaltyDue(player.day, player)) return;
-    tx.set(ref, { day: newDay(player, uid), updatedAt: serverTimestamp() }, { merge: true });
+    // Streak shield: one missed day (all mains done the day before yesterday, not yesterday) keeps the streak.
+    const twoDaysAgo = todayKey(new Date(Date.now() - 2 * 86400000));
+    const shield = (player.streakShields ?? 0) > 0 && player.lastAllMainsDate === twoDaysAgo && (player.streak ?? 0) > 0
+      ? { streakShields: player.streakShields - 1, lastAllMainsDate: yesterdayKey(), shieldUsed: yesterdayKey() } : {};
+    tx.set(ref, { day: newDay(player, uid), ...shield, updatedAt: serverTimestamp() }, { merge: true });
+  });
+}
+
+// Swaps an open main quest for another of the same stat. The first swap of the day is free, then 10, 20, 40...
+export async function swapMain(uid, questId) {
+  const ref = doc(db, "players", uid);
+  return runTransaction(db, async (tx) => {
+    const player = (await tx.get(ref)).data() ?? {};
+    const day = player.day?.date === todayKey() ? player.day : newDay(player, uid);
+    const i = day.mains.findIndex((m) => m.id === questId);
+    if (i < 0 || day.mains[i].done) throw new Error("not-open");
+    const q = getQuest(questId, player);
+    const swaps = day.swaps ?? 0;
+    const cost = swapPrice(swaps);
+    if ((player.coins ?? 0) < cost) throw new Error("no-coins");
+    const onBoard = new Set(day.mains.map((m) => m.id));
+    const tired = tiredSet(player.fatigue);
+    const pool = QUESTS.filter((x) => x.stat === (q?.stat ?? "STR") && !x.side && x.kind !== "start" && !onBoard.has(x.id));
+    const rested = pool.filter((x) => !hitsTired(x, tired));
+    const from = rested.length ? rested : pool;
+    if (!from.length) throw new Error("no-other");
+    const next = from[Math.floor(Math.random() * from.length)];
+    const mains = day.mains.map((m, k) => (k === i ? { id: next.id, done: false } : m));
+    tx.set(ref, { day: { ...day, mains, swaps: swaps + 1 }, coins: (player.coins ?? 0) - cost, updatedAt: serverTimestamp() }, { merge: true });
+    return { id: next.id, cost };
   });
 }
 

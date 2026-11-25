@@ -2,11 +2,13 @@
 import { useEffect, useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { completeQuest, currentDay, getQuest, rewardPreview } from "../lib/day";
+import { completeQuest, currentDay, getQuest, rewardPreview, swapMain } from "../lib/day";
 import { skillById } from "../game/guild";
 import { RANKS } from "../game/ladders";
 import { skillView } from "../game/skills";
 import { Coins, Frame, Label, SysButton } from "./sys";
+import { swapPrice } from "../game/shop";
+import { todayKey } from "../game/quests";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 import { doneFeel } from "../lib/haptics";
@@ -78,6 +80,19 @@ export default function QuestSheet({ user, player, questId, slot, done, onClose,
   function toggleTimer() {
     if (runningSince != null) { setElapsed(seconds); setRunningSince(null); }
     else { setNow(Date.now()); setRunningSince(Date.now()); }
+  }
+
+  // Swap this main quest for another of the same stat: the first swap of the day is free.
+  const swapCost = swapPrice(player.day?.date === todayKey() ? player.day.swaps ?? 0 : 0);
+  async function swap() {
+    setBusy(true);
+    setError(null);
+    try {
+      await swapMain(user.uid, questId);
+      onClose();
+    } catch (e) {
+      setError(e.message === "no-coins" ? t.sheet.swapNoCoins : e.message === "no-other" ? t.sheet.swapNone : t.sheet.swapFailed);
+    } finally { setBusy(false); }
   }
 
   async function complete() {
@@ -180,6 +195,13 @@ export default function QuestSheet({ user, player, questId, slot, done, onClose,
             ) : (
               <SysButton label={q.trial ? t.sheet.completeTrial : t.sheet.complete} onPress={complete} disabled={busy} />
             )}
+            {slot === "main" && !done ? (
+              <Pressable accessibilityRole="button" disabled={busy} onPress={swap} style={{ minHeight: 44, alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.muted }}>
+                  {swapCost ? fill(t.sheet.swapCost, { n: swapCost }) : t.sheet.swapFree}
+                </Text>
+              </Pressable>
+            ) : null}
           </ScrollView>
         </View>
       </View>

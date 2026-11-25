@@ -15,7 +15,7 @@ import { onNotificationTap, setupNotifications, syncNotifications } from "../lib
 import { offerNotifiedUrgent } from "../lib/urgent";
 import { settleTrolls, syncPublic, useTrolls } from "../lib/social";
 import { trollById, trollQueue } from "../game/social";
-import { activeAppTime } from "../game/shop";
+import { SKINS, activeAppTime } from "../game/shop";
 import { leftText } from "./Shop";
 import { ensureDay, setGymCache } from "../lib/day";
 import { todayKey } from "../game/quests";
@@ -23,7 +23,7 @@ import { setFeel, tapFeel } from "../lib/haptics";
 import { skillById } from "../game/guild";
 
 import { isInPenalty } from "../game/penalty";
-import { useTheme } from "../theme";
+import { useTheme, SkinProvider } from "../theme";
 import { t } from "../i18n";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
@@ -109,10 +109,20 @@ function BackPill({ place, onPress }) {
 }
 
 // Logged-in app: one live player document shared by all tabs, with the System tab bar.
+// Your skin from the shop colours the whole app (frames, buttons, glow, the tab bar).
 export default function Shell({ user }) {
+  const state = usePlayer(user.uid);
+  const skin = state.player?.skin;
+  return (
+    <SkinProvider id={skin} colors={skin && skin !== "system" ? SKINS[skin]?.color : null}>
+      <ShellBody user={user} state={state} />
+    </SkinProvider>
+  );
+}
+
+function ShellBody({ user, state }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
-  const state = usePlayer(user.uid);
   const [tab, setTab] = useState("status");
   const [penaltyView, setPenaltyView] = useState(null); // null | "intro" | "manual"
   const [focus, setFocus] = useState(null); // a quest to open on the board: { id, slot }

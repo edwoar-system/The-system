@@ -17,6 +17,7 @@ import QuotePage from "./QuotePage";
 import StatInfo from "./StatInfo";
 import { HabitsCard } from "./Habits";
 import Shop from "./Shop";
+import NameText from "./NameText";
 import { trollTitle } from "../game/social";
 import { FeedbackButton } from "./Feedback";
 import { quoteOfDay } from "../game/quotes";
@@ -182,9 +183,9 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
 
       <View style={{ alignItems: "center", gap: 2, marginTop: 10 }}>
         <Label>{t.status.player}</Label>
-        <Text style={{ fontFamily: font.displayHeavy, fontSize: 32, letterSpacing: 3, color: color.hi }}>
+        <NameText effect={player.nameEffect} style={{ fontFamily: font.displayHeavy, fontSize: 32, letterSpacing: 3, color: color.hi }}>
           {(player.name || t.home.defaultName).toUpperCase()}
-        </Text>
+        </NameText>
         {trollTitle(player.trollsDone ?? 0) ? (
           <Text style={{ fontFamily: font.bold, fontSize: 13, letterSpacing: 2, color: color.gold }}>{trollTitle(player.trollsDone ?? 0).name.toUpperCase()}</Text>
         ) : null}

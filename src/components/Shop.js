@@ -2,11 +2,13 @@
 import { useEffect, useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { APP_KINDS, CAPPED, LENGTHS, activeAppTime, priceFor, rateAt, refundFor, usedToday } from "../game/shop";
+import { APP_KINDS, CAPPED, EFFECT_IDS, EFFECT_PRICE, LENGTHS, MAX_SHIELDS, NAME_EFFECTS, SHIELD_PRICE, SKINS, SKIN_IDS, SKIN_PRICE, activeAppTime, priceFor, rateAt, refundFor, usedToday } from "../game/shop";
 import { todayKey } from "../game/quests";
 import { trollQueue } from "../game/social";
-import { buyAppTime, endAppTime } from "../lib/shop";
-import { useTrolls } from "../lib/social";
+import { buyAppTime, buyEffect, buyShield, buySkin, endAppTime } from "../lib/shop";
+import { sendTroll, useFriends, useTrolls } from "../lib/social";
+import { TrollPicker } from "./Friends";
+import NameText from "./NameText";
 import { doneFeel } from "../lib/haptics";
 import { Coins, Frame, Glow, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
@@ -24,6 +26,8 @@ export default function Shop({ user, player, onClose }) {
   const [kind, setKind] = useState("social");
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [trollFor, setTrollFor] = useState(null);
+  const { friends } = useFriends(user.uid);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 15000); return () => clearInterval(id); }, []);
   const trollQ = trollQueue(useTrolls(user.uid));
@@ -46,6 +50,20 @@ export default function Shop({ user, player, onClose }) {
       setMsg({ ok: false, text: e.message === "no-coins" ? t.shop.noCoins : e.message === "other-kind" ? t.shop.otherKind : t.shop.failed });
     } finally { setBusy(false); }
   }
+  // Any other purchase: run it, then show what happened.
+  async function run(fn, okText) {
+    setBusy(true);
+    setMsg(null);
+    try { await fn(); doneFeel(); setMsg({ ok: true, text: okText }); }
+    catch (e) { setMsg({ ok: false, text: e.message === "no-coins" ? t.shop.noCoins : e.message === "have-shield" ? t.shop.haveShield : t.shop.failed }); }
+    finally { setBusy(false); }
+  }
+  async function pickTroll(id) {
+    const f = trollFor;
+    setTrollFor(null);
+    await run(() => sendTroll(user.uid, player.name, f.uid, f.card?.name ?? f.name, id), fill(t.shop.trollSent, { name: f.card?.name ?? f.name }));
+  }
+
   async function end() {
     try {
       const r = await endAppTime(user.uid, t.shop.refundTitle);
@@ -65,6 +83,7 @@ export default function Shop({ user, player, onClose }) {
             <Coins value={coins} size={22} />
           </View>
           <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: font.bold, fontSize: 26, color: "#FFFFFF" }}>{t.shop.title}</Text>
+          {msg ? <Text accessibilityLiveRegion="polite" style={{ textAlign: "center", fontFamily: font.bodyBold, fontSize: 13, color: msg.ok ? color.accent : "#F6B45A" }}>{msg.text}</Text> : null}
 
           {active ? (
             <Frame kind="premium" cut={12} contentStyle={{ padding: 16, gap: 6 }}>
@@ -117,10 +136,81 @@ export default function Shop({ user, player, onClose }) {
                   </View>
                 );
               })}
-              {msg ? <Text style={{ fontFamily: font.body, fontSize: 13, color: msg.ok ? color.accent : "#F6B45A" }}>{msg.text}</Text> : null}
               <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.shop.honest}</Text>
             </Frame>
           )}
+
+          {!locked ? (
+            <>
+              <Frame cut={12} contentStyle={{ padding: 16, gap: 10 }}>
+                <Label tone={color.hi}>{t.shop.trollTitle}</Label>
+                <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{t.shop.trollSub}</Text>
+                {friends === null ? null : friends.length === 0 ? (
+                  <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{t.shop.trollNoFriends}</Text>
+                ) : (
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                    {friends.map((f) => (
+                      <Pressable key={f.uid} accessibilityRole="button" onPress={() => setTrollFor(f)}
+                        style={{ minHeight: 44, paddingHorizontal: 12, justifyContent: "center", borderWidth: 1, borderColor: "rgba(159,203,255,0.3)" }}>
+                        <Text style={{ fontFamily: font.bold, fontSize: 13, color: "#FFFFFF" }}>{f.card?.name ?? f.name}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+              </Frame>
+
+              <Frame cut={12} contentStyle={{ padding: 16, gap: 8 }}>
+                <Label tone={color.hi}>{t.shop.shieldTitle}</Label>
+                <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{t.shop.shieldSub}</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                  <Text style={{ flex: 1, fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{fill(t.shop.shieldHave, { n: player.streakShields ?? 0, max: MAX_SHIELDS })}</Text>
+                  <Coins value={SHIELD_PRICE} size={16} />
+                  <SysButton label={(player.streakShields ?? 0) >= MAX_SHIELDS ? t.shop.have : t.shop.buy} disabled={busy || (player.streakShields ?? 0) >= MAX_SHIELDS || coins < SHIELD_PRICE}
+                    onPress={() => run(() => buyShield(user.uid, t.shop.shieldTitleLog), t.shop.shieldBought)} style={{ minHeight: 44, minWidth: 96 }} />
+                </View>
+              </Frame>
+
+              <Frame cut={12} contentStyle={{ padding: 16, gap: 10 }}>
+                <Label tone={color.hi}>{t.shop.skinsTitle}</Label>
+                <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{fill(t.shop.skinsSub, { n: SKIN_PRICE })}</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                  {SKIN_IDS.map((id) => {
+                    const owned = id === "system" || (player.skins ?? []).includes(id);
+                    const on = (player.skin ?? "system") === id;
+                    const c = { ...color, ...SKINS[id].color };
+                    return (
+                      <Pressable key={id} accessibilityRole="button" accessibilityState={{ selected: on }} disabled={busy || on || (!owned && coins < SKIN_PRICE)}
+                        onPress={() => run(() => buySkin(user.uid, id, fill(t.shop.skinLog, { name: SKINS[id].name })), owned ? t.shop.skinOn : fill(t.shop.skinBought, { name: SKINS[id].name }))}
+                        style={{ width: "31%", minWidth: 96, padding: 10, gap: 6, borderWidth: 1, borderColor: on ? c.frame : "rgba(159,203,255,0.18)", backgroundColor: on ? "rgba(255,255,255,0.05)" : "transparent", opacity: !owned && coins < SKIN_PRICE ? 0.5 : 1 }}>
+                        <View style={{ height: 30, borderWidth: 1, borderColor: c.frame, backgroundColor: c.glow, justifyContent: "center", paddingHorizontal: 8 }}>
+                          <View style={{ height: 4, width: "60%", backgroundColor: c.accent }} />
+                        </View>
+                        <Text style={{ fontFamily: font.bold, fontSize: 12, color: "#FFFFFF" }}>{SKINS[id].name}</Text>
+                        <Text style={{ fontFamily: font.body, fontSize: 11, color: on ? c.accent : color.muted }}>{on ? t.shop.wearing : owned ? t.shop.wear : fill(t.shop.price, { n: SKIN_PRICE })}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </Frame>
+
+              <Frame cut={12} contentStyle={{ padding: 16, gap: 10 }}>
+                <Label tone={color.hi}>{t.shop.effectsTitle}</Label>
+                <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{fill(t.shop.effectsSub, { n: EFFECT_PRICE })}</Text>
+                {EFFECT_IDS.map((id) => {
+                  const owned = id === "none" || (player.nameEffects ?? []).includes(id);
+                  const on = (player.nameEffect ?? "none") === id;
+                  return (
+                    <Pressable key={id} accessibilityRole="button" accessibilityState={{ selected: on }} disabled={busy || on || (!owned && coins < EFFECT_PRICE)}
+                      onPress={() => run(() => buyEffect(user.uid, id, fill(t.shop.effectLog, { name: NAME_EFFECTS[id].name })), owned ? t.shop.effectOn : fill(t.shop.effectBought, { name: NAME_EFFECTS[id].name }))}
+                      style={{ minHeight: 56, flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: color.line, opacity: !owned && coins < EFFECT_PRICE ? 0.5 : 1 }}>
+                      <NameText effect={id} style={{ flex: 1, fontFamily: font.displayHeavy, fontSize: 20, letterSpacing: 2, color: color.hi }}>{(player.name || t.home.defaultName).toUpperCase()}</NameText>
+                      <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: on ? color.accent : color.muted }}>{on ? t.shop.wearing : owned ? NAME_EFFECTS[id].name : fill(t.shop.priceNamed, { name: NAME_EFFECTS[id].name, n: EFFECT_PRICE })}</Text>
+                    </Pressable>
+                  );
+                })}
+              </Frame>
+            </>
+          ) : null}
 
           <Frame cut={12} contentStyle={{ padding: 16, gap: 6 }}>
             <Label>{t.shop.later}</Label>
@@ -128,6 +218,7 @@ export default function Shop({ user, player, onClose }) {
           </Frame>
         </ScrollView>
       </View>
+      {trollFor ? <TrollPicker name={trollFor.card?.name ?? trollFor.name} coins={coins} onPick={pickTroll} onClose={() => setTrollFor(null)} /> : null}
     </Modal>
   );
 }

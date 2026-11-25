@@ -35,6 +35,7 @@ export function publicCard(player, { streak = 0, mainsDone = 0, mainsOf = 0, cod
     active: todayKey(),
     shown: p,
     title: trollTitle(player?.trollsDone ?? 0)?.name ?? null,
+    nameEffect: player?.nameEffect && player.nameEffect !== "none" ? player.nameEffect : null,
   };
   if (p.stats) card.stats = Object.fromEntries(STATS.map((s) => [s, statValue(player?.statXp?.[s] ?? 0)]));
   if (p.skills) {

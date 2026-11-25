@@ -34,3 +34,32 @@ export function refundFor(appTime, now = Date.now()) {
   const perMin = (appTime.paid ?? 0) / Math.max(1, appTime.minutes ?? 1);
   return { minutes, coins: Math.floor(minutes * perMin * REFUND_SHARE) };
 }
+
+// ---- Other things to buy ----
+export const SHIELD_PRICE = 40; // protects your streak for one missed day; you can hold one
+export const MAX_SHIELDS = 1;
+export const SKIN_PRICE = 150;
+export const EFFECT_PRICE = 100;
+export const NAME_CHANGE_PRICE = 50; // the first change is free
+export const swapPrice = (swapsToday) => (swapsToday <= 0 ? 0 : 10 * 2 ** (swapsToday - 1)); // free, 10, 20, 40...
+
+// Skins: other colours for the System's frames, buttons and glow. Cosmetic only.
+export const SKINS = {
+  system: { name: "System blue", color: {} },
+  shadow: { name: "Shadow", color: { frame: "#DCCBFF", accent: "#BBA3FF", silver: "#BBA3FF", blue: "#9A7BEA", glow: "#2A1452", line: "rgba(187,163,255,0.17)", hi: "#F1EAFF" } },
+  frost: { name: "Frost", color: { frame: "#D6FBFF", accent: "#8FE9F5", silver: "#8FE9F5", blue: "#62CFE0", glow: "#073845", line: "rgba(143,233,245,0.17)", hi: "#EFFFFF" } },
+  ember: { name: "Ember", color: { frame: "#FFE3C7", accent: "#FFB880", silver: "#FFB880", blue: "#F0965A", glow: "#47210A", line: "rgba(255,184,128,0.17)", hi: "#FFF4EA" } },
+  jade: { name: "Jade", color: { frame: "#D3F6E4", accent: "#82E0B2", silver: "#82E0B2", blue: "#55C391", glow: "#0A3626", line: "rgba(130,224,178,0.17)", hi: "#EDFFF6" } },
+  mono: { name: "Monochrome", color: { frame: "#F0F0F0", accent: "#D0D0D0", silver: "#D0D0D0", blue: "#B0B0B0", glow: "#23262C", line: "rgba(220,220,220,0.15)", hi: "#FFFFFF" } },
+};
+export const SKIN_IDS = Object.keys(SKINS);
+
+// Name effects: how your name looks on Status and to your friends.
+export const NAME_EFFECTS = {
+  none: { name: "Plain" },
+  glow: { name: "Glow", shadow: "#6FA8EE", radius: 14 },
+  shadow: { name: "Shadow", shadow: "#8A5CFF", radius: 16, color: "#E9DEFF" },
+  frost: { name: "Frost", shadow: "#4FD8EE", radius: 12, color: "#E6FDFF" },
+  flame: { name: "Flame", shadow: "#FF8A3D", radius: 14, color: "#FFF0E2" },
+};
+export const EFFECT_IDS = Object.keys(NAME_EFFECTS);

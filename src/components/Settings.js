@@ -5,7 +5,9 @@ import * as Updates from "expo-updates";
 import { signOut } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth } from "../lib/firebase";
-import { setFeelSetting, setNotify, toggleFavQuote, setPlayerName, setPrivacy, setProof, setReminders } from "../lib/player";
+import { setFeelSetting, setNotify, toggleFavQuote, setPrivacy, setProof, setReminders } from "../lib/player";
+import { changeName } from "../lib/shop";
+import { NAME_CHANGE_PRICE } from "../game/shop";
 import { setFeel } from "../lib/haptics";
 import { SavedStamp, useSavedStamp, useTrack } from "./saved";
 import { PRIVACY_KEYS, privacySettings } from "../game/social";
@@ -33,12 +35,12 @@ import { TEMPLATES } from "../game/gym";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 
-function Input({ label, value, onChangeText, keyboardType, width }) {
+function Input({ label, value, onChangeText, keyboardType, width, maxLength }) {
   const { color, font } = useTheme();
   return (
     <View style={{ gap: 6, width }}>
       <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: color.muted }}>{label}</Text>
-      <TextInput value={value} onChangeText={onChangeText} keyboardType={keyboardType} accessibilityLabel={label}
+      <TextInput value={value} onChangeText={onChangeText} keyboardType={keyboardType} accessibilityLabel={label} maxLength={maxLength}
         placeholderTextColor={color.muted}
         style={{ minHeight: 46, paddingHorizontal: 12, fontFamily: font.bodyMedium, fontSize: 16, color: "#FFFFFF", borderWidth: 1, borderColor: "rgba(159,203,255,0.3)", backgroundColor: "rgba(5,10,24,0.7)" }} />
     </View>
@@ -270,13 +272,14 @@ export default function Settings({ user, player, synced }) {
   const [gymOpen, setGymOpen] = useState(false);
   const { stamp, track, Provider } = useSavedStamp();
 
-  // Your name saves itself a moment after you stop typing.
-  useEffect(() => {
-    const v = name.trim();
-    if (!v || v === player.name) return;
-    const id = setTimeout(() => { track(setPlayerName(user.uid, v)).catch(() => {}); }, 900);
-    return () => clearTimeout(id);
-  }, [name, player.name, user.uid, track]);
+  // Changing your name: the first change is free, then it costs coins (so it means something).
+  const [nameError, setNameError] = useState(null);
+  const namePrice = (player.nameChanges ?? 0) > 0 ? NAME_CHANGE_PRICE : 0;
+  const nameChanged = name.trim().length >= 2 && name.trim() !== player.name;
+  function saveName() {
+    setNameError(null);
+    track(changeName(user.uid, name, t.settings.nameLog)).catch((e) => setNameError(e.message === "no-coins" ? fill(t.settings.nameNoCoins, { n: namePrice }) : t.shop.failed));
+  }
 
   const today = todayKey();
   const severity = severityFor(player, today);
@@ -296,8 +299,12 @@ export default function Settings({ user, player, synced }) {
 
       <Section title={t.settings.profile}>
         <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-end" }}>
-          <View style={{ flex: 1 }}><Input label={t.settings.name} value={name} onChangeText={setName} /></View>
+          <View style={{ flex: 1 }}><Input label={t.settings.name} value={name} onChangeText={(v) => { setName(v); setNameError(null); }} maxLength={24} /></View>
         </View>
+        {nameChanged ? (
+          <SysButton label={namePrice ? fill(t.settings.nameCost, { n: namePrice }) : t.settings.nameFree} onPress={saveName} />
+        ) : <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{namePrice ? fill(t.settings.nameHint, { n: namePrice }) : t.settings.nameHintFree}</Text>}
+        {nameError ? <Text style={{ fontFamily: font.body, fontSize: 13, color: "#F6B45A" }}>{nameError}</Text> : null}
       </Section>
 
       <Section title={t.tune.title} sub={t.tune.sub}>

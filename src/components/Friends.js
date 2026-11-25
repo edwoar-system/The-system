@@ -9,6 +9,7 @@ import { skillById } from "../game/guild";
 import { doneFeel, lockFeel, tapFeel } from "../lib/haptics";
 import StatShape from "./StatShape";
 import StatInfo from "./StatInfo";
+import NameText from "./NameText";
 import { RankHex } from "./skillParts";
 import { Coins, Frame, Glow, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
@@ -60,7 +61,7 @@ function HoldButton({ label, onDone, tone }) {
 }
 
 // Pick a troll quest to send: choose how hard (you pay its coins), then one of that level or a surprise.
-function TrollPicker({ name, coins, onPick, onClose }) {
+export function TrollPicker({ name, coins, onPick, onClose }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const [level, setLevel] = useState("easy");
@@ -173,7 +174,7 @@ export function FriendPage({ friend, me, myName, myCoins = 0, trollsDone = 0, on
               <StatInfo stat={info} value={info ? c.stats?.[info] : null} onClose={() => setInfo(null)} />
               <View style={{ alignItems: "center", gap: 2, marginTop: c.stats ? 10 : 30 }}>
                 <Label>{fill(t.friends.level, { n: c.level })}</Label>
-                <Text style={{ fontFamily: font.displayHeavy, fontSize: 30, letterSpacing: 3, color: color.hi }}>{(c.name ?? friend.name).toUpperCase()}</Text>
+                <NameText effect={c.nameEffect} style={{ fontFamily: font.displayHeavy, fontSize: 30, letterSpacing: 3, color: color.hi }}>{(c.name ?? friend.name).toUpperCase()}</NameText>
                 {c.title ? <Text style={{ fontFamily: font.bold, fontSize: 13, letterSpacing: 2, color: color.gold }}>{c.title.toUpperCase()}</Text> : null}
                 <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{lastSeen(c)}</Text>
               </View>
@@ -292,7 +293,7 @@ export default function Friends({ user, player }) {
                   <Text style={{ fontFamily: font.bold, fontSize: 9, letterSpacing: 1, color: color.muted }}>{t.status.lv}</Text>
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={{ fontFamily: font.bold, fontSize: 15, color: "#FFFFFF" }}>{c?.name ?? f.name}</Text>
+                  <NameText effect={c?.nameEffect} style={{ fontFamily: font.bold, fontSize: 15, color: "#FFFFFF" }}>{c?.name ?? f.name}</NameText>
                   <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>
                     {[lastSeen(c), c?.streak != null ? fill(t.friends.streakShort, { n: c.streak }) : null, today ? fill(t.friends.todayShort, { x: today }) : null].filter(Boolean).join("  ·  ")}
                   </Text>
