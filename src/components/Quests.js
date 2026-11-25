@@ -4,7 +4,7 @@ import { Animated, Easing, Pressable, ScrollView, Text, View } from "react-nativ
 import Svg, { Polygon } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { completeQuest, currentDay, getQuest, rewardPreview } from "../lib/day";
-import { questById } from "../game/quests";
+import { questById, SIDE_BONUS } from "../game/quests";
 import Guild from "./Guild";
 import { requestUrgent } from "../lib/urgent";
 import { ECONOMY } from "../game/economy";
@@ -298,6 +298,31 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
                 </View>
               ))}
               <View style={{ height: 6 }} />
+            </Frame>
+          ) : null}
+          {day.side ? (
+            <Frame cut={12}>
+              <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: color.line, gap: 2 }}>
+                <Label tone={color.hi}>{t.board.side}</Label>
+                <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.board.sideSub}</Text>
+              </View>
+              {(() => {
+                const q = getQuest(day.side.id);
+                if (!q) return null;
+                const r = rewardPreview(day, day.side.id, player.profile);
+                const done = day.side.done;
+                return (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 14, paddingRight: 8, opacity: done ? 0.55 : 1 }}>
+                    <HexBadge w={30} h={34} label={q.stat} labelSize={9} />
+                    <Pressable accessibilityRole="button" accessibilityHint={t.board.openHint} onPress={() => setSheet({ id: day.side.id, slot: "side", done })} style={({ pressed }) => ({ flex: 1, gap: 4, opacity: pressed ? 0.7 : 1 })}>
+                      <Text style={{ fontFamily: font.bold, fontSize: 15, lineHeight: 20, color: "#FFFFFF" }}>{q.title}</Text>
+                      {done ? null : <Coins value={Math.round(r.coins * (1 + SIDE_BONUS))} sign="+" size={14} />}
+                    </Pressable>
+                    <HexCheck size={30} done={done} disabled={busy || done} onPress={() => complete(day.side.id, "side")}
+                      label={fill(done ? t.board.isDone : t.board.markDone, { title: q.title })} />
+                  </View>
+                );
+              })()}
             </Frame>
           ) : null}
           {trollQ.active.length ? (

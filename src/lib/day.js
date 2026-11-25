@@ -1,7 +1,8 @@
 import { collection, deleteField, doc, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import { allMainsBonus, levelFromXp, questCoins, questXp } from "../game/economy";
-import { QUESTS, pickMainQuests, questById, todayKey } from "../game/quests";
+import { QUESTS, SIDE_BONUS, pickMainQuests, pickSideQuest, questById, todayKey, widenBy } from "../game/quests";
+import { PROGRAM_DONE_BONUS, dueSessions, programById, programQuest, weekKey } from "../game/programs";
 import { guildQuest } from "../game/guild";
 import { ladderById } from "../game/ladders";
 import { dayNum, habitRank, isHabit, passTrial, recordTraining, skillView, SKILL_RULES, trialQuest, trialState, weekNum } from "../game/skills";
@@ -17,12 +18,15 @@ export const MAX_GUILD_QUESTS = 6;
 
 // Any quest by id: the fixed catalogue, a guild quest ("g:...") or a rank-trial part ("t:...").
 // Your gym split, for gym quests ("gs:<day>") looked up without the player at hand (Shell keeps it current).
-let gymCache = null;
-export const setGymCache = (gym) => { gymCache = gym ?? null; };
+// Your own programs too ("p:..."). Shell keeps this current with setQuestCache(player).
+let playerCache = null;
+export const setQuestCache = (player) => { playerCache = player ?? null; };
+export const setGymCache = (gym) => { playerCache = { ...(playerCache ?? {}), gym }; };
 
 export function getQuest(id, player = null) {
   if (questById[id]) return questById[id];
-  if (id.startsWith("gs:")) return splitQuest(id, player?.gym ?? gymCache);
+  if (id.startsWith("gs:")) return splitQuest(id, (player ?? playerCache)?.gym);
+  if (id.startsWith("p:")) return programQuest(id, player ?? playerCache);
   if (id.startsWith("t:")) return trialQuest(id);
   if (id.startsWith("d:")) return dutyQuest(id);
   return guildQuest(id);
@@ -36,19 +40,36 @@ const rankXp = (from, to) => {
 
 // Today's quest board lives in the player document as `day`. A new board is made the first time you open the app each day.
 // Muscles that are still tired steer the picks; on a gym day the split's day takes the STR slot (or the last one).
+// Program sessions due today come first; the rest comes from your focus (your interests), widening with your streak.
 export function newDay(player, uid) {
   const date = todayKey();
   const tired = tiredSet(player?.fatigue);
-  const mains = pickMainQuests({ date, uid, lastDoneByStat: player?.lastDoneByStat ?? {}, mainSlots: player?.mainSlots ?? 3, liked: interestSkills(player?.profile), tired });
+  const slots = player?.mainSlots ?? 3;
+  const liked = interestSkills(player?.profile);
+  const programs = dueSessions(player, date).slice(0, slots);
+  const outside = Math.min(slots - programs.length, widenBy(currentStreak(player)));
+  // Every skill you're into has a guild quest, at the tier your rank in it unlocks.
+  const programSkills = new Set(programs.map((id) => programQuest(id, player)?.skill).filter(Boolean));
+  const extra = [...liked].filter((id) => !programSkills.has(id)).map((id) => {
+    const tier = tierForRank(skillView(id, player?.skills?.[id]).rank);
+    return guildQuest(tier ? `g:${id}:${tier}` : `g:${id}`) ?? guildQuest(`g:${id}`);
+  }).filter(Boolean);
+  const mains = [...programs, ...pickMainQuests({ date, uid, lastDoneByStat: player?.lastDoneByStat ?? {}, mainSlots: slots - programs.length, liked, tired, outside, extra })];
   const gym = gymToday(player?.gym, date, (muscles) => Object.entries(muscles).some(([m, k]) => k >= 0.7 && tired.has(m)));
   if (gym) {
-    const at = mains.findIndex((id) => questById[id]?.stat === "STR");
-    mains[at >= 0 ? at : mains.length - 1] = `gs:${gym.index}`;
+    const at = mains.findIndex((id) => !id.startsWith("p:") && getQuest(id, player)?.stat === "STR");
+    let free = -1;
+    mains.forEach((id, k) => { if (!id.startsWith("p:")) free = k; });
+    const i = at >= 0 ? at : free;
+    if (i >= 0) mains[i] = `gs:${gym.index}`;
   }
+  // The side quest: optional, outside your focus, a bonus for stepping out of your comfort zone.
+  const side = liked.size ? pickSideQuest({ date, uid, liked, tired, avoid: mains }) : null;
   return {
     date,
     start: { id: "start", done: false },
     mains: mains.map((id) => ({ id, done: false })),
+    ...(side ? { side: { id: side, done: false } } : {}),
     ...(gym ? { gym: { planned: gym.planned, index: gym.index, swapped: gym.swapped, allTired: !!gym.allTired } } : {}),
     guild: [],
     typeCounts: {},
@@ -153,7 +174,7 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
   const result = await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     const player = snap.data() ?? {};
-    if (questId.startsWith("gs:")) q = getQuest(questId, player);
+    if (questId.startsWith("gs:") || questId.startsWith("p:")) q = getQuest(questId, player);
     if (!q) throw new Error("unknown-quest");
     // A logged gym session counts what you actually did: its muscles and (at most the planned) minutes.
     if (opts.gym) q = { ...q, muscles: opts.gym.muscles, minutes: Math.min(q.minutes, opts.gym.minutes ?? q.minutes) };
@@ -173,6 +194,9 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
       const g = day.guild.find((x) => x.id === questId && !x.done);
       if (!g) throw new Error("already-done");
       g.done = true;
+    } else if (slot === "side") {
+      if (!day.side || day.side.id !== questId || day.side.done) throw new Error("already-done");
+      day.side.done = true;
     } else if (slot === "duty") {
       const week = weekNum(today);
       const d = player.duties ?? {};
@@ -201,7 +225,18 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
     day.typeCounts[q.type] = times + 1;
     if (slot === "main") day.mainCoins += coins;
 
-    let bonus = 0;
+    let bonus = slot === "side" ? Math.round(coins * SIDE_BONUS) : 0;
+    // Program session: the program moves on (missed ones wait, so it's always the next session).
+    let programs = null;
+    let programDone = null;
+    if (q.program) {
+      const st = player.programs?.[q.program] ?? { started: day.date, done: 0 };
+      const wk = weekKey(day.date);
+      const total = programById(q.program, player)?.sessions.length ?? 0;
+      const done = Math.max(st.done ?? 0, q.session + 1);
+      programs = { ...(player.programs ?? {}), [q.program]: { ...st, done, lastDone: day.date, week: { key: wk, count: (st.week?.key === wk ? st.week.count : 0) + 1 } } };
+      if (done >= total && (st.done ?? 0) < total) { programDone = q.program; bonus += PROGRAM_DONE_BONUS; }
+    }
     let streak = player.streak ?? 0;
     let lastAllMainsDate = player.lastAllMainsDate ?? null;
     if (slot === "main" && !day.bonusPaid && day.mains.every((x) => x.done)) {
@@ -251,6 +286,7 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
       ...(trained ? trained.fields : {}),
       ...(q.gymDay != null && player.gym?.days?.length ? { gym: { next: (q.gymDay + 1) % player.gym.days.length } } : {}),
       ...(duties ? { duties } : {}),
+      ...(programs ? { programs } : {}),
       ...(skillUp?.xp ? { skillBest: { ...(player.skillBest ?? {}), [q.skill]: skillUp.rank } } : {}),
       ...(trial ? { trials: { [q.skill]: trial.complete ? deleteField() : { rank: trial.rank, started: trial.started, done: trial.done } } } : {}),
       ...(q.school ? { philosophy: { ...(player.philosophy ?? {}), [q.school]: Math.max(player.philosophy?.[q.school] ?? 0, q.reading + 1) } } : {}),
@@ -258,7 +294,7 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
     }, { merge: true });
 
     return {
-      coins, xp, bonus, levelUp: after > before ? after : null, stat: q.stat, streak, skillUp, trialDone: trial?.complete ?? false,
+      programDone, coins, xp, bonus, levelUp: after > before ? after : null, stat: q.stat, streak, skillUp, trialDone: trial?.complete ?? false,
       muscles: trained ? trained.report : null,
     };
   });

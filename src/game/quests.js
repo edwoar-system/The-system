@@ -49,8 +49,44 @@ function seeded(seedText) {
 // mainSlots grows with rank later (room 3): F–E 3, D–C 4–5, B+ 6.
 // liked: skills from your interests; a quest for one of them is picked 3 times out of 4 when the stat has one.
 // tired: muscles that are still tired; quests that lean on them are skipped when there's another choice.
-export function pickMainQuests({ date, lastDoneByStat = {}, mainSlots = 3, uid = "", liked = null, tired = null }) {
+// extra: more quests for the focus pool (guild quests for every skill you're into), so focus never runs dry.
+export function pickMainQuests({ date, lastDoneByStat = {}, mainSlots = 3, uid = "", liked = null, tired = null, outside = null, avoid = [], extra = [] }) {
   const rand = seeded(`${uid}:${date}`);
+  const usable = (q) => !q.side && q.kind !== "start" && !avoid.includes(q.id);
+  const rest = (list) => { const r = tired?.size ? list.filter((q) => !hitsTired(q, tired)) : list; return r.length ? r : list; };
+  const pick = (list) => list[Math.floor(rand() * list.length)];
+
+  // Focus first: with interests set, all main quests come from them, except `outside` ones
+  // (the System widens your focus as your streak grows).
+  if (liked?.size && outside != null) {
+    const inFocus = rest([...QUESTS.filter((q) => usable(q) && liked.has(q.skill)), ...extra.filter((q) => !avoid.includes(q.id))]);
+    const byId = Object.fromEntries(inFocus.map((q) => [q.id, q]));
+    const picked = [];
+    const skillsUsed = new Set();
+    const nFocus = Math.max(0, mainSlots - outside);
+    // Spread over stats: the least recently done stat first.
+    const byStat = [...STATS].sort((x, y) => ((lastDoneByStat[x] ?? "") < (lastDoneByStat[y] ?? "") ? -1 : 1));
+    for (let i = 0; i < nFocus && inFocus.length; i++) {
+      const open = (q) => !picked.includes(q.id) && !skillsUsed.has(q.skill);
+      const stat = byStat.find((st) => inFocus.some((q) => q.stat === st && open(q))) ?? null;
+      const from = inFocus.filter((q) => open(q) && (!stat || q.stat === stat));
+      if (!from.length) break;
+      const q = pick(from);
+      picked.push(q.id);
+      skillsUsed.add(q.skill);
+      if (stat) byStat.push(byStat.splice(byStat.indexOf(stat), 1)[0]);
+    }
+    const usedStats = new Set(picked.map((id) => byId[id].stat));
+    const others = byStat.filter((st) => !usedStats.has(st));
+    while (picked.length < mainSlots) {
+      const st = others.shift() ?? STATS[Math.floor(rand() * STATS.length)];
+      const from = rest(QUESTS.filter((q) => usable(q) && q.stat === st && !liked.has(q.skill) && !picked.includes(q.id)));
+      if (!from.length) break;
+      picked.push(pick(from).id);
+    }
+    return picked;
+  }
+
   const order = [...STATS].sort((a, b) => {
     const da = lastDoneByStat[a] ?? "";
     const db = lastDoneByStat[b] ?? "";
@@ -58,11 +94,22 @@ export function pickMainQuests({ date, lastDoneByStat = {}, mainSlots = 3, uid =
     return rand() - 0.5;
   });
   return order.slice(0, mainSlots).map((stat) => {
-    const all = QUESTS.filter((q) => q.stat === stat && !q.side && q.kind !== "start");
-    const rested = tired?.size ? all.filter((q) => !hitsTired(q, tired)) : all;
-    const pool = rested.length ? rested : all;
+    const pool = rest(QUESTS.filter((q) => q.stat === stat && usable(q)));
     const fav = liked?.size ? pool.filter((q) => liked.has(q.skill)) : [];
     const from = fav.length && rand() < 0.75 ? fav : pool;
-    return from[Math.floor(rand() * from.length)].id;
+    return pick(from).id;
   });
+}
+
+// How many main quests come from outside your focus: none at first, 1 after a 7-day streak, 2 after 30.
+export const widenBy = (streak) => (streak >= 30 ? 2 : streak >= 7 ? 1 : 0);
+
+// The optional side quest: one quest outside your focus, for a bonus.
+export const SIDE_BONUS = 0.25;
+export function pickSideQuest({ date, uid = "", liked = null, tired = null, avoid = [] }) {
+  const rand = seeded(`${uid}:${date}:side`);
+  const all = QUESTS.filter((q) => !q.side && q.kind !== "start" && !avoid.includes(q.id) && !(liked?.has(q.skill)));
+  const r = tired?.size ? all.filter((q) => !hitsTired(q, tired)) : all;
+  const from = r.length ? r : all;
+  return from.length ? from[Math.floor(rand() * from.length)].id : null;
 }

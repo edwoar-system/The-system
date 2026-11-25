@@ -13,6 +13,7 @@ import { AMBER, RankHex, StepBar, skillStatus } from "./skillParts";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 import StatInfo from "./StatInfo";
+import ProgramsSection from "./Programs";
 import { interestSkills } from "../game/profile";
 import { ladderById } from "../game/ladders";
 import { tapFeel } from "../lib/haptics";
@@ -99,6 +100,8 @@ export default function Skills({ user, player, onGoToQuest, focusSkill, onFocusD
           <Text accessibilityRole="header" style={{ fontFamily: font.bold, fontSize: 26, letterSpacing: 1, color: "#FFFFFF" }}>{t.skills.title}</Text>
           <Text style={{ fontFamily: font.body, fontSize: 14, color: color.muted, textAlign: "center" }}>{t.skills.sub}</Text>
         </View>
+
+        <View style={{ marginTop: 18 }}><ProgramsSection user={user} player={player} /></View>
 
         <Frame kind="premium" cut={16} contentStyle={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>
           <Label tone={color.hi}>{t.skills.yours}</Label>

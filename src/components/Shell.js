@@ -17,7 +17,7 @@ import { settleTrolls, syncPublic, useTrolls } from "../lib/social";
 import { trollById, trollQueue } from "../game/social";
 import { SKINS, activeAppTime } from "../game/shop";
 import { leftText } from "./Shop";
-import { ensureDay, setGymCache } from "../lib/day";
+import { ensureDay, setQuestCache } from "../lib/day";
 import { todayKey } from "../game/quests";
 import { setFeel, tapFeel } from "../lib/haptics";
 import { skillById } from "../game/guild";
@@ -148,7 +148,7 @@ function ShellBody({ user, state }) {
   };
 
   // Your gym split for gym quests, and today's board saved once a day.
-  setGymCache(player?.gym);
+  setQuestCache(player);
   const dayDate = player?.day?.date;
   useEffect(() => {
     if (player && dayDate !== todayKey()) ensureDay(user.uid).catch(() => {});
