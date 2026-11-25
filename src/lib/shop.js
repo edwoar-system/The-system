@@ -1,7 +1,7 @@
 // Buying app time: coins go down, the session starts (or gets longer), and it's written in your quest log.
 import { collection, doc, runTransaction, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
-import { EFFECT_PRICE, MAX_SHIELDS, NAME_CHANGE_PRICE, NAME_EFFECTS, SHIELD_PRICE, SKINS, SKIN_PRICE, activeAppTime, priceFor, refundFor, usedToday } from "../game/shop";
+import { EFFECT_PRICE, MAX_SHIELDS, NAME_CHANGE_PRICE, NAME_EFFECTS, SHIELD_PRICE, SKINS, SKIN_PRICE, activeAppTime, lateExtra, priceFor, refundFor, usedToday } from "../game/shop";
 import { todayKey } from "../game/quests";
 
 export async function buyAppTime(uid, kind, minutes, title) {
@@ -14,7 +14,7 @@ export async function buyAppTime(uid, kind, minutes, title) {
     const cur = activeAppTime(p, now);
     if (cur && cur.kind !== kind) throw new Error("other-kind");
     const used = usedToday(p, kind, today);
-    const cost = priceFor(kind, minutes, used);
+    const cost = priceFor(kind, minutes, used, lateExtra(p));
     if ((p.coins ?? 0) < cost) throw new Error("no-coins");
     const appTime = cur
       ? { ...cur, end: cur.end + minutes * 60000, minutes: (cur.minutes ?? 0) + minutes, paid: (cur.paid ?? 0) + cost }

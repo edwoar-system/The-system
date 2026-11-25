@@ -1,6 +1,8 @@
 // Penalty Zone rules (see the rules doc): a missed main quest at the deadline sends you in, unless a shield is used.
 // Inside: apps sealed (with app blocking), no EXP loss, shop open. Out: a redemption quest, or wait until the morning.
 
+import { dayTimes } from "./profile";
+
 export const PENALTY = {
   deadlineHour: 21,
   morningHour: 7,
@@ -25,7 +27,14 @@ const at = (dateKey, hour, addDays = 0) => {
   return new Date(y, m - 1, d + addDays, hour, 0, 0, 0).getTime();
 };
 
-export const deadlineOf = (dateKey) => at(dateKey, PENALTY.deadlineHour);
+// The day ends an hour before your bedtime (between 20:00 and 23:00): that's the deadline for your main quests.
+export function dayEndHour(profile) {
+  return Math.min(23, Math.max(20, dayTimes(profile).bed - 1));
+}
+export const deadlineOf = (dateKey, profile = null) => {
+  const h = dayEndHour(profile);
+  return at(dateKey, Math.floor(h)) + Math.round((h % 1) * 60) * 60000;
+};
 
 // When the penalty for a missed day ends.
 export function penaltyUntil(dateKey, severity = PENALTY.defaultSeverity) {
@@ -37,7 +46,7 @@ export function penaltyUntil(dateKey, severity = PENALTY.defaultSeverity) {
 export function penaltyDue(day, player, now = Date.now()) {
   if (!day?.date || day.penaltyChecked) return null;
   if (!Array.isArray(day.mains) || day.mains.every((m) => m.done)) return null;
-  if (now < deadlineOf(day.date)) return null;
+  if (now < deadlineOf(day.date, player?.profile)) return null;
   if (now >= penaltyUntil(day.date, severityFor(player, day.date))) return null; // already over (app wasn't opened)
   return (player.shields ?? 0) > 0 ? "shield" : "penalty";
 }

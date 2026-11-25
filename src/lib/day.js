@@ -70,6 +70,7 @@ export function newDay(player, uid) {
   return {
     date,
     start: { id: "start", done: false },
+    end: { id: "end", done: false },
     mains: mains.map((id) => ({ id, done: false })),
     ...(side ? { side: { id: side, done: false } } : {}),
     ...(gym ? { gym: { planned: gym.planned, index: gym.index, swapped: gym.swapped, allTired: !!gym.allTired } } : {}),
@@ -130,7 +131,7 @@ export async function swapMain(uid, questId) {
     if ((player.coins ?? 0) < cost) throw new Error("no-coins");
     const onBoard = new Set(day.mains.map((m) => m.id));
     const tired = tiredSet(player.fatigue);
-    const pool = QUESTS.filter((x) => x.stat === (q?.stat ?? "STR") && !x.side && x.kind !== "start" && !onBoard.has(x.id));
+    const pool = QUESTS.filter((x) => x.stat === (q?.stat ?? "STR") && !x.side && !x.kind && !onBoard.has(x.id));
     const rested = pool.filter((x) => !hitsTired(x, tired));
     const from = rested.length ? rested : pool;
     if (!from.length) throw new Error("no-other");
@@ -141,15 +142,17 @@ export async function swapMain(uid, questId) {
   });
 }
 
-// The start-the-day quest is a short checklist: tick each part; returns the ticks so far.
+// The start-the-day and get-ready-for-bed quests are short checklists: tick each part; returns the ticks so far.
 export const START_PARTS = ["bed", "water"];
-export async function tickStart(uid, part) {
+export const END_PARTS = ["teeth", "phone", "tomorrow"];
+export async function tickStart(uid, part, which = "start") {
   const ref = doc(db, "players", uid);
+  const key = which === "end" ? "endTicks" : "startTicks";
   return runTransaction(db, async (tx) => {
     const player = (await tx.get(ref)).data() ?? {};
     const day = player.day?.date === todayKey() ? player.day : newDay(player, uid);
-    const ticks = { ...(day.startTicks ?? {}), [part]: true };
-    tx.set(ref, { day: { ...day, startTicks: ticks }, updatedAt: serverTimestamp() }, { merge: true });
+    const ticks = { ...(day[key] ?? {}), [part]: true };
+    tx.set(ref, { day: { ...day, [key]: ticks }, updatedAt: serverTimestamp() }, { merge: true });
     return ticks;
   });
 }
@@ -201,6 +204,9 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
     if (slot === "start") {
       if (day.start.done) throw new Error("already-done");
       day.start.done = true;
+    } else if (slot === "end") {
+      if (day.end?.done) throw new Error("already-done");
+      day.end = { id: "end", done: true };
     } else if (slot === "main") {
       const m = day.mains.find((x) => x.id === questId && !x.done);
       if (!m) throw new Error("already-done");

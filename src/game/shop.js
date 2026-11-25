@@ -4,6 +4,9 @@
 // One coin a minute, never cheaper for longer. Apps you shouldn't use too much (social media, video, games)
 // get more expensive the more you use them in a day: the first hour 1 coin a minute, the second hour 2,
 // after that 3. A good day of quests (about 30 coins) is about 30 minutes.
+import { dayEndHour } from "./penalty";
+import { isHard } from "./hard";
+
 export const APP_KINDS = ["social", "video", "games", "other"];
 export const CAPPED = ["social", "video", "games"]; // the ones that get expensive
 export const LENGTHS = [15, 30, 60];
@@ -14,10 +17,17 @@ export const rateAt = (kind, usedMinutes) => (!CAPPED.includes(kind) ? 1 : usedM
 // Minutes of each kind bought today (after refunds). appUse = { date, used: { kind: minutes } }.
 export const usedToday = (player, kind, today) => (player?.appUse?.date === today ? player.appUse.used?.[kind] ?? 0 : 0);
 
-// The price of `minutes` more of `kind`, given what you already used today.
-export function priceFor(kind, minutes, used = 0) {
+// After your day ends (an hour before bed) every app minute costs extra: 1 coin more, 2 in Hard mode.
+export function lateExtra(player, now = new Date()) {
+  const h = now.getHours() + now.getMinutes() / 60;
+  if (h < dayEndHour(player?.profile) && h >= 4) return 0;
+  return isHard(player, now.getTime()) ? 2 : 1;
+}
+
+// The price of `minutes` more of `kind`, given what you already used today. extra: lateExtra().
+export function priceFor(kind, minutes, used = 0, extra = 0) {
   let coins = 0;
-  for (let i = 0; i < minutes; i++) coins += rateAt(kind, used + i);
+  for (let i = 0; i < minutes; i++) coins += rateAt(kind, used + i) + extra;
   return coins;
 }
 

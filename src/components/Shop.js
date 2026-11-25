@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { APP_KINDS, CAPPED, EFFECT_IDS, EFFECT_PRICE, LENGTHS, MAX_SHIELDS, NAME_EFFECTS, SHIELD_PRICE, SKINS, SKIN_IDS, SKIN_PRICE, activeAppTime, priceFor, rateAt, refundFor, usedToday } from "../game/shop";
+import { APP_KINDS, CAPPED, EFFECT_IDS, EFFECT_PRICE, LENGTHS, MAX_SHIELDS, NAME_EFFECTS, SHIELD_PRICE, SKINS, SKIN_IDS, SKIN_PRICE, activeAppTime, lateExtra, priceFor, rateAt, refundFor, usedToday } from "../game/shop";
 import { todayKey } from "../game/quests";
 import { trollQueue } from "../game/social";
 import { buyAppTime, buyEffect, buyShield, buySkin, endAppTime } from "../lib/shop";
@@ -37,12 +37,13 @@ export default function Shop({ user, player, onClose }) {
   const active = activeAppTime(player, now);
 
   const used = usedToday(player, kind, todayKey());
+  const extra = lateExtra(player, new Date(now));
   const rate = rateAt(kind, used);
   const refund = refundFor(active, now);
 
   // Buying app time goes through the seal: hold it until it breaks, then the purchase happens.
   const [unlock, setUnlock] = useState(null); // { minutes, cost }
-  const buy = (minutes) => { setMsg(null); setUnlock({ minutes, cost: priceFor(kind, minutes, used) }); };
+  const buy = (minutes) => { setMsg(null); setUnlock({ minutes, cost: priceFor(kind, minutes, used, extra) }); };
 
   // Any other purchase: run it, then show what happened.
   async function run(fn, okText) {
@@ -113,11 +114,11 @@ export default function Shop({ user, player, onClose }) {
               </View>
               {CAPPED.includes(kind) ? (
                 <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: rate > 1 ? "#F6B45A" : color.text }}>
-                  {fill(t.shop.usedToday, { m: used, kind: t.shop.kinds[kind].toLowerCase() })} {rate === 1 ? fill(t.shop.rate1, { left: 60 - used }) : rate === 2 ? fill(t.shop.rate2, { left: 120 - used }) : t.shop.rate3}
+                  {fill(t.shop.usedToday, { m: used, kind: t.shop.kinds[kind].toLowerCase() })} {rate === 1 ? fill(t.shop.rate1, { left: 60 - used }) : rate === 2 ? fill(t.shop.rate2, { left: 120 - used }) : t.shop.rate3}{extra ? ` ${fill(t.shop.late, { n: extra })}` : ""}
                 </Text>
               ) : <Text style={{ fontFamily: font.body, fontSize: 13, color: color.text }}>{t.shop.otherFlat}</Text>}
               {LENGTHS.map((m) => {
-                const cost = priceFor(kind, m, used);
+                const cost = priceFor(kind, m, used, extra);
                 const can = coins >= cost;
                 return (
                   <View key={m} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: color.line }}>

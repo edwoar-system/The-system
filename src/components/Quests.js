@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Polygon } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { START_PARTS, completeQuest, currentDay, getQuest, rewardPreview, tickStart } from "../lib/day";
+import { END_PARTS, START_PARTS, completeQuest, currentDay, getQuest, rewardPreview, tickStart } from "../lib/day";
+import { logCheck } from "../lib/habits";
+import { dayEndHour } from "../game/penalty";
 import { quickLog } from "../lib/quick";
 import { SIDE_BONUS } from "../game/quests";
 import Guild from "./Guild";
@@ -134,6 +136,8 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
   const [schedOpen, setSchedOpen] = useState(false);
   const busyToday = busyBlocks(player, day.date);
   const nowD = new Date();
+  // The bedtime quest shows up when the day ends (an hour before bed).
+  const bedtime = nowD.getHours() + nowD.getMinutes() / 60 >= dayEndHour(player.profile);
   const times = suggestTimes(day.mains.filter((m) => !m.done).map((m) => ({ id: m.id, minutes: getQuest(m.id)?.minutes })), player, day.date, nowD.getHours() + nowD.getMinutes() / 60);
   const toastAnim = useRef(new Animated.Value(0)).current;
 
@@ -184,25 +188,51 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
     }
   }
 
-  // Start of the day: tick the bed and the water. The glass of water also counts as a quick log (water habit and quest).
-  async function tickPart(part) {
+  // Start of the day (bed, water) and bedtime (teeth, phone away, tomorrow ready) are checklists.
+  // The water tick counts as a glass and the teeth tick as the teeth habit, so everything moves together.
+  async function tickPart(part, which) {
     setBusy(true);
     try {
-      const ticks = await tickStart(user.uid, part);
-      if (part === "water") {
+      const ticks = await tickStart(user.uid, part, which);
+      if (which === "start" && part === "water") {
         const w = await quickLog(user.uid, "water").catch(() => null);
         if (w?.completed) onResult(w.completed, w.completedQuest);
       }
-      if (START_PARTS.every((p) => ticks[p])) {
-        const r = await completeQuest(user.uid, "start", "start");
+      if (which === "end" && part === "teeth") await logCheck(user.uid, "teeth").catch(() => null);
+      const parts = which === "end" ? END_PARTS : START_PARTS;
+      if (parts.every((p) => ticks[p])) {
+        const r = await completeQuest(user.uid, which, which);
         doneFeel();
-        onResult(r, "start");
+        onResult(r, which);
       }
     } catch (e) {
       if (e.message !== "already-done") showToast({ error: true });
     } finally {
       setBusy(false);
     }
+  }
+
+  function checklist(which, parts, ticks) {
+    const words = which === "end" ? t.board.endParts : t.board.startParts;
+    return (
+      <Frame style={{ marginTop: 14, marginHorizontal: 14 }} cut={10} contentStyle={{ paddingVertical: 10, paddingHorizontal: 16, gap: 6 }}>
+        <Label tone={color.accent}>{which === "end" ? t.board.end : t.board.start}</Label>
+        {which === "end" ? <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.board.endSub}</Text> : null}
+        {parts.map((part) => {
+          const on = !!ticks?.[part];
+          return (
+            <View key={part} style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 44 }}>
+              <View style={{ flex: 1, gap: 1 }}>
+                <Text style={{ fontFamily: font.bodyMedium, fontSize: 15, color: on ? color.muted : color.text }}>{words[part]}</Text>
+                {which === "start" && part === "water" && !on ? <Text style={{ fontFamily: font.body, fontSize: 11, color: color.muted }}>{t.board.startWater}</Text> : null}
+              </View>
+              <HexCheck size={30} done={on} disabled={busy || on} onPress={() => tickPart(part, which)}
+                label={fill(on ? t.board.isDone : t.board.markDone, { title: words[part] })} />
+            </View>
+          );
+        })}
+      </Frame>
+    );
   }
 
   if (guild) return <Guild user={user} player={player} onClose={() => setGuild(false)} onAccepted={(id) => { setGuild(false); setSheet({ id, slot: "guild" }); }} />;
@@ -227,24 +257,8 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
           {day.mains.map((m) => <QuestHex key={m.id} stat={getQuest(m.id)?.stat ?? "STR"} done={m.done} />)}
         </View>
 
-        {!day.start.done ? (
-          <Frame style={{ marginTop: 14, marginHorizontal: 14 }} cut={10} contentStyle={{ paddingVertical: 10, paddingHorizontal: 16, gap: 6 }}>
-            <Label tone={color.accent}>{t.board.start}</Label>
-            {START_PARTS.map((part) => {
-              const on = !!day.startTicks?.[part];
-              return (
-                <View key={part} style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 44 }}>
-                  <View style={{ flex: 1, gap: 1 }}>
-                    <Text style={{ fontFamily: font.bodyMedium, fontSize: 15, color: on ? color.muted : color.text }}>{t.board.startParts[part]}</Text>
-                    {part === "water" && !on ? <Text style={{ fontFamily: font.body, fontSize: 11, color: color.muted }}>{t.board.startWater}</Text> : null}
-                  </View>
-                  <HexCheck size={30} done={on} disabled={busy || on} onPress={() => tickPart(part)}
-                    label={fill(on ? t.board.isDone : t.board.markDone, { title: t.board.startParts[part] })} />
-                </View>
-              );
-            })}
-          </Frame>
-        ) : null}
+        {!day.start.done ? checklist("start", START_PARTS, day.startTicks) : null}
+        {bedtime && !day.end?.done ? checklist("end", END_PARTS, day.endTicks) : null}
 
         <QuickLog user={user} player={player} day={day} onCompleted={onResult} style={{ marginTop: 14, marginHorizontal: 14 }} />
 

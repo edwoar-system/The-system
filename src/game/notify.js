@@ -1,27 +1,44 @@
 // Which notifications the phone should have scheduled, worked out from the player. Pure: no native calls.
 // Everything is local (scheduled on the phone), so nothing needs a server.
-import { todayKey } from "./quests";
+import { questById, todayKey } from "./quests";
 import { URGENT } from "./urgent";
-import { PENALTY, isInPenalty } from "./penalty";
+import { dayEndHour, isInPenalty } from "./penalty";
 import { ladderById, RANKS } from "./ladders";
-import { skillById } from "./guild";
+import { guildQuest, skillById } from "./guild";
 import { dayNum, skillView, trialState, TRIAL_DAYS } from "./skills";
 import { quoteOfDay } from "./quotes";
 import { quickById, quickToday } from "./quick";
-import { dayTimes } from "./profile";
-import { busyBlocks, isBusy } from "./schedule";
+import { dayTimes, dutyQuest } from "./profile";
+import { busyBlocks, hhmm, isBusy, outsideBusy } from "./schedule";
+import { isHard } from "./hard";
+import { programQuest } from "./programs";
+import { splitQuest } from "./gym";
 import { t } from "../i18n";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 
-export const NOTIFY_KINDS = ["morning", "urgentSoon", "urgent", "deadline", "penalty", "water", "trial", "rust", "apptime"];
-export const NOTIFY_DEFAULTS = { morning: true, urgentSoon: true, urgent: true, deadline: true, penalty: true, water: true, trial: true, rust: true, apptime: true };
+export const NOTIFY_KINDS = ["morning", "nudge", "schedule", "urgentSoon", "urgent", "deadline", "bedtime", "penalty", "water", "trial", "rust", "apptime"];
+export const NOTIFY_DEFAULTS = Object.fromEntries(NOTIFY_KINDS.map((k) => [k, true]));
+const MAX_SCHEDULED = 60; // iPhone keeps at most 64 waiting notifications
 export const WATER_HOURS = [10, 12, 14, 16, 18];
-export const DEADLINE_WARNING_HOUR = 20;
 const LOOK_AHEAD_DAYS = 2; // today and tomorrow; rescheduled every time the app opens or the player changes
 const MAX_RUST = 3;
 
-export const notifySettings = (player) => ({ ...NOTIFY_DEFAULTS, ...(player?.notify ?? {}) });
+// In Hard mode every reminder is on and can't be turned off.
+export const notifySettings = (player) => (isHard(player) ? { ...NOTIFY_DEFAULTS } : { ...NOTIFY_DEFAULTS, ...(player?.notify ?? {}) });
+
+// A quest's title from its id, for "still open" reminders.
+function questTitle(id, player) {
+  if (questById[id]) return questById[id].title;
+  if (id.startsWith("g:")) return guildQuest(id)?.title;
+  if (id.startsWith("d:")) return dutyQuest(id)?.title;
+  if (id.startsWith("p:")) return programQuest(id, player)?.title;
+  if (id.startsWith("gs:")) return splitQuest(id, player?.gym)?.title;
+  return null;
+}
+const listOf = (titles) => (titles.length > 3 ? `${titles.slice(0, 3).join(", ")} +${titles.length - 3}` : titles.join(", "));
+// A short quote under a reminder, different each time.
+const quoteLine = (key, n, player) => { const q = quoteOfDay(key, n, player?.profile?.schools, player?.favQuotes); return `"${q.text}" (${q.who})`; };
 
 // Seeded random so the urgent times for a day stay the same when the plan is rebuilt.
 function seeded(str) {
@@ -94,18 +111,50 @@ export function notificationPlan(player, uid, now = new Date()) {
         add({ id: `urgent-${key}-${i}`, date, title: t.notify.urgentTitle, body: t.notify.urgentBody, data: { kind: "urgent" } });
       });
     }
+    const end = dayEndHour(player.profile);
+    const endAt = at(base, 0, Math.floor(end), Math.round((end % 1) * 60));
+    const hard = isHard(player, base.getTime());
+    const busy = busyBlocks(player, key);
+    const openTitles = d === 0 && day ? day.mains.filter((m) => !m.done).map((m) => questTitle(m.id, player)).filter(Boolean) : [];
+    const openLine = openTitles.length ? fill(t.notify.stillOpen, { list: listOf(openTitles) }) : fill(t.notify.waiting, { n: mainsOpen });
+
+    // Nudges while main quests are open: twice a day, every hour in Hard mode. Never during busy blocks.
+    if (s.nudge && mainsOpen > 0) {
+      const { wake } = dayTimes(player.profile);
+      const hours = hard
+        ? Array.from({ length: 24 }, (_, i) => Math.ceil(wake) + 2 + i).filter((h) => h <= end - 1.5)
+        : [Math.round(wake + 4), Math.round(wake + 8)].filter((h) => h <= end - 1.5);
+      // Normal nudges move to just after a busy block; hourly Hard ones in a busy block are skipped.
+      const times = hard ? hours.filter((h) => !isBusy(busy, h)) : [...new Set(hours.map((h) => outsideBusy(busy, h, end - 1.5)).filter((h) => h != null))];
+      times.forEach((h, i) => add({ id: `nudge-${key}-${Math.round(h * 60)}`, date: at(base, 0, Math.floor(h), Math.round((h % 1) * 60)), title: hard ? t.notify.nudgeHardTitle : t.notify.nudgeTitle,
+        body: `${openLine}\n${quoteLine(key, i + 1, player)}`, data: { kind: "quests" } }));
+    }
+    // Your schedule: a reminder 10 minutes before each busy block.
+    if (s.schedule) {
+      busy.filter((b) => b.label).forEach((b) => {
+        const start = at(base, 0, Math.floor(b.start), Math.round((b.start % 1) * 60));
+        add({ id: `sched-${key}-${b.id ?? b.start}`, date: new Date(start.getTime() - 10 * 60000), title: fill(t.notify.schedTitle, { label: b.label }),
+          body: fill(t.notify.schedBody, { label: b.label, from: hhmm(b.start), to: hhmm(b.end) }), data: { kind: "quests" } });
+      });
+    }
+    // Last call an hour before the day ends, with what's still open.
     if (s.deadline && mainsOpen > 0) {
-      add({ id: `deadline-${key}`, date: at(base, 0, DEADLINE_WARNING_HOUR), title: t.notify.deadlineTitle,
-        body: fill(mainsOpen === 1 ? t.notify.deadlineOne : t.notify.deadlineMany, { n: mainsOpen }), data: { kind: "quests" } });
+      add({ id: `deadline-${key}`, date: new Date(endAt.getTime() - 3600000), title: t.notify.deadlineTitle,
+        body: fill(mainsOpen === 1 ? t.notify.deadlineOne : t.notify.deadlineMany, { n: mainsOpen, list: openTitles.length ? listOf(openTitles) : t.notify.yourQuests, time: hhmm(end) }), data: { kind: "quests" } });
+    }
+    // The day ends: get ready for bed (and a reminder of anything you forgot).
+    if (s.bedtime && !(d === 0 && day?.end?.done)) {
+      add({ id: `bedtime-${key}`, date: endAt, title: t.notify.bedTitle,
+        body: `${mainsOpen > 0 && openTitles.length ? `${fill(t.notify.forgot, { list: listOf(openTitles) })} ` : ""}${t.notify.bedBody}\n${quoteLine(key, 9, player)}`, data: { kind: "quests" } });
+      if (hard) add({ id: `bedtime2-${key}`, date: new Date(endAt.getTime() + 30 * 60000), title: t.notify.bedTitle2, body: t.notify.bedBody2, data: { kind: "quests" } });
     }
     if (s.penalty && mainsOpen > 0 && !(d === 0 && isInPenalty(player))) {
-      add({ id: `penalty-${key}`, date: at(base, 0, PENALTY.deadlineHour, 1), title: t.notify.penaltyTitle, body: t.notify.penaltyBody, data: { kind: "status" } });
+      add({ id: `penalty-${key}`, date: new Date(endAt.getTime() + 60000), title: t.notify.penaltyTitle, body: t.notify.penaltyBody, data: { kind: "status" } });
     }
     if (s.water) {
       const goal = quickById.water.goal;
       const had = d === 0 ? quickToday(player).water ?? 0 : 0;
       if (had < goal) {
-        const busy = busyBlocks(player, key);
         WATER_HOURS.filter((h) => !isBusy(busy, h)).forEach((h) => add({ id: `water-${key}-${h}`, date: at(base, 0, h), title: t.notify.waterTitle,
           body: fill(t.notify.waterBody, { n: had, goal }), data: { kind: "quests" } }));
       }
@@ -158,5 +207,5 @@ export function notificationPlan(player, uid, now = new Date()) {
     add({ id: `app-end-${app.end}`, date: new Date(app.end), title: t.notify.appEndTitle, body: t.notify.appEndBody, data: { kind: "status" } });
   }
 
-  return out.sort((a, b) => a.date - b.date);
+  return out.sort((a, b) => a.date - b.date).slice(0, MAX_SCHEDULED);
 }

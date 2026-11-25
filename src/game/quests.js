@@ -9,6 +9,7 @@ export const STATS = ["STR", "AGI", "VIT", "INT", "WIL", "CHA"];
 export const QUESTS = [
   // Start of the day: always tiny, so the day begins with a win.
   { id: "start", type: "start", title: "Make your bed and drink a glass of water", stat: "VIT", minutes: 2, difficulty: "easy", kind: "start" },
+  { id: "end", type: "health", title: "Get ready for bed", stat: "VIT", minutes: 10, difficulty: "easy", kind: "end" },
 
   // Main-quest pool, grouped by stat.
   { id: "study45", skill: "study", type: "study", title: "Study 45 minutes (or 18 questions)", stat: "INT", minutes: 45, difficulty: "normal" },
@@ -52,7 +53,7 @@ function seeded(seedText) {
 // extra: more quests for the focus pool (guild quests for every skill you're into), so focus never runs dry.
 export function pickMainQuests({ date, lastDoneByStat = {}, mainSlots = 3, uid = "", liked = null, tired = null, outside = null, avoid = [], extra = [] }) {
   const rand = seeded(`${uid}:${date}`);
-  const usable = (q) => !q.side && q.kind !== "start" && !avoid.includes(q.id);
+  const usable = (q) => !q.side && !q.kind && !avoid.includes(q.id);
   const rest = (list) => { const r = tired?.size ? list.filter((q) => !hitsTired(q, tired)) : list; return r.length ? r : list; };
   const pick = (list) => list[Math.floor(rand() * list.length)];
 
@@ -108,7 +109,7 @@ export const widenBy = (streak) => (streak >= 30 ? 2 : streak >= 7 ? 1 : 0);
 export const SIDE_BONUS = 0.25;
 export function pickSideQuest({ date, uid = "", liked = null, tired = null, avoid = [] }) {
   const rand = seeded(`${uid}:${date}:side`);
-  const all = QUESTS.filter((q) => !q.side && q.kind !== "start" && !avoid.includes(q.id) && !(liked?.has(q.skill)));
+  const all = QUESTS.filter((q) => !q.side && !q.kind && !avoid.includes(q.id) && !(liked?.has(q.skill)));
   const r = tired?.size ? all.filter((q) => !hitsTired(q, tired)) : all;
   const from = r.length ? r : all;
   return from.length ? from[Math.floor(rand() * from.length)].id : null;
