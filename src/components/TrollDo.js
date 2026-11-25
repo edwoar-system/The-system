@@ -22,11 +22,11 @@ export default function TrollDo({ user, player, troll, onClose, onDone }) {
   const [place, setPlace] = useState(null); // { ok, name } | { error }
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
-  if (!x) return null;
-  const needPhoto = trollNeedsProof(x);
   // The map doesn't know every gym or pool: after a check that didn't find it, you can finish with the photo only.
   // The sender then sees "location not checked".
   const [skipPlace, setSkipPlace] = useState(false);
+  if (!x) return null;
+  const needPhoto = trollNeedsProof(x);
   const ready = (!needPhoto || photo) && (!x.place || place?.ok || skipPlace);
 
   async function take(source) {
