@@ -86,7 +86,7 @@ export function BodyCard({ user, player }) {
 export function BodyScreen({ user, player, onClose }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
-  const [mode, setMode] = useState("week"); // "week" | "rest" | "status"
+  const [mode, setMode] = useState("week"); // "week" | "rest"
   const [sleepOpen, setSleepOpen] = useState(false);
   const [sel, setSel] = useState(null);
   const { load, lastWeek } = weekLoad(player.muscleLoad, weekNum(dayNum()));
@@ -115,24 +115,16 @@ export function BodyScreen({ user, player, onClose }) {
                 <Percent value={coverage(load)} size={56} />
                 <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{fill(t.body.vsLast, { n: coverage(lastWeek) })}</Text>
               </>
-            ) : <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, textAlign: "center", color: color.muted }}>{mode === "rest" ? t.body.restSub : t.body.statusSub}</Text>}
+            ) : <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, textAlign: "center", color: color.muted }}>{t.body.restSub}</Text>}
           </View>
           <View accessibilityRole="tablist" style={{ flexDirection: "row", gap: 6, marginTop: 14 }}>
-            {["week", "rest", "status"].map((k) => (
+            {["week", "rest"].map((k) => (
               <Pressable key={k} accessibilityRole="tab" accessibilityState={{ selected: mode === k }} onPress={() => setMode(k)}
                 style={{ flex: 1, minHeight: 44, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: mode === k ? color.frame : "rgba(159,203,255,0.22)", backgroundColor: mode === k ? "rgba(159,203,255,0.16)" : "transparent" }}>
                 <Text style={{ fontFamily: font.bold, fontSize: 13, color: mode === k ? "#FFFFFF" : color.muted }}>{t.body.modes[k]}</Text>
               </Pressable>
             ))}
           </View>
-          {mode === "status" ? (
-            <View style={{ marginTop: 22 }}>
-              {/* Your status today: water, sleep and the buffs and debuffs they give. */}
-              <StatusEffects bare user={user} player={player} onOpenHabits={() => setSleepOpen(true)} />
-              {sleepOpen ? <HabitsScreen user={user} player={player} start="sleep" onClose={() => setSleepOpen(false)} /> : null}
-            </View>
-          ) : (
-            <>
           <View style={{ alignItems: "center", marginTop: 12 }}>
               <BodyMap load={load} mode={mode} fatigue={fat} width={340} onMuscle={pick} selected={sel} />
             </View>
@@ -143,9 +135,12 @@ export function BodyScreen({ user, player, onClose }) {
                 <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{detail(sel)}</Text>
               </Frame>
             ) : <Text style={{ marginTop: 12, fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted, textAlign: "center" }}>{t.body.tapHint}</Text>}
-            </>
-          )}
-          {mode !== "status" && REGIONS.map((r) => (
+          {/* Your status today, with your body: water, sleep and the buffs and debuffs they give. */}
+          <View style={{ marginTop: 12 }}>
+            <StatusEffects user={user} player={player} onOpenHabits={() => setSleepOpen(true)} />
+          </View>
+          {sleepOpen ? <HabitsScreen user={user} player={player} start="sleep" onClose={() => setSleepOpen(false)} /> : null}
+          {REGIONS.map((r) => (
             <Frame key={r} cut={12} style={{ marginTop: 12 }} contentStyle={{ padding: 16 }}>
               <Label tone={color.hi}>{t.body.regions[r]}</Label>
               {MUSCLES.filter((m) => m.region === r).map((m) => {

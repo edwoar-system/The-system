@@ -356,8 +356,7 @@ export default {
     account: "ACCOUNT",
   },
   body: {
-    modes: { week: "This week", rest: "Recovery", status: "Status" },
-    statusSub: "Water, sleep and what they do to your EXP today.",
+    modes: { week: "This week", rest: "Recovery" },
     rest: { fresh: "Fresh", recovering: "Recovering", tired: "Tired" },
     restSub: "How rested each muscle is now. Tired muscles need about a day or two. New quests steer around them.",
     tiredLine: "Still tired: {list}. Your quests steer around them.",
