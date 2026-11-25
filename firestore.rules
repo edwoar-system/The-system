@@ -23,6 +23,28 @@ service cloud.firestore {
         && request.resource.data.text is string && request.resource.data.text.size() <= 1000;
     }
 
+    // Party quests: members and invited friends can read one. Members change only their own progress
+    // and claim; an invited friend can only join (adding themselves) or decline.
+    match /parties/{id} {
+      allow read: if request.auth != null && (request.auth.uid in resource.data.members || request.auth.uid in resource.data.invited);
+      allow create: if request.auth != null && request.resource.data.leader == request.auth.uid
+        && request.resource.data.members == [request.auth.uid]
+        && request.resource.data.invited.size() >= 1 && request.resource.data.invited.size() <= 4;
+      allow update: if request.auth != null && (
+        (request.auth.uid in resource.data.members
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["progress", "claimed"])
+          && request.resource.data.progress.diff(resource.data.progress).affectedKeys().hasOnly([request.auth.uid])
+          && request.resource.data.claimed.diff(resource.data.claimed).affectedKeys().hasOnly([request.auth.uid]))
+        || (request.auth.uid in resource.data.invited
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["members", "invited", "names"])
+          && !(request.auth.uid in request.resource.data.invited)
+          && request.resource.data.members.size() <= 5
+          && (request.resource.data.members == resource.data.members
+            || request.resource.data.members == resource.data.members.concat([request.auth.uid])))
+      );
+      allow delete: if request.auth != null && resource.data.leader == request.auth.uid;
+    }
+
     function signedIn() { return request.auth != null; }
     function isFriend(uid) {
       return exists(/databases/$(database)/documents/public/$(uid)/friends/$(request.auth.uid));

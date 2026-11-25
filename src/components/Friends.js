@@ -10,6 +10,7 @@ import { doneFeel, lockFeel, tapFeel } from "../lib/haptics";
 import StatShape from "./StatShape";
 import StatInfo from "./StatInfo";
 import NameText from "./NameText";
+import PartySection from "./Party";
 import { RankHex } from "./skillParts";
 import { Coins, Frame, Glow, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
@@ -263,6 +264,8 @@ export default function Friends({ user, player }) {
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingTop: insets.top + 14, paddingBottom: 40, maxWidth: 520, width: "100%", alignSelf: "center" }}>
         <Glow height={420} at={0.18} />
         <Text accessibilityRole="header" style={{ marginTop: 20, marginBottom: 6, textAlign: "center", fontFamily: font.bold, fontSize: 26, letterSpacing: 1, color: "#FFFFFF" }}>{t.friends.title}</Text>
+
+        <PartySection user={user} player={player} friends={friends ?? []} />
 
         {requests?.length ? (
           <Section title={t.friends.requests}>
