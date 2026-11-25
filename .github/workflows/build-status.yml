@@ -1,0 +1,25 @@
+name: iPhone build status
+
+# Shows the latest iPhone builds on EAS: status, version, and the install link when finished.
+# Run it from the Actions tab or with: gh workflow run build-status.yml
+on:
+  workflow_dispatch:
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Latest builds
+        run: |
+          eas build:list --platform ios --limit 3 --json --non-interactive > builds.json
+          node -e '
+            const b = require("./builds.json");
+            for (const x of b) console.log([x.status, x.appVersion, x.buildProfile, x.distribution, x.createdAt, x.error?.message ?? "", x.artifacts?.buildUrl ?? "", "https://expo.dev/accounts/edwoar/projects/the-system/builds/" + x.id].join(" | "));
+          '
+      - name: Registered devices
+        run: eas device:list --non-interactive 2>&1 | head -40 || true
