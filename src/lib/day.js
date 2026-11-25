@@ -7,7 +7,7 @@ import { guildQuest } from "../game/guild";
 import { ladderById } from "../game/ladders";
 import { dayNum, habitRank, isHabit, passTrial, recordTraining, skillView, SKILL_RULES, trialQuest, trialState, weekNum } from "../game/skills";
 import { tierForRank } from "../game/tiers";
-import { dutiesDue, dutyQuest, interestSkills, mountainFactor } from "../game/profile";
+import { dutiesDue, dutyQuest, interestOfSkill, interestSkills, mountainFactor } from "../game/profile";
 import { hitsTired, questLoad, tiredSet } from "../game/muscles";
 import { swapPrice } from "../game/shop";
 import { gymToday, splitQuest } from "../game/gym";
@@ -52,7 +52,10 @@ export function newDay(player, uid) {
   // Every skill you're into has a guild quest, at the tier your rank in it unlocks.
   const programSkills = new Set(programs.map((id) => programQuest(id, player)?.skill).filter(Boolean));
   const extra = [...liked].filter((id) => !programSkills.has(id)).map((id) => {
-    const tier = tierForRank(skillView(id, player?.skills?.[id]).rank);
+    // Your answer to "how good are you at it?": new keeps it at tier 0, experienced starts a tier higher.
+    const level = player?.profile?.levels?.[interestOfSkill(id)];
+    const byRank = tierForRank(skillView(id, player?.skills?.[id]).rank);
+    const tier = level === 0 ? 0 : level === 2 ? Math.min(2, byRank + 1) : byRank;
     return guildQuest(tier ? `g:${id}:${tier}` : `g:${id}`) ?? guildQuest(`g:${id}`);
   }).filter(Boolean);
   const mains = [...programs, ...pickMainQuests({ date, uid, lastDoneByStat: player?.lastDoneByStat ?? {}, mainSlots: slots - programs.length, liked, tired, outside, extra })];

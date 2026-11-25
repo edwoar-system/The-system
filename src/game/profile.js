@@ -3,7 +3,16 @@
 // Everyone has their own mountain: what's hard for you pays more for you.
 
 // Only questions that change something are asked.
-export const PARTS = ["day", "interests", "mountains", "duties", "mind", "about"];
+export const PARTS = ["day", "interests", "drive", "energy", "mountains", "duties", "mind", "about"];
+
+// What drives you: changes how reminders talk to you.
+export const DRIVES = ["progress", "streak", "coins", "push", "friends"];
+// When you have the most energy: quests are suggested in that part of the day first.
+export const ENERGY = ["morning", "afternoon", "evening"];
+// How good you are at each interest: 0 new, 1 some experience, 2 experienced (starts a tier higher).
+export const LEVELS = [0, 1, 2];
+// The skills of an interest, for looking up your level in a skill.
+export const interestOfSkill = (skill) => INTERESTS.find((i) => i.skills.includes(skill))?.id ?? null;
 
 // Interests: groups of skills. Picked interests are preferred in main quests and guild suggestions.
 export const INTERESTS = [
@@ -117,5 +126,7 @@ export function partsDone(profile) {
     mountains: Object.keys(p.mountains ?? {}).length > 0,
     mind: (p.schools ?? []).length > 0,
     duties: Array.isArray(p.duties) && p.duties.length > 0,
+    drive: !!p.drive,
+    energy: !!p.energy,
   };
 }

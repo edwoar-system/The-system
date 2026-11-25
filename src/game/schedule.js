@@ -48,7 +48,14 @@ export function freeSlots(player, dateKey) {
 // A suggested start time for each quest ({ id, minutes }), in order, with 15 minutes between them.
 // Quests that don't fit anywhere get no time.
 export function suggestTimes(quests, player, dateKey, nowHour = null) {
-  const slots = freeSlots(player, dateKey).map((s) => ({ ...s, start: nowHour != null ? Math.max(s.start, nowHour) : s.start })).filter((s) => s.end > s.start);
+  let slots = freeSlots(player, dateKey).map((s) => ({ ...s, start: nowHour != null ? Math.max(s.start, nowHour) : s.start })).filter((s) => s.end > s.start);
+  // Your best time of day ("Your energy" in Tune) goes first: free time is cut at its edges and that part is filled first.
+  const win = { morning: [0, 12], afternoon: [12, 17], evening: [17, 30] }[player?.profile?.energy];
+  if (win) {
+    const pieces = slots.flatMap((s) => [[s.start, Math.min(s.end, win[0])], [Math.max(s.start, win[0]), Math.min(s.end, win[1])], [Math.max(s.start, win[1]), s.end]])
+      .filter(([a, b]) => b > a).map(([a, b]) => ({ start: a, end: b, inWin: a >= win[0] && b <= win[1] }));
+    slots = [...pieces.filter((p) => p.inWin), ...pieces.filter((p) => !p.inWin)];
+  }
   const out = {};
   quests.forEach((q) => {
     const need = Math.max(10, q.minutes ?? 20) / 60;

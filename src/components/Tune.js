@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { patchProfile } from "../lib/player";
-import { DUTIES, INTERESTS, MOUNTAINS, MOUNTAIN_LEVELS, PARTS, dayTimes, dutyById, dutyDay, partsDone } from "../game/profile";
+import { DRIVES, DUTIES, ENERGY, INTERESTS, LEVELS, MOUNTAINS, MOUNTAIN_LEVELS, PARTS, dayTimes, dutyById, dutyDay, partsDone } from "../game/profile";
 import { SCHOOL_NAMES } from "../game/quotes";
 import { useTrack } from "./saved";
 import { HelpDot } from "./Explain";
@@ -70,7 +70,28 @@ function PartForm({ part, draft, set }) {
   }
   if (part === "interests") {
     const list = draft.interests ?? [];
-    return <View style={row}>{INTERESTS.map((i) => <Chip key={i.id} label={i.name} on={list.includes(i.id)} onPress={() => set({ interests: toggle(list, i.id) })} />)}</View>;
+    const levels = draft.levels ?? {};
+    return (
+      <View style={{ gap: 14 }}>
+        <View style={row}>{INTERESTS.map((i) => <Chip key={i.id} label={i.name} on={list.includes(i.id)} onPress={() => set({ interests: toggle(list, i.id) })} />)}</View>
+        {/* A follow-up for each one you pick: how good you are already. */}
+        {list.length ? <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{t.tune.levelAsk}</Text> : null}
+        {list.map((id) => (
+          <View key={id} style={{ gap: 6 }}>
+            <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{INTERESTS.find((i) => i.id === id)?.name}</Text>
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              {LEVELS.map((lv) => <Chip key={lv} flex label={t.tune.levelNames[lv]} on={levels[id] === lv} onPress={() => set({ levels: { ...levels, [id]: lv } })} />)}
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  }
+  if (part === "drive") {
+    return <View style={row}>{DRIVES.map((d) => <Chip key={d} label={t.tune.drives[d]} on={draft.drive === d} onPress={() => set({ drive: draft.drive === d ? null : d })} />)}</View>;
+  }
+  if (part === "energy") {
+    return <View style={{ flexDirection: "row", gap: 6 }}>{ENERGY.map((e) => <Chip key={e} flex label={t.tune.energies[e]} on={draft.energy === e} onPress={() => set({ energy: draft.energy === e ? null : e })} />)}</View>;
   }
   if (part === "mountains") {
     const m = draft.mountains ?? {};
@@ -144,7 +165,9 @@ function PartForm({ part, draft, set }) {
 function patchFor(part, d) {
   const num = (v) => { const n = Number(String(v ?? "").replace(",", ".")); return String(v ?? "").trim() && Number.isFinite(n) && n > 0 ? n : null; };
   if (part === "day") { const { wake, bed } = dayTimes(d); return { wake: hhmm(wake), bed: hhmm(bed) }; }
-  if (part === "interests") return { interests: d.interests ?? [] };
+  if (part === "interests") return { interests: d.interests ?? [], levels: d.levels ?? {} };
+  if (part === "drive") return { drive: d.drive ?? null };
+  if (part === "energy") return { energy: d.energy ?? null };
   if (part === "mountains") return { mountains: d.mountains ?? {} };
   if (part === "duties") return { duties: d.duties ?? [], dutyDays: d.dutyDays ?? {} };
   if (part === "mind") return { schools: d.schools ?? [] };

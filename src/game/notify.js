@@ -116,7 +116,10 @@ export function notificationPlan(player, uid, now = new Date()) {
     const hard = isHard(player, base.getTime());
     const busy = busyBlocks(player, key);
     const openTitles = d === 0 && day ? day.mains.filter((m) => !m.done).map((m) => questTitle(m.id, player)).filter(Boolean) : [];
-    const openLine = openTitles.length ? fill(t.notify.stillOpen, { list: listOf(openTitles) }) : fill(t.notify.waiting, { n: mainsOpen });
+    // What drives you (Tune) changes the first line of a nudge.
+    const total = d === 0 && day ? day.mains.length : 3;
+    const drive = player.profile?.drive ? `${fill(t.notify.drive[player.profile.drive], { done: total - mainsOpen, total })} ` : "";
+    const openLine = drive + (openTitles.length ? fill(t.notify.stillOpen, { list: listOf(openTitles) }) : fill(t.notify.waiting, { n: mainsOpen }));
 
     // Nudges while main quests are open: twice a day, every hour in Hard mode. Never during busy blocks.
     if (s.nudge && mainsOpen > 0) {
