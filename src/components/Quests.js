@@ -120,7 +120,7 @@ function GoalRow({ questId, done, busy, onDone, onOpen, last, quick, time, notic
   );
 }
 
-export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }) {
+export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, onOpenCourse }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const day = currentDay(player, user.uid);
@@ -621,7 +621,8 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
         <GymSession user={user} player={player} questId={sheet.id} slot={sheet.slot} onClose={() => setSheet(null)} onResult={(r) => onResult(r, sheet.id)} />
       ) : null}
       {sheet && !(sheet.id.startsWith("gs:") && !sheet.done) ? <QuestSheet user={user} player={player} questId={sheet.id} slot={sheet.slot} done={sheet.done} onClose={() => setSheet(null)} onResult={(r) => onResult(r, sheet.id)}
-        onOpenSkill={onOpenSkill ? (id) => { const from = { id: sheet.id, slot: sheet.slot }; setSheet(null); onOpenSkill(id, from); } : null} /> : null}
+        onOpenSkill={onOpenSkill ? (id) => { const from = { id: sheet.id, slot: sheet.slot }; setSheet(null); onOpenSkill(id, from); } : null}
+        onOpenCourse={onOpenCourse ? (id) => { const from = { id: sheet.id, slot: sheet.slot }; setSheet(null); onOpenCourse(id, from); } : null} /> : null}
       <CheckIn uid={user.uid} data={check} onClose={() => setCheck(null)} />
       <BodyReport data={check ? null : body} onClose={() => setBody(null)} onOpenSkill={onOpenSkill} />
       <RankUp data={check || body ? null : rankUp} onClose={() => setRankUp(null)} />

@@ -39,7 +39,7 @@ function Row({ v, name, onPress }) {
   );
 }
 
-export default function Skills({ user, player, onGoToQuest, focusSkill, onFocusDone }) {
+export default function Skills({ user, player, onGoToQuest, focusSkill, onFocusDone, onOpenCourse }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   // Opened from somewhere else (a quest or the body report): start on that skill's page.
@@ -61,7 +61,8 @@ export default function Skills({ user, player, onGoToQuest, focusSkill, onFocusD
   const toggle = (st) => setOpenStats((o) => (o.includes(st) ? o.filter((x) => x !== st) : [...o, st]));
 
   if (guildFor) return <Guild user={user} player={player} initialSkill={guildFor} onClose={() => setGuildFor(null)} onAccepted={(id) => { const from = guildFor; setGuildFor(null); onGoToQuest?.({ id, slot: "guild" }, from); }} />;
-  if (open) return <SkillPage user={user} player={player} id={open} onBack={() => setOpen(null)} onRequest={() => setGuildFor(open)} />;
+  if (open) return <SkillPage user={user} player={player} id={open} onBack={() => setOpen(null)} onRequest={() => setGuildFor(open)}
+    onOpenCourse={onOpenCourse ? (cid) => onOpenCourse(cid, open) : null} />;
 
   const today = dayNum();
   const view = (id) => skillView(id, player.skills?.[id], today);

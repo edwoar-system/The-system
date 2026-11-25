@@ -21,6 +21,7 @@ import { Frame, Glow, Label, SysButton, hexPoints } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 import { HelpDot } from "./Explain";
+import { courseForSkill } from "../game/courses";
 
 function Chevron({ c }) {
   return <Svg width={18} height={18} viewBox="0 0 24 24"><Path d="M15 5l-7 7 7 7" fill="none" stroke={c} strokeWidth={1.8} /></Svg>;
@@ -69,7 +70,7 @@ function Info({ title, text }) {
   );
 }
 
-export default function SkillPage({ user, player, id, onBack, onRequest }) {
+export default function SkillPage({ user, player, id, onBack, onRequest, onOpenCourse }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const skill = skillById[id];
@@ -296,6 +297,9 @@ export default function SkillPage({ user, player, id, onBack, onRequest }) {
           ))}
         </Frame>
 
+        {onOpenCourse && courseForSkill(id) ? (
+          <SysButton label={t.course.openCourse} onPress={() => onOpenCourse(courseForSkill(id).id)} style={{ marginTop: 18 }} />
+        ) : null}
         <SysButton label={t.skills.request} onPress={onRequest} style={{ marginTop: 18 }} />
         {id === "gym" ? (
           <Pressable accessibilityRole="button" onPress={() => setGymOpen(true)} style={{ minHeight: 44, alignItems: "center", justifyContent: "center", marginTop: 6 }}>

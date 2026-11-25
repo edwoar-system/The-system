@@ -1,6 +1,6 @@
 // Learn: everything to read in one place. Quotes, philosophy, languages, skill guides and the System's words,
 // plus a search that falls back to Wikipedia (shown in the System's style) and, past that, the web.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Linking, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { QUOTES, SCHOOL_NAMES } from "../game/quotes";
@@ -8,9 +8,12 @@ import { GUILD, PHILOSOPHY, skillById } from "../game/guild";
 import { HIRAGANA, KATAKANA, LANGUAGES, languageById } from "../game/learn";
 import { STATS } from "../game/quests";
 import { TERMS, Glossary } from "./Explain";
+import { COURSES, courseById, courseForSkill, courseStats } from "../game/courses";
+import { useCourse } from "../lib/courses";
 import { acceptQuest } from "../lib/day";
 import { toggleFavQuote } from "../lib/player";
 import { webSearchUrl, wikiArticle, wikiSearch } from "../lib/wiki";
+import Course from "./Course";
 import QuoteLibrary from "./QuoteLibrary";
 import QuotePage from "./QuotePage";
 import { Frame, Glow, Label, SysButton } from "./sys";
@@ -118,12 +121,28 @@ function KanaGrid({ list }) {
   );
 }
 
-function LanguagePage({ id, onClose, onWiki, onOpenSkill }) {
+// A course in the list, with how far you are.
+function CourseRow({ user, course, first, onPress }) {
+  const progress = useCourse(user.uid, course.id);
+  const st = courseStats(course, progress);
+  return <Row first={first} title={course.name} sub={fill(t.course.learned, { n: st.learned, of: st.total })} onPress={onPress} />;
+}
+
+// The button on a language page: start or continue its course.
+function CourseButton({ user, course, onOpen }) {
+  const progress = useCourse(user.uid, course.id);
+  const st = courseStats(course, progress);
+  return <SysButton label={st.learned ? fill(t.course.resume, { n: st.learned, of: st.total }) : t.course.start} onPress={onOpen} />;
+}
+
+function LanguagePage({ id, user, onClose, onWiki, onOpenSkill, onOpenCourse }) {
   const { color, font } = useTheme();
   const l = languageById[id];
   const [kana, setKana] = useState("hira");
+  const course = l.skill ? courseForSkill(l.skill) : null;
   return (
     <Page title={l.name} sub={l.intro} onClose={onClose}>
+      {course && onOpenCourse ? <CourseButton user={user} course={course} onOpen={() => onOpenCourse(course.id)} /> : null}
       <Frame cut={12} contentStyle={{ padding: 14, gap: 8 }}>
         <Label tone={color.hi}>{t.learn.howToStart}</Label>
         {l.steps.map((s, i) => (
@@ -221,12 +240,25 @@ function SkillsPage({ onClose, onOpenSkill }) {
   );
 }
 
-export default function Learn({ user, player, onOpenSkill, onGoToQuest }) {
+export default function Learn({ user, player, onOpenSkill, onGoToQuest, focusCourse, onCourseFocusDone }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const [q, setQ] = useState("");
   const [wiki, setWiki] = useState(null); // { q, loading, results, error }
   const [page, setPage] = useState(null); // { kind, id }
+  const [course, setCourse] = useState(null); // course id open on top of everything
+
+  // Sent here from a quest or skill page: open that course. The wait lets the
+  // sheet we came from finish closing first (two sliding windows at once can crash iOS).
+  const focusTimer = useRef(null);
+  const doneRef = useRef(onCourseFocusDone);
+  useEffect(() => { doneRef.current = onCourseFocusDone; }, [onCourseFocusDone]);
+  useEffect(() => {
+    if (!focusCourse) return;
+    clearTimeout(focusTimer.current);
+    focusTimer.current = setTimeout(() => { setCourse(focusCourse); doneRef.current?.(); }, 600);
+  }, [focusCourse]);
+  useEffect(() => () => clearTimeout(focusTimer.current), []);
   const [quote, setQuote] = useState(null);
   const favs = player.favQuotes ?? [];
   const star = (id) => toggleFavQuote(user.uid, id, !favs.includes(id)).catch(() => {});
@@ -251,6 +283,7 @@ export default function Learn({ user, player, onOpenSkill, onGoToQuest }) {
   }
 
   const shelves = [
+    { id: "courses", go: () => setPage({ kind: "courseList" }), n: COURSES.length },
     { id: "quotes", go: () => setPage({ kind: "quotes" }), n: QUOTES.length },
     { id: "philosophy", go: () => setPage({ kind: "philoList" }), n: PHILOSOPHY.length },
     { id: "languages", go: () => setPage({ kind: "langList" }), n: LANGUAGES.length },
@@ -320,6 +353,13 @@ export default function Learn({ user, player, onOpenSkill, onGoToQuest }) {
           </Frame>
         </Page>
       ) : null}
+      {page?.kind === "courseList" ? (
+        <Page title={t.learn.shelves.courses.title} sub={t.learn.shelves.courses.sub} onClose={() => setPage(null)}>
+          <Frame cut={12} contentStyle={{ paddingHorizontal: 14, paddingVertical: 4 }}>
+            {COURSES.map((c, i) => <CourseRow key={c.id} first={i === 0} user={user} course={c} onPress={() => setCourse(c.id)} />)}
+          </Frame>
+        </Page>
+      ) : null}
       {page?.kind === "langList" ? (
         <Page title={t.learn.shelves.languages.title} sub={t.learn.shelves.languages.sub} onClose={() => setPage(null)}>
           <Frame cut={12} contentStyle={{ paddingHorizontal: 14, paddingVertical: 4 }}>
@@ -327,13 +367,15 @@ export default function Learn({ user, player, onOpenSkill, onGoToQuest }) {
           </Frame>
         </Page>
       ) : null}
-      {page?.kind === "lang" ? <LanguagePage id={page.id} onClose={() => setPage(page.back ? { kind: page.back } : null)} onWiki={openWiki} onOpenSkill={openSkill} /> : null}
+      {page?.kind === "lang" ? <LanguagePage id={page.id} user={user} onClose={() => setPage(page.back ? { kind: page.back } : null)} onWiki={openWiki} onOpenSkill={openSkill}
+        onOpenCourse={(cid) => setCourse(cid)} /> : null}
       {page?.kind === "philo" ? <PhilosophyPage id={page.id} user={user} player={player} onClose={() => setPage(page.back ? { kind: page.back } : null)} onWiki={openWiki}
         onGoToQuest={(f) => { setPage(null); onGoToQuest?.(f); }} /> : null}
       {page?.kind === "skills" ? <SkillsPage onClose={() => setPage(null)} onOpenSkill={openSkill} /> : null}
       {page?.kind === "words" ? <Page title={t.learn.shelves.words.title} sub={t.learn.shelves.words.sub} onClose={() => setPage(null)}><Glossary /></Page> : null}
       {page?.kind === "wiki" ? <Article title={page.id} onClose={() => setPage(null)} /> : null}
       {quote ? <QuotePage quote={quote} starred={favs.includes(quote.id)} onStar={() => star(quote.id)} onClose={() => setQuote(null)} /> : null}
+      {course && courseById[course] ? <Course user={user} course={courseById[course]} onClose={() => setCourse(null)} /> : null}
     </View>
   );
 }

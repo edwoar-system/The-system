@@ -10,6 +10,7 @@ import { Coins, Frame, Label, SysButton } from "./sys";
 import { swapPrice } from "../game/shop";
 import { isHard } from "../game/hard";
 import { setupMinutes } from "../game/effort";
+import { courseForSkill } from "../game/courses";
 import { todayKey } from "../game/quests";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
@@ -104,7 +105,7 @@ function SetsPanel({ user, player, item, day, onFinished }) {
 }
 
 // slot: "main" | "guild" | "trial" | "start". done: already completed today.
-export default function QuestSheet({ user, player, questId, slot, done, onClose, onResult, onOpenSkill }) {
+export default function QuestSheet({ user, player, questId, slot, done, onClose, onResult, onOpenSkill, onOpenCourse }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const q = questId ? getQuest(questId) : null;
@@ -190,6 +191,11 @@ export default function QuestSheet({ user, player, questId, slot, done, onClose,
                 </Pressable>
               ) : null}
             </View>
+
+            {/* A language with a course: the quest is done in the course (passing a set finishes it). */}
+            {!done && !q.trial && !(q.tier > 0) && onOpenCourse && courseForSkill(q.skill) ? (
+              <SysButton label={t.course.openCourse} onPress={() => onOpenCourse(courseForSkill(q.skill).id)} />
+            ) : null}
 
             {q.counts ? (
               <View style={{ gap: 4 }}>

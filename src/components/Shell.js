@@ -139,6 +139,7 @@ function ShellBody({ user, state }) {
   const [penaltyView, setPenaltyView] = useState(null); // null | "intro" | "manual"
   const [focus, setFocus] = useState(null); // a quest to open on the board: { id, slot }
   const [skillFocus, setSkillFocus] = useState(null); // a skill page to open in the Skills tab
+  const [courseFocus, setCourseFocus] = useState(null); // a course to open in the Learn tab
   // Where Back returns to after you got sent somewhere (a quest's skill page, a guild quest on the board...).
   const [trail, setTrail] = useState([]); // [{ tab, focus?, skillFocus? }]
   const checking = useRef(false);
@@ -160,6 +161,7 @@ function ShellBody({ user, state }) {
     setTab(place.tab);
     if (place.focus) setFocus(place.focus);
     if (place.skillFocus) setSkillFocus(place.skillFocus);
+    if (place.course) setCourseFocus(place.course);
   };
   // from: the exact place you're leaving (defaults to the current tab).
   const goTo = (place, from) => { setTrail((tr) => [...tr, from ?? { tab }].slice(-8)); open(place); };
@@ -230,10 +232,13 @@ function ShellBody({ user, state }) {
         <ErrorCatcher key={tab} place={tab} uid={user.uid} name={state.player?.name}>
         {tab === "status" ? <Status user={user} {...state} onOpenQuests={() => goTo({ tab: "quests" })} onOpenSettings={() => goTo({ tab: "settings" })} /> : null}
         {tab === "quests" ? (state.player ? <Quests user={user} player={state.player} focus={focus} onFocusDone={() => setFocus(null)}
+          onOpenCourse={(id, sheet) => goTo({ tab: "learn", course: id }, { tab: "quests", focus: sheet ?? undefined })}
           onOpenSkill={(id, sheet) => goTo({ tab: "skills", skillFocus: id }, { tab: "quests", focus: sheet ?? undefined })} /> : <Status user={user} {...state} />) : null}
         {tab === "skills" ? (state.player ? <Skills user={user} player={state.player} focusSkill={skillFocus} onFocusDone={() => setSkillFocus(null)}
+          onOpenCourse={(id, fromSkill) => goTo({ tab: "learn", course: id }, { tab: "skills", skillFocus: fromSkill ?? undefined })}
           onGoToQuest={(f, fromSkill) => goTo({ tab: "quests", focus: f }, { tab: "skills", skillFocus: fromSkill ?? undefined })} /> : <Status user={user} {...state} />) : null}
         {tab === "learn" ? (state.player ? <Learn user={user} player={state.player}
+          focusCourse={courseFocus} onCourseFocusDone={() => setCourseFocus(null)}
           onOpenSkill={(id) => goTo({ tab: "skills", skillFocus: id }, { tab: "learn" })}
           onGoToQuest={(f) => goTo({ tab: "quests", focus: f }, { tab: "learn" })} /> : <Status user={user} {...state} />) : null}
         {tab === "friends" ? (state.player ? <Friends user={user} player={state.player} /> : <Status user={user} {...state} />) : null}
