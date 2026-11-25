@@ -16,6 +16,8 @@ import { Coins, Frame, Glow, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
+const PARTIES_ON = false;
+
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 
 function lastSeen(card) {
@@ -274,7 +276,8 @@ export default function Friends({ user, player }) {
         <Glow height={420} at={0.18} />
         <Text accessibilityRole="header" style={{ marginTop: 20, marginBottom: 6, textAlign: "center", fontFamily: font.bold, fontSize: 26, letterSpacing: 1, color: "#FFFFFF" }}>{t.friends.title}</Text>
 
-        <PartySection user={user} player={player} friends={friends ?? []} />
+        {/* Party quests are switched off for now (they need the newest Firestore rules). Set PARTIES_ON to bring them back. */}
+        {PARTIES_ON ? <PartySection user={user} player={player} friends={friends ?? []} /> : null}
 
         {requests?.length ? (
           <Section title={t.friends.requests}>
