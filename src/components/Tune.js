@@ -7,6 +7,7 @@ import { DUTIES, INTERESTS, MOUNTAINS, MOUNTAIN_LEVELS, PARTS, dayTimes, dutyByI
 import { SCHOOL_NAMES } from "../game/quotes";
 import { useTrack } from "./saved";
 import { HelpDot } from "./Explain";
+import { isHard } from "../game/hard";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
@@ -180,9 +181,12 @@ export default function Tune({ user, player }) {
     timer.current = setTimeout(() => flushRef.current(), 700);
   }
 
+  // Hard mode locks your answers: you can read them, not change them.
+  const locked = isHard(player);
   return (
-    <View>
+    <View pointerEvents={locked ? "box-none" : "auto"}>
       <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: color.muted }}>{fill(t.tune.progress, { n: count, of: PARTS.length })}</Text>
+      {locked ? <Text style={{ marginTop: 6, fontFamily: font.bodyBold, fontSize: 13, lineHeight: 18, color: color.accent }}>{t.hard.tuneLocked}</Text> : null}
       {PARTS.map((part) => {
         const isOpen = open === part;
         return (
@@ -198,6 +202,7 @@ export default function Tune({ user, player }) {
               <Text style={{ fontFamily: font.bold, fontSize: 18, color: color.muted }}>{isOpen ? "−" : "+"}</Text>
             </Pressable>
             {isOpen ? (
+              <View pointerEvents={locked ? "none" : "auto"} style={{ opacity: locked ? 0.6 : 1 }}>
               <View style={{ gap: 12, paddingTop: 8, paddingBottom: 10 }}>
                 <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
                   <Text style={{ flex: 1, fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.text }}>{t.tune.parts[part].ask}</Text>
@@ -205,6 +210,7 @@ export default function Tune({ user, player }) {
                 </View>
                 <PartForm part={part} draft={draft} set={(patch) => change(part, patch)} />
                 <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{t.tune.autosave}</Text>
+              </View>
               </View>
             ) : null}
           </View>

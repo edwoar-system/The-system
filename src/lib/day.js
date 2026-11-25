@@ -12,6 +12,7 @@ import { hitsTired, questLoad, tiredSet } from "../game/muscles";
 import { swapPrice } from "../game/shop";
 import { gymToday, splitQuest } from "../game/gym";
 import { penaltyDue } from "../game/penalty";
+import { isHard } from "../game/hard";
 import { trainMuscles } from "./muscles";
 
 export const MAX_GUILD_QUESTS = 6;
@@ -123,6 +124,7 @@ export async function swapMain(uid, questId) {
   return runTransaction(db, async (tx) => {
     const player = (await tx.get(ref)).data() ?? {};
     const day = player.day?.date === todayKey() ? player.day : newDay(player, uid);
+    if (isHard(player)) throw new Error("hard");
     const i = day.mains.findIndex((m) => m.id === questId);
     if (i < 0 || day.mains[i].done) throw new Error("not-open");
     const q = getQuest(questId, player);

@@ -5,16 +5,19 @@ import * as Updates from "expo-updates";
 import { signOut } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth } from "../lib/firebase";
-import { setFeelSetting, setNotify, toggleFavQuote, setPrivacy, setProof, setReminders } from "../lib/player";
+import { setFeelSetting, setNotify, setPrivacy, setProof, setReminders } from "../lib/player";
+import { hhmm } from "../game/schedule";
 import { changeName } from "../lib/shop";
 import { NAME_CHANGE_PRICE } from "../game/shop";
-import { setFeel } from "../lib/haptics";
+import { setFeel, doneFeel } from "../lib/haptics";
 import { SavedStamp, useSavedStamp, useTrack } from "./saved";
 import { PRIVACY_KEYS, privacySettings } from "../game/social";
 import { loadProof } from "../lib/proof";
 import { PROOF_KINDS, proofSettings } from "../game/proof";
 import { askNotifyPermission, notifyPermission, notifySupported } from "../lib/notify";
 import { NOTIFY_KINDS, notifySettings } from "../game/notify";
+import { HARD_DAYS, HARD_EXIT_MIN, HARD_EXIT_PER_DAY, HARD_MAX_DAYS, hardDaysLeft, hardExitPrice, isHard } from "../game/hard";
+import { leaveHard, startHard } from "../lib/hard";
 import { setUrgentPerDay } from "../lib/urgent";
 import { scheduleSeverity } from "../lib/penalty";
 import { useHistory } from "../lib/history";
@@ -25,7 +28,6 @@ import { Coins, Frame, Glow, Label, SysButton } from "./sys";
 import { Button } from "./ui";
 import { SeverityChips, UrgentChips } from "./systemChoices";
 import Tune from "./Tune";
-import QuoteLibrary from "./QuoteLibrary";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 import { Glossary } from "./Explain";
@@ -61,6 +63,66 @@ function Section({ title, sub, children }) {
   );
 }
 
+// Hard mode: pick how many days, then you're locked in. Leaving early costs coins or a streak shield.
+function HardMode({ user, player }) {
+  const { color, font } = useTheme();
+  const [days, setDays] = useState(7);
+  const [sure, setSure] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const on = isHard(player);
+  const left = hardDaysLeft(player);
+  const price = hardExitPrice(player);
+  const until = on ? new Date(player.hard.until) : null;
+  async function go(fn) {
+    setBusy(true);
+    setMsg(null);
+    try { await fn(); doneFeel(); setSure(false); }
+    catch (e) { setMsg(e.message === "no-coins" ? fill(t.hard.noCoins, { n: price }) : e.message === "no-shield" ? t.hard.noShield : t.shop.failed); }
+    finally { setBusy(false); }
+  }
+  if (on) {
+    return (
+      <View style={{ gap: 10 }}>
+        <Text style={{ fontFamily: font.bold, fontSize: 18, color: "#FFFFFF" }}>{fill(left === 1 ? t.hard.leftOne : t.hard.left, { n: left })}</Text>
+        <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{fill(t.hard.until, { date: until.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }), time: hhmm(until.getHours() + until.getMinutes() / 60) })}</Text>
+        <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.text }}>{t.hard.locks}</Text>
+        <SysButton label={fill(t.hard.leaveCoins, { n: price })} onPress={() => go(() => leaveHard(user.uid, "coins", t.hard.logTitle))} disabled={busy} />
+        {(player.shields ?? 0) > 0 ? <SysButton label={t.hard.leaveShield} onPress={() => go(() => leaveHard(user.uid, "shield", t.hard.logTitle))} disabled={busy} /> : null}
+        {msg ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: "#F6B45A" }}>{msg}</Text> : null}
+      </View>
+    );
+  }
+  return (
+    <View style={{ gap: 10 }}>
+      <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.text }}>{t.hard.what}</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{t.hard.howLong}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          {[["−", -1], ["+", 1]].map(([label, d]) => (
+            <Pressable key={label} accessibilityRole="button" accessibilityLabel={`${t.hard.howLong} ${label}`} onPress={() => { setSure(false); setDays((n) => Math.min(HARD_MAX_DAYS, Math.max(1, n + d))); }}
+              style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(159,203,255,0.3)" }}>
+              <Text style={{ fontFamily: font.num, fontSize: 20, color: color.hi }}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+        {HARD_DAYS.map((n) => (
+          <Pressable key={n} accessibilityRole="button" accessibilityState={{ selected: days === n }} onPress={() => { setSure(false); setDays(n); }}
+            style={{ minHeight: 40, paddingHorizontal: 12, justifyContent: "center", borderWidth: 1, borderColor: days === n ? color.frame : "rgba(159,203,255,0.22)", backgroundColor: days === n ? "rgba(159,203,255,0.16)" : "transparent" }}>
+            <Text style={{ fontFamily: font.bold, fontSize: 13, color: days === n ? "#FFFFFF" : color.muted }}>{fill(t.hard.days, { n })}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <Text style={{ fontFamily: font.num, fontSize: 28, color: "#FFFFFF", textAlign: "center" }}>{fill(days === 1 ? t.hard.oneDay : t.hard.days, { n: days })}</Text>
+      {sure ? <Text style={{ fontFamily: font.bodyBold, fontSize: 13, lineHeight: 18, color: "#F6B45A" }}>{fill(t.hard.sure, { n: Math.max(HARD_EXIT_MIN, days * HARD_EXIT_PER_DAY) })}</Text> : null}
+      <SysButton label={sure ? t.hard.confirm : fill(t.hard.start, { n: days })} onPress={() => (sure ? go(() => startHard(user.uid, days)) : setSure(true))} disabled={busy} />
+      {msg ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: "#F6B45A" }}>{msg}</Text> : null}
+    </View>
+  );
+}
+
 function Notifications({ user, player }) {
   const track = useTrack();
   const { color, font } = useTheme();
@@ -72,15 +134,17 @@ function Notifications({ user, player }) {
   }, []);
   if (!notifySupported) return <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{t.notify.web}</Text>;
   const on = notifySettings(player);
+  const hard = isHard(player);
   return (
     <View style={{ gap: 4 }}>
+      {hard ? <Text style={{ fontFamily: font.bodyBold, fontSize: 13, lineHeight: 18, color: color.accent }}>{t.hard.notifyLocked}</Text> : null}
       {perm === "granted" ? <Text style={{ fontFamily: font.body, fontSize: 13, color: color.accent }}>{t.notify.allowed}</Text> : null}
       {perm === "denied" ? <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.dangerSoft }}>{t.notify.denied}</Text> : null}
       {perm === "undetermined" ? <SysButton label={t.notify.ask} onPress={async () => setPerm(await askNotifyPermission())} /> : null}
       {NOTIFY_KINDS.map((k) => (
         <View key={k} style={{ minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: color.line }}>
           <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{t.notify.kinds[k]}</Text>
-          <Switch accessibilityLabel={t.notify.kinds[k]} value={on[k]} onValueChange={(v) => track(setNotify(user.uid, k, v)).catch(() => {})}
+          <Switch accessibilityLabel={t.notify.kinds[k]} value={on[k]} disabled={hard} onValueChange={(v) => track(setNotify(user.uid, k, v)).catch(() => {})}
             trackColor={{ false: "#1A2440", true: color.blue }} thumbColor="#EAF4FF" ios_backgroundColor="#1A2440" />
         </View>
       ))}
@@ -122,7 +186,7 @@ function Reminders({ user, player }) {
             <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{r.text}</Text>
             <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{r.repeat === "daily" ? t.reminders.daily : r.date === todayKey() ? t.reminders.today : t.reminders.tomorrow}</Text>
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel={`${t.reminders.remove}: ${r.text}`} onPress={() => track(setReminders(user.uid, list.filter((x) => x.id !== r.id))).catch(() => {})}
+          <Pressable accessibilityRole="button" disabled={isHard(player)} accessibilityLabel={`${t.reminders.remove}: ${r.text}`} onPress={() => track(setReminders(user.uid, list.filter((x) => x.id !== r.id))).catch(() => {})}
             style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}>
             <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.muted }}>{t.reminders.remove}</Text>
           </Pressable>
@@ -268,7 +332,6 @@ export default function Settings({ user, player, synced }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const [name, setName] = useState(player.name ?? "");
-  const [quotes, setQuotes] = useState(false);
   const [feedback, setFeedback] = useState(false);
   const [gymOpen, setGymOpen] = useState(false);
   const [schedOpen, setSchedOpen] = useState(false);
@@ -313,20 +376,19 @@ export default function Settings({ user, player, synced }) {
         <Tune user={user} player={player} />
       </Section>
 
-      <Section title={t.quote.section} sub={t.quote.sectionSub}>
-        <SysButton label={t.quote.open} onPress={() => setQuotes(true)} />
+      <Section title={t.hard.title} sub={t.hard.sub}>
+        <HardMode user={user} player={player} />
       </Section>
-      {quotes ? <QuoteLibrary mine={player.profile?.schools ?? []} favs={player.favQuotes ?? []}
-        onStar={(id) => toggleFavQuote(user.uid, id, !(player.favQuotes ?? []).includes(id)).catch(() => {})} onClose={() => setQuotes(false)} /> : null}
 
       <Section title={t.settings.system}>
         <View style={{ gap: 8 }}>
           <Label>{t.settings.urgent.toUpperCase()}</Label>
-          <UrgentChips value={player.urgentPerDay ?? URGENT.defaultPerDay} onChange={(n) => track(setUrgentPerDay(user.uid, n)).catch(() => {})} />
+          <UrgentChips value={player.urgentPerDay ?? URGENT.defaultPerDay} onChange={(n) => { if (!isHard(player)) track(setUrgentPerDay(user.uid, n)).catch(() => {}); }} />
         </View>
         <View style={{ gap: 8 }}>
           <Label>{t.settings.severity.toUpperCase()}</Label>
-          <SeverityChips value={pendingSeverity ?? severity} onChange={(s) => track(scheduleSeverity(user.uid, s)).catch(() => {})} />
+          <SeverityChips value={pendingSeverity ?? severity} onChange={(s) => { if (!isHard(player)) track(scheduleSeverity(user.uid, s)).catch(() => {}); }} />
+          {isHard(player) ? <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{t.hard.settingsLocked}</Text> : null}
           {pendingSeverity ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: color.frame }}>{fill(t.settings.severityNext, { sev: t.penalty.severities[pendingSeverity] })}</Text> : null}
         </View>
       </Section>

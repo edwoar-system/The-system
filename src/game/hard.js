@@ -2,6 +2,7 @@
 // your Tune the System answers and quest swaps are locked, reminders come every hour, and late app time costs more.
 // The only ways out early: pay coins (more the more days are left) or burn a streak shield.
 export const HARD_DAYS = [3, 7, 14, 30, 60];
+export const HARD_MAX_DAYS = 90;
 export const HARD_EXIT_PER_DAY = 40;
 export const HARD_EXIT_MIN = 100;
 const DAY = 86400000;

@@ -8,6 +8,7 @@ import { RANKS } from "../game/ladders";
 import { skillView } from "../game/skills";
 import { Coins, Frame, Label, SysButton } from "./sys";
 import { swapPrice } from "../game/shop";
+import { isHard } from "../game/hard";
 import { todayKey } from "../game/quests";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
@@ -254,7 +255,9 @@ export default function QuestSheet({ user, player, questId, slot, done, onClose,
             ) : (
               <SysButton label={q.trial ? t.sheet.completeTrial : t.sheet.complete} onPress={complete} disabled={busy} />
             )}
-            {slot === "main" && !done ? (
+            {slot === "main" && !done && isHard(player) ? (
+              <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted, textAlign: "center" }}>{t.hard.noSwap}</Text>
+            ) : slot === "main" && !done ? (
               <Pressable accessibilityRole="button" disabled={busy} onPress={swap} style={{ minHeight: 44, alignItems: "center", justifyContent: "center" }}>
                 <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.muted }}>
                   {swapCost ? fill(t.sheet.swapCost, { n: swapCost }) : t.sheet.swapFree}
