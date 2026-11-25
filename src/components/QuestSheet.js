@@ -11,7 +11,9 @@ import { swapPrice } from "../game/shop";
 import { todayKey } from "../game/quests";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
-import { doneFeel } from "../lib/haptics";
+import { doneFeel, tapFeel } from "../lib/haptics";
+import { quickReps, quickTarget, quickToday, setItemFor } from "../game/quick";
+import { quickLog } from "../lib/quick";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 const ROMAN = ["I", "II", "III"];
@@ -46,6 +48,58 @@ function Step({ label, onPress }) {
   );
 }
 
+// Set-based quests: log each set when you finish it. It counts for the skill and muscles right away,
+// and the quest finishes by itself when the sets are done.
+function SetsPanel({ user, player, item, day, onFinished }) {
+  const { color, font } = useTheme();
+  const reps = quickReps(player)[item.id] ?? [];
+  const n = quickToday(player)[item.id] ?? 0;
+  const target = quickTarget(item, day);
+  const goal = target?.goal ?? item.goal;
+  const [now, setNow] = useState(reps[reps.length - 1] ?? 10);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  async function log() {
+    setBusy(true);
+    setErr(null);
+    try {
+      const r = await quickLog(user.uid, item.id, now);
+      if (r.completed) { doneFeel(); onFinished(r.completed); } else tapFeel();
+    } catch {
+      setErr(t.sheet.failed);
+    } finally { setBusy(false); }
+  }
+  return (
+    <Frame cut={12} contentStyle={{ padding: 14, gap: 12 }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
+        <Label tone={color.hi}>{t.sheet.sets}</Label>
+        <Text style={{ fontFamily: font.num, fontSize: 16, color: "#FFFFFF" }}>{Math.min(n, goal)}<Text style={{ fontSize: 13, color: color.muted }}> / {goal}</Text></Text>
+      </View>
+      <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 19, color: "#CAD6EC" }}>{t.sheet.whatSet}</Text>
+      {reps.length ? (
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+          {reps.map((r, i) => (
+            <View key={i} style={{ paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: "rgba(159,203,255,0.25)" }}>
+              <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: color.text }}>{fill(t.sheet.setN, { n: i + 1, reps: r })}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <Step label="−" onPress={() => setNow((c) => Math.max(1, c - 1))} />
+        <View style={{ alignItems: "center" }}>
+          <Text accessibilityLiveRegion="polite" style={{ fontFamily: font.num, fontSize: 48, lineHeight: 52, color: "#FFFFFF", fontVariant: ["tabular-nums"] }}>{now}</Text>
+          <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{t.sheet.repsThisSet}</Text>
+        </View>
+        <Step label="+" onPress={() => setNow((c) => c + 1)} />
+      </View>
+      <SysButton label={fill(t.sheet.logSet, { n: n + 1 })} onPress={log} disabled={busy} />
+      <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{target ? t.sheet.setsFinish : t.sheet.setsCount}</Text>
+      {err ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: color.dangerSoft }}>{err}</Text> : null}
+    </Frame>
+  );
+}
+
 // slot: "main" | "guild" | "trial" | "start". done: already completed today.
 export default function QuestSheet({ user, player, questId, slot, done, onClose, onResult, onOpenSkill }) {
   const { color, font } = useTheme();
@@ -72,6 +126,8 @@ export default function QuestSheet({ user, player, questId, slot, done, onClose,
   const reward = rewardPreview(day, questId, player.profile);
   const skill = q.skill ? skillById[q.skill] : null;
   const v = q.skill && skill ? skillView(q.skill, player.skills?.[q.skill]) : null;
+  const setItem = setItemFor(q);
+  const setsLogged = setItem ? quickToday(player)[setItem.id] ?? 0 : 0;
 
   const kicker = [q.stat, skill?.name?.toUpperCase(),
     q.trial ? fill(t.sheet.trial, { rank: RANKS[q.trial.rank] }) : v ? fill(t.sheet.rank, { rank: v.letter }) : null,
@@ -100,7 +156,8 @@ export default function QuestSheet({ user, player, questId, slot, done, onClose,
     setError(null);
     const log = mode === "count" && count > 0 ? { value: count, unit: "reps" } : mode === "timer" && seconds >= 1 ? { value: Math.round(seconds), unit: "seconds" } : null;
     try {
-      const r = await completeQuest(user.uid, questId, slot, log);
+      // Sets already logged counted their minutes; don't count them twice.
+      const r = await completeQuest(user.uid, questId, slot, setItem ? null : log, setsLogged ? { quick: true } : {});
       doneFeel();
       onResult?.(r);
       onClose();
@@ -146,7 +203,9 @@ export default function QuestSheet({ user, player, questId, slot, done, onClose,
               </View>
             </View>
 
-            {!done ? (
+            {!done && setItem ? (
+              <SetsPanel user={user} player={player} item={setItem} day={day} onFinished={(r) => { onResult?.(r); onClose(); }} />
+            ) : !done ? (
               <Frame cut={12} contentStyle={{ padding: 14, gap: 12 }}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
                   <Label tone={color.hi}>{t.sheet.log}</Label>

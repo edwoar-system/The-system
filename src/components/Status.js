@@ -243,8 +243,8 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
         </Frame>
       </Pressable>
 
-      <BodyCard player={player} />
       <HabitsCard user={user} player={player} />
+      <BodyCard player={player} />
 
       {player.setupLocked && onOpenSettings ? <TunePrompt profile={player.profile} onPress={onOpenSettings} /> : null}
 

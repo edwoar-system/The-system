@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Polygon } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { completeQuest, currentDay, getQuest, rewardPreview } from "../lib/day";
-import { questById, SIDE_BONUS } from "../game/quests";
+import { START_PARTS, completeQuest, currentDay, getQuest, rewardPreview, tickStart } from "../lib/day";
+import { quickLog } from "../lib/quick";
+import { SIDE_BONUS } from "../game/quests";
 import Guild from "./Guild";
 import { requestUrgent } from "../lib/urgent";
 import { ECONOMY } from "../game/economy";
@@ -182,6 +183,27 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
     }
   }
 
+  // Start of the day: tick the bed and the water. The glass of water also counts as a quick log (water habit and quest).
+  async function tickPart(part) {
+    setBusy(true);
+    try {
+      const ticks = await tickStart(user.uid, part);
+      if (part === "water") {
+        const w = await quickLog(user.uid, "water").catch(() => null);
+        if (w?.completed) onResult(w.completed, w.completedQuest);
+      }
+      if (START_PARTS.every((p) => ticks[p])) {
+        const r = await completeQuest(user.uid, "start", "start");
+        doneFeel();
+        onResult(r, "start");
+      }
+    } catch (e) {
+      if (e.message !== "already-done") showToast({ error: true });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (guild) return <Guild user={user} player={player} onClose={() => setGuild(false)} onAccepted={(id) => { setGuild(false); setSheet({ id, slot: "guild" }); }} />;
 
   return (
@@ -205,13 +227,21 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
         </View>
 
         {!day.start.done ? (
-          <Frame style={{ marginTop: 14, marginHorizontal: 14 }} cut={10} contentStyle={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8, paddingLeft: 16, paddingRight: 8 }}>
-            <View style={{ flex: 1, gap: 3 }}>
-              <Label tone={color.accent}>{t.board.start}</Label>
-              <Text style={{ fontFamily: font.bodyMedium, fontSize: 15, color: color.text }}>{questById.start.title}</Text>
-            </View>
-            <HexCheck size={34} disabled={busy} onPress={() => complete("start", "start")}
-              label={fill(t.board.markDone, { title: questById.start.title })} />
+          <Frame style={{ marginTop: 14, marginHorizontal: 14 }} cut={10} contentStyle={{ paddingVertical: 10, paddingHorizontal: 16, gap: 6 }}>
+            <Label tone={color.accent}>{t.board.start}</Label>
+            {START_PARTS.map((part) => {
+              const on = !!day.startTicks?.[part];
+              return (
+                <View key={part} style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 44 }}>
+                  <View style={{ flex: 1, gap: 1 }}>
+                    <Text style={{ fontFamily: font.bodyMedium, fontSize: 15, color: on ? color.muted : color.text }}>{t.board.startParts[part]}</Text>
+                    {part === "water" && !on ? <Text style={{ fontFamily: font.body, fontSize: 11, color: color.muted }}>{t.board.startWater}</Text> : null}
+                  </View>
+                  <HexCheck size={30} done={on} disabled={busy || on} onPress={() => tickPart(part)}
+                    label={fill(on ? t.board.isDone : t.board.markDone, { title: t.board.startParts[part] })} />
+                </View>
+              );
+            })}
           </Frame>
         ) : null}
 

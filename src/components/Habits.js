@@ -11,6 +11,8 @@ import {
   nextMilestone, screenDays, sleepNights, sleepSummary, tracked, weekPct,
 } from "../game/habits";
 import { getQuest } from "../lib/day";
+import { quickById } from "../game/quick";
+import { quickLog } from "../lib/quick";
 import { addCustomCheck, addQuit, logCheck, logHabit, logScreen, logSleep, removeQuit, setTracked, slipQuit, takeRedemption } from "../lib/habits";
 import { doneFeel, tapFeel } from "../lib/haptics";
 import { Frame, Glow, Label, SysButton } from "./sys";
@@ -340,21 +342,43 @@ export function HabitsCard({ user, player }) {
   const best = [...(player.quits ?? [])].sort((a, b) => cleanDays(b) - cleanDays(a))[0];
   const hour = new Date().getHours() + new Date().getMinutes() / 60;
   const needSleep = !player.sleepLog?.[todayKey()] && hour >= dayTimes(player.profile).wake && hour < 14;
+  // Tap a habit to tick it for today. Water and walk count as a quick log too (a glass, 10 minutes),
+  // so the habit, the skill and today's quest all move together.
+  const [busyId, setBusyId] = useState(null);
+  async function tick(id) {
+    if (busyId) return;
+    setBusyId(id);
+    try {
+      if (id === "sleep") { setOpen("sleep"); return; }
+      if (quickById[id]) await quickLog(user.uid, id);
+      else if (isCheck(id, player)) await logCheck(user.uid, id);
+      else await logHabit(user.uid, id);
+      tapFeel();
+    } catch {
+      // Stays unticked; tapping again retries.
+    } finally {
+      setBusyId(null);
+    }
+  }
   return (
     <>
       <Pressable accessibilityRole="button" onPress={() => setOpen(needSleep ? "sleep" : "habits")} style={({ pressed }) => ({ marginTop: 12, marginHorizontal: 14, opacity: pressed ? 0.85 : 1 })}>
         <Frame cut={14} contentStyle={{ padding: 16, gap: 10 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
             <Label tone={color.hi}>{t.habits.cardTitle}</Label>
+            <Text style={{ flex: 1, marginLeft: 10, fontFamily: font.body, fontSize: 11, color: color.muted }}>{t.habits.cardHint}</Text>
             <Text style={{ fontFamily: font.num, fontSize: 18, color: "#FFFFFF" }}>{done}<Text style={{ fontSize: 14, color: color.muted }}> / {list.length}</Text></Text>
           </View>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
             {list.map((id) => {
               const on = doneOn(id);
               return (
-                <View key={id} style={{ paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: on ? color.purple : "rgba(159,203,255,0.18)", backgroundColor: on ? "rgba(168,126,255,0.15)" : "transparent" }}>
-                  <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: on ? "#FFFFFF" : color.muted }}>{habitName(player, id)}</Text>
-                </View>
+                <Pressable key={id} accessibilityRole="button" accessibilityState={{ checked: on, busy: busyId === id }}
+                  accessibilityLabel={fill(on ? t.habits.chipDone : t.habits.chipTap, { name: habitName(player, id) })}
+                  onPress={() => (on ? setOpen("habits") : tick(id))}
+                  style={({ pressed }) => ({ minHeight: 36, justifyContent: "center", paddingHorizontal: 10, borderWidth: 1, borderColor: on ? color.purple : "rgba(159,203,255,0.3)", backgroundColor: on ? "rgba(168,126,255,0.15)" : pressed || busyId === id ? "rgba(159,203,255,0.18)" : "transparent" })}>
+                  <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: on ? "#FFFFFF" : color.text }}>{on ? "✓ " : "+ "}{habitName(player, id)}</Text>
+                </Pressable>
               );
             })}
           </View>

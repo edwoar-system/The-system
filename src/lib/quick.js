@@ -3,7 +3,7 @@
 import { deleteField, doc, runTransaction, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
 import { completeQuest, currentDay } from "./day";
-import { QUICK_XP_PER_MINUTE, quickById, quickTarget, quickToday } from "../game/quick";
+import { QUICK_XP_PER_MINUTE, quickById, quickReps, quickTarget, quickToday } from "../game/quick";
 import { todayKey } from "../game/quests";
 import { skillById } from "../game/guild";
 import { ladderById } from "../game/ladders";
@@ -15,13 +15,21 @@ import { levelFromXp } from "../game/economy";
 const ref = (uid) => doc(db, "players", uid);
 
 // Today's counts, with yesterday's keys deleted (merge writes keep old map keys otherwise).
-function countsWrite(player, counts) {
+function countsWrite(player, counts, reps = null) {
   const out = { ...counts };
-  if (player.quick?.date !== todayKey()) Object.keys(player.quick?.counts ?? {}).forEach((k) => { if (!(k in out)) out[k] = deleteField(); });
-  return { date: todayKey(), counts: out };
+  const stale = player.quick?.date !== todayKey();
+  if (stale) Object.keys(player.quick?.counts ?? {}).forEach((k) => { if (!(k in out)) out[k] = deleteField(); });
+  const w = { date: todayKey(), counts: out };
+  if (reps) {
+    const r = { ...reps };
+    if (stale) Object.keys(player.quick?.reps ?? {}).forEach((k) => { if (!(k in r)) r[k] = deleteField(); });
+    w.reps = r;
+  } else if (stale && player.quick?.reps) w.reps = deleteField();
+  return w;
 }
 
-export async function quickLog(uid, itemId) {
+// reps: for a set, how many reps it had (shown in the quest's set list).
+export async function quickLog(uid, itemId, reps = null) {
   const item = quickById[itemId];
   if (!item) throw new Error("unknown-item");
   const skill = skillById[item.skill];
@@ -32,6 +40,8 @@ export async function quickLog(uid, itemId) {
     const today = dayNum(todayKey());
     const counts = { ...quickToday(player) };
     counts[itemId] = (counts[itemId] ?? 0) + 1;
+    const repsToday = { ...quickReps(player) };
+    if (reps != null) repsToday[itemId] = [...(repsToday[itemId] ?? []), reps];
 
     // Skill: minutes and a training day (habit skills can rank up from this too).
     let entry = recordTraining(player.skills?.[item.skill], item.minutes, today);
@@ -48,7 +58,7 @@ export async function quickLog(uid, itemId) {
     const after = levelFromXp(totalXp).level;
 
     tx.set(ref(uid), {
-      quick: countsWrite(player, counts),
+      quick: countsWrite(player, counts, reps != null ? repsToday : null),
       skills: { ...(player.skills ?? {}), [item.skill]: { ...entry, recent } },
       ...(trained ? trained.fields : {}),
       xp: totalXp,
@@ -83,6 +93,8 @@ export async function quickUndo(uid, itemId) {
     const counts = { ...quickToday(player) };
     if (!counts[itemId]) return null;
     counts[itemId] -= 1;
+    const repsToday = { ...quickReps(player) };
+    if (repsToday[itemId]?.length) repsToday[itemId] = repsToday[itemId].slice(0, -1);
     const e = player.skills?.[item.skill];
     const today = dayNum(todayKey());
     const fix = e ? {
@@ -93,7 +105,7 @@ export async function quickUndo(uid, itemId) {
         recent: { ...(e.recent ?? {}), [today]: Math.max(0, (e.recent?.[today] ?? 0) - item.minutes) },
       } },
     } : {};
-    tx.set(ref(uid), { quick: countsWrite(player, counts), ...fix, updatedAt: serverTimestamp() }, { merge: true });
+    tx.set(ref(uid), { quick: countsWrite(player, counts, repsToday), ...fix, updatedAt: serverTimestamp() }, { merge: true });
     return counts[itemId];
   });
 }

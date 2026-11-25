@@ -139,6 +139,19 @@ export async function swapMain(uid, questId) {
   });
 }
 
+// The start-the-day quest is a short checklist: tick each part; returns the ticks so far.
+export const START_PARTS = ["bed", "water"];
+export async function tickStart(uid, part) {
+  const ref = doc(db, "players", uid);
+  return runTransaction(db, async (tx) => {
+    const player = (await tx.get(ref)).data() ?? {};
+    const day = player.day?.date === todayKey() ? player.day : newDay(player, uid);
+    const ticks = { ...(day.startTicks ?? {}), [part]: true };
+    tx.set(ref, { day: { ...day, startTicks: ticks }, updatedAt: serverTimestamp() }, { merge: true });
+    return ticks;
+  });
+}
+
 // Puts a guild quest on today's board.
 export async function acceptQuest(uid, questId) {
   const q = getQuest(questId);

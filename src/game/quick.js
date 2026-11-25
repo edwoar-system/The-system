@@ -23,11 +23,27 @@ export const goalFor = (item, questId) => (typeof item.goal === "number" ? item.
 // Today's tap counts: { itemId: n }.
 export const quickToday = (player) => (player?.quick?.date === todayKey() ? player.quick.counts ?? {} : {});
 
+// Guild quests for the same skill count too ("g:pushups", "g:pushups:2").
+const isGuildOf = (item, id) => id === `g:${item.skill}` || id.startsWith(`g:${item.skill}:`);
+// Sets per guild tier (tier 0, I, II), matching the quest text.
+const SET_GOALS = { pushups: [5, 9, 6], pullups: [5, 7, 5] };
+function goalOf(item, id) {
+  if (!isGuildOf(item, id)) return goalFor(item, id);
+  const tier = Number(id.split(":")[2] ?? 0);
+  return SET_GOALS[item.id]?.[tier] ?? (typeof item.goal === "number" ? item.goal : 1);
+}
+
 // The open main quest this item counts toward today, if any.
 export function quickTarget(item, day) {
-  const open = day?.mains?.find((m) => !m.done && questsOf(item).includes(m.id));
-  return open ? { questId: open.id, goal: goalFor(item, open.id) } : null;
+  const open = day?.mains?.find((m) => !m.done && (questsOf(item).includes(m.id) || isGuildOf(item, m.id)));
+  return open ? { questId: open.id, goal: goalOf(item, open.id) } : null;
 }
+
+// Set-based quests (push-ups, pull-ups): the quick item that logs one set, or null.
+export const setItemFor = (q) => (q && !q.trial ? QUICK.find((it) => it.goalUnit === "sets" && it.skill === q.skill) ?? null : null);
+
+// Reps of each set logged today: { itemId: [12, 10, ...] }.
+export const quickReps = (player) => (player?.quick?.date === todayKey() ? player.quick.reps ?? {} : {});
 
 // Which buttons to show: items for today's open main quests first, then water, push-ups and a focus block.
 export function quickBar(day) {
