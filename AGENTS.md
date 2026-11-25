@@ -58,3 +58,14 @@ Docs: https://docs.expo.dev/eas/index.md
 - New work goes to the `dev` branch. A push to dev rebuilds the websites: the live site (`/The-system`) from main and the test site (`/The-system/test`, with a TEST VERSION label) from dev. The iPhone app is not touched.
 - "Ship it" = merge dev into main (fast-forward). That updates the live website and sends the over-the-air update to the iPhone.
 - The test site uses the same Firebase project and login as the live app, so test with care: it reads and writes real player data.
+
+## Design principles (from Atomic Habits, Tiny Habits, The Power of Habit, Hooked, How to Change, Octalysis, self-determination theory)
+The app exists to make people do the thing. Every screen and feature should be checked against these:
+1. **Obvious (cue).** The first thing on the quest screen answers "what do I do now?". Quests carry a when/where ("after school, at home"): if-then plans roughly double follow-through (Gollwitzer & Sheeran 2006, d ≈ .65). Stack new habits on old ones ("after I brush my teeth…").
+2. **Easy (ability).** Depth goes into the systems, never into the tap: logging anything is one tap. Every habit has a tiny version (2-minute rule) for bad days. Remove steps before adding features.
+3. **Attractive (craving).** Identity first: each quest is a vote for who you are becoming ("+1 vote: Reader"). Pair hard quests with something liked (temptation bundling). Use fresh starts (Monday, the 1st, a birthday) to begin new things.
+4. **Satisfying (reward).** Celebrate right away (Fogg's "shine"): a quest clear must feel good within a second (window, sound, haptic, numbers counting up). Some rewards are variable (a rare drop), most are earned and predictable.
+5. **Forgiving streaks.** Missing one day does not hurt habit forming (Lally 2010, ~66 days on average, range 18–254). Rule: never miss twice. Shields/tiny versions keep a streak; a broken streak must never feel like the end.
+6. **White hat over black hat (Octalysis).** Meaning, progress and choice keep people for years; pressure (penalties, scarcity, fear of loss) only sparks action. Use pressure sparingly (Hard mode, urgent quests) and always opt-in.
+7. **Autonomy, competence, relatedness (SDT).** Let people choose between options, keep challenge just above their level (Goldilocks: adapt to completion rate), and do things with friends.
+8. **Show state.** Buffs, streaks and progress the player earned must be visible where they play (the quest screen), not buried in a menu.
