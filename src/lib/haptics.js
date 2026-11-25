@@ -12,6 +12,8 @@ const SOURCES = {
   saved: require("../../assets/sounds/saved.wav"),
   done: require("../../assets/sounds/done.wav"),
   lock: require("../../assets/sounds/lock.wav"),
+  clear: require("../../assets/sounds/clear.wav"),
+  loot: require("../../assets/sounds/loot.wav"),
 };
 const players = {};
 let modeSet = false;
@@ -30,3 +32,9 @@ export function tapFeel() { buzz(() => Haptics.impactAsync(Haptics.ImpactFeedbac
 export function savedFeel() { buzz(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)); play("saved", 0.45); }
 export function doneFeel() { buzz(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)); play("done", 0.55); }
 export function lockFeel() { buzz(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)); play("lock", 0.6); }
+// A quest cleared with the big window, and loot dropping out of it.
+export function clearFeel() { buzz(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)); play("clear", 0.6); }
+export function lootFeel(rare = false) {
+  buzz(() => Haptics.impactAsync(rare ? Haptics.ImpactFeedbackStyle.Heavy : Haptics.ImpactFeedbackStyle.Medium));
+  play("loot", rare ? 0.75 : 0.55);
+}

@@ -1,7 +1,7 @@
 // The System window that slides in at the top: "[ SYSTEM ]", a title, a line or two and maybe a bar.
 // Tap it to close; it also closes by itself after a few seconds.
 import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, Text, View } from "react-native";
+import { Animated, Easing, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { onSystem } from "../lib/popup";
 import { nativeDriver } from "./sys";
@@ -13,13 +13,23 @@ export default function SystemPopup() {
   const insets = useSafeAreaInsets();
   const [msg, setMsg] = useState(null);
   const anim = useRef(new Animated.Value(0)).current;
+  const wide = useRef(new Animated.Value(0)).current; // the window opens from a line of light
+  const flick = useRef(new Animated.Value(0)).current; // then its text flickers on
   const timer = useRef(null);
 
   useEffect(() => onSystem((m) => {
     clearTimeout(timer.current);
     setMsg(m);
     anim.setValue(0);
-    Animated.spring(anim, { toValue: 1, useNativeDriver: nativeDriver, friction: 7 }).start();
+    wide.setValue(0);
+    flick.setValue(0);
+    Animated.parallel([
+      Animated.spring(anim, { toValue: 1, useNativeDriver: nativeDriver, friction: 7 }),
+      Animated.sequence([
+        Animated.timing(wide, { toValue: 1, duration: 200, easing: Easing.out(Easing.cubic), useNativeDriver: nativeDriver }),
+        Animated.sequence([0.8, 0.2, 1, 0.5, 1].map((v, i) => Animated.timing(flick, { toValue: v, duration: i === 4 ? 100 : 40, useNativeDriver: nativeDriver }))),
+      ]),
+    ]).start();
     timer.current = setTimeout(() => hide(), 3800);
   }), []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -33,10 +43,11 @@ export default function SystemPopup() {
   const pct = msg.bar ? Math.max(0, Math.min(1, msg.bar.value / msg.bar.max)) : 0;
   return (
     <Animated.View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, top: insets.top + 10, alignItems: "center", zIndex: 50,
-      opacity: anim, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }, { scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }] }}>
+      opacity: anim, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }, { scaleX: wide.interpolate({ inputRange: [0, 1], outputRange: [0.05, 1] }) }] }}>
       <Pressable accessibilityRole="alert" accessibilityLabel={[msg.title, ...(msg.lines ?? [])].join(". ")} onPress={hide}
         style={{ width: "92%", maxWidth: 420, borderWidth: 1, borderColor: tone, backgroundColor: "rgba(4,10,24,0.97)", paddingVertical: 12, paddingHorizontal: 16, gap: 6,
           shadowColor: tone, shadowOpacity: 0.6, shadowRadius: 18 }}>
+        <Animated.View style={{ opacity: flick, gap: 6 }}>
         <Text style={{ fontFamily: font.bold, fontSize: 11, letterSpacing: 3, color: tone, textAlign: "center" }}>{t.popup.system}</Text>
         <Text style={{ fontFamily: font.bold, fontSize: 18, color: "#FFFFFF", textAlign: "center" }}>{msg.title}</Text>
         {msg.bar ? (
@@ -50,6 +61,7 @@ export default function SystemPopup() {
         {(msg.lines ?? []).map((l, i) => (
           <Text key={i} style={{ fontFamily: i === 0 ? font.bodyMedium : font.body, fontSize: 13, lineHeight: 18, color: i === 0 ? color.text : color.muted, textAlign: "center" }}>{l}</Text>
         ))}
+        </Animated.View>
       </Pressable>
     </Animated.View>
   );

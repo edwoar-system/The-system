@@ -85,6 +85,11 @@ export function patchProfile(uid, patch) {
 }
 
 // Turns one kind of notification on or off (see game/notify.js).
+// The quick-log buttons you pinned (ids from game/quick.js).
+export function setQuickPins(uid, pins) {
+  return updateDoc(doc(db, "players", uid), { quickPins: pins, updatedAt: serverTimestamp() });
+}
+
 export function setDifficulty(uid, d) {
   return updateDoc(doc(db, "players", uid), { difficulty: d, updatedAt: serverTimestamp() });
 }

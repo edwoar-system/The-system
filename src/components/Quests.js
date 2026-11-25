@@ -1,7 +1,6 @@
 // Quest board (design v0.1, version B): one System window with today's goals, the reward and the penalty warning.
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Modal, Pressable, ScrollView, Text, View } from "react-native";
-import Svg, { Polygon } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { END_PARTS, FREE_FIT_SWAPS, START_PARTS, boardSource, buyExtraTime, refreshOpenMains, completeQuest, currentDay, getQuest, rewardPreview, swapToFit, tickStart } from "../lib/day";
 import { useSituation } from "../lib/location";
@@ -27,6 +26,8 @@ import GymSession from "./GymSession";
 import Schedule from "./Schedule";
 import { busyBlocks, hhmm, suggestTimes } from "../game/schedule";
 import QuickLog from "./QuickLog";
+import Hud from "./Hud";
+import { showClear } from "../lib/popup";
 import { QUICK, goalFor, quickToday } from "../game/quick";
 import { dayNum, trialQuestId, trialState, weekNum } from "../game/skills";
 import { dutiesToday, dutyDay } from "../game/profile";
@@ -58,26 +59,6 @@ function useDeadline() {
   return `${pad(Math.floor(left / 3600))}:${pad(Math.floor(left / 60) % 60)}:${pad(left % 60)}`;
 }
 
-// One of the three raised hexagons at the top: a main quest's stat, lit when it's done.
-function QuestHex({ stat, done }) {
-  const { color, font } = useTheme();
-  return (
-    <View style={{ width: 92, height: 100, alignItems: "center" }}>
-      <Svg width={92} height={96}>
-        <Polygon points="46,79 76,62 76,72 46,89" fill={done ? "rgba(150,200,255,0.45)" : "rgba(150,200,255,0.14)"} />
-        <Polygon points="46,79 16,62 16,72 46,89" fill={done ? "rgba(150,200,255,0.3)" : "rgba(150,200,255,0.08)"} />
-        <Polygon points="46,9 76,26 76,62 46,79 16,62 16,26" fill={done ? "rgba(111,168,238,0.6)" : "rgba(8,16,32,0.95)"}
-          stroke={done ? color.hi : "rgba(159,203,255,0.5)"} strokeWidth={1.5} />
-        <Polygon points="46,21 66,32.5 66,55.5 46,67 26,55.5 26,32.5" fill="none"
-          stroke={done ? "rgba(255,255,255,0.5)" : "rgba(159,203,255,0.25)"} strokeWidth={1} strokeDasharray="2 3" />
-      </Svg>
-      <View style={{ position: "absolute", top: 30, left: 0, right: 0, alignItems: "center" }}>
-        <Text style={{ fontFamily: font.bold, fontSize: 16, letterSpacing: 1, color: done ? "#FFFFFF" : color.muted }}>{stat}</Text>
-        <Text style={{ fontFamily: font.bold, fontSize: 10, color: done ? color.hi : color.muted }}>{done ? t.board.clear : t.board.open}</Text>
-      </View>
-    </View>
-  );
-}
 
 function GoalRow({ questId, done, busy, onDone, onOpen, last, quick, time, notice }) {
   const { color, font } = useTheme();
@@ -119,6 +100,52 @@ function GoalRow({ questId, done, busy, onDone, onOpen, last, quick, time, notic
     </View>
   );
 }
+
+// The one quest to do now: the first open main quest that fits where you are, in the order of today's free time.
+// "What do I do now?" is answered before anything else on the screen.
+function NowCard({ questId, time, nowHour, reward, quickItem, quick, notice, busy, onStart, onDone, onQuick }) {
+  const { color, font } = useTheme();
+  const q = getQuest(questId);
+  if (!q) return null;
+  const when = time == null || time <= nowHour + 0.25 ? t.now.freeNow : fill(t.schedule.around, { time: hhmm(time) });
+  return (
+    <Frame kind="premium" cut={16} corners style={{ marginTop: 12, marginHorizontal: 14 }} contentStyle={{ padding: 16, gap: 10 }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
+        <Label tone={color.accent} style={{ letterSpacing: 4, fontSize: 12 }}>{t.now.title}</Label>
+        <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: color.muted }}>{when}</Text>
+      </View>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <HexBadge w={38} h={42} label={q.stat} labelSize={11} lit />
+        <Pressable accessibilityRole="button" accessibilityHint={t.board.openHint} onPress={onStart} style={({ pressed }) => ({ flex: 1, gap: 4, opacity: pressed ? 0.7 : 1 })}>
+          <Text style={{ fontFamily: font.bold, fontSize: 19, lineHeight: 24, color: "#FFFFFF" }}>{q.title}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{`${t.quests.difficulty[q.difficulty]} · ${fill(t.now.minutes, { n: q.minutes })}`}</Text>
+            <Coins value={reward.coins} sign="+" size={14} />
+            <Text style={{ fontFamily: font.num, fontSize: 14, color: color.accent }}>{`+${reward.xp} ${t.status.exp}`}</Text>
+          </View>
+          {quick ? <Text style={{ fontFamily: font.num, fontSize: 14, color: color.frame }}>{fill(t.board.progressQuick, { a: Math.min(quick.count, quick.goal), b: quick.goal, unit: quick.unit })}</Text> : null}
+        </Pressable>
+      </View>
+      {notice ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, lineHeight: 17, color: "#F6B45A" }}>{notice.text}</Text> : null}
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        {quickItem ? (
+          <Pressable accessibilityRole="button" disabled={busy} onPress={onQuick}
+            style={({ pressed }) => ({ flex: 1, minHeight: 46, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: color.frame, backgroundColor: pressed ? "rgba(159,203,255,0.22)" : "rgba(159,203,255,0.1)" })}>
+            <Text style={{ fontFamily: font.bold, fontSize: 13, letterSpacing: 1, color: "#FFFFFF" }}>{fill(t.now.plusOne, { what: t.now.quickShort[quickItem.id] ?? quickItem.label.toUpperCase() })}</Text>
+          </Pressable>
+        ) : null}
+        <Pressable accessibilityRole="button" disabled={busy} onPress={onStart}
+          style={({ pressed }) => ({ flex: 1, minHeight: 46, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: color.frame, backgroundColor: pressed ? "rgba(159,203,255,0.22)" : "transparent" })}>
+          <Text style={{ fontFamily: font.bold, fontSize: 13, letterSpacing: 2, color: "#FFFFFF" }}>{t.now.start}</Text>
+        </Pressable>
+        <HexCheck size={46} done={false} disabled={busy} onPress={onDone} label={fill(t.board.markDone, { title: q.title })} />
+      </View>
+    </Frame>
+  );
+}
+
+// Morning, afternoon, evening: where a suggested time falls.
+const partOfDay = (h) => (h == null ? "any" : h < 12 ? "morning" : h < 17 ? "afternoon" : "evening");
 
 export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, onOpenCourse }) {
   const { color, font } = useTheme();
@@ -199,6 +226,27 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
   const openRewards = day.mains.filter((m) => !m.done).map((m) => rewardPreview(day, m.id, player.profile));
   const rewardCoins = openRewards.reduce((a, r) => a + r.coins, 0);
   const rewardXp = openRewards.reduce((a, r) => a + r.xp, 0);
+  const [showCleared, setShowCleared] = useState(false);
+  // Quests you do bit by bit all day (water) are never the "Now" quest unless nothing else is left.
+  const allDayIds = new Set(QUICK.filter((it) => it.allDay).flatMap((it) => (Array.isArray(it.quest) ? it.quest : [it.quest])));
+  const nowHour = nowD.getHours() + nowD.getMinutes() / 60;
+  // Open main quests in the order of today's free time; the ones that don't fit where you are go last.
+  const openMains = day.mains.filter((m) => !m.done)
+    .map((m) => ({ ...m, time: times[m.id] ?? null, misfit: !!noticeFor(m.id), allDay: allDayIds.has(m.id) }))
+    .sort((a, b) => (a.misfit - b.misfit) || (a.allDay - b.allDay) || ((a.time ?? 99) - (b.time ?? 99)));
+  const clearedMains = day.mains.filter((m) => m.done);
+  const nowQuest = openMains[0] ?? null;
+  const quickItemFor = (questId) => QUICK.find((it) => (Array.isArray(it.quest) ? it.quest : [it.quest]).includes(questId)) ?? null;
+  async function nowQuick(questId) {
+    const item = quickItemFor(questId);
+    if (!item || busy) return;
+    setBusy(true);
+    try {
+      const r = await quickLog(user.uid, item.id);
+      if (r.completed) onResult(r.completed, r.completedQuest ?? questId);
+      else tapFeel();
+    } catch { showToast({ error: true }); } finally { setBusy(false); }
+  }
 
   function showToast(next) {
     setToast(next);
@@ -211,23 +259,26 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
   }
 
   function onResult(r, questId) {
-    showToast({ coins: r.coins + r.bonus, bonus: r.bonus, xp: r.xp });
-    if (r.levelUp) setLevelUp({ level: r.levelUp, xp: (player.xp ?? 0) + r.xp, coins: r.coins + r.bonus });
     const q = getQuest(questId);
-    const proof = needsProof(player, r.slot);
-    const ask = ASK_SLOTS.includes(r.slot);
-    if ((proof || ask) && r.logId) setCheck({ logId: r.logId, title: q?.title ?? "", proof, ask });
-    if (r.muscles) setBody({ ...r.muscles, skillId: q?.skill, skillName: skillById[q?.skill]?.name ?? "" });
-    if (r.skillUp) setRankUp({ letter: RANKS[r.skillUp.rank], name: skillById[r.skillUp.id]?.name ?? "", xp: r.skillUp.xp });
-    else if (r.trialDone && q?.skill) setRankUp({ letter: RANKS[q.trial.rank], name: skillById[q.skill]?.name ?? "", xp: 0, restored: true });
+    // The clear window first; level ups, rank ups, the body report and the check-in follow when it closes
+    // (an iPhone sheet would cover the window otherwise).
+    const next = () => {
+      if (r.levelUp) setLevelUp({ level: r.levelUp, xp: (player.xp ?? 0) + r.xp, coins: r.coins + r.bonus });
+      const proof = needsProof(player, r.slot);
+      const ask = ASK_SLOTS.includes(r.slot);
+      if ((proof || ask) && r.logId) setCheck({ logId: r.logId, title: q?.title ?? "", proof, ask });
+      if (r.muscles) setBody({ ...r.muscles, skillId: q?.skill, skillName: skillById[q?.skill]?.name ?? "" });
+      if (r.skillUp) setRankUp({ letter: RANKS[r.skillUp.rank], name: skillById[r.skillUp.id]?.name ?? "", xp: r.skillUp.xp });
+      else if (r.trialDone && q?.skill) setRankUp({ letter: RANKS[q.trial.rank], name: skillById[q.skill]?.name ?? "", xp: 0, restored: true });
+    };
+    showClear({ title: q?.title ?? r.title, coins: r.coins + r.bonus, bonus: r.bonus, xp: r.xp, streak: r.streak, allClear: r.allClear, loot: r.loot ?? null, then: next });
   }
 
   async function complete(questId, slot) {
     setBusy(true);
     try {
       const r = await completeQuest(user.uid, questId, slot);
-      doneFeel();
-      onResult(r, questId);
+      onResult(r, questId); // the clear window plays its own sound
     } catch (e) {
       if (e.message !== "already-done") showToast({ error: true });
     } finally {
@@ -304,20 +355,14 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
         contentContainerStyle={{ paddingTop: insets.top + 14, paddingBottom: 96, maxWidth: 520, width: "100%", alignSelf: "center" }}>
         <Glow height={440} at={0.26} />
 
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 18 }}>
-          <Label tone={color.hi} style={{ letterSpacing: 5, fontSize: 12 }}>{t.status.system}</Label>
-          <Coins value={player.coins ?? 0} size={18} />
-        </View>
-
-        <View style={{ alignItems: "center", gap: 4, marginTop: 20 }}>
-          <Text accessibilityRole="header" style={{ fontFamily: font.bold, fontSize: 26, letterSpacing: 1, color: "#FFFFFF" }}>{t.board.title}</Text>
-          <Text style={{ fontFamily: font.body, fontSize: 14, color: color.muted }}>{fill(t.board.sub, { n: day.mains.length, pct })}</Text>
-        </View>
+        <Hud user={user} player={player} />
         <SituationLine user={user} player={player} situation={sit} weather={weather} />
 
-        <View style={{ flexDirection: "row", justifyContent: "center", gap: 4, marginTop: 16 }}>
-          {day.mains.map((m) => <QuestHex key={m.id} stat={getQuest(m.id)?.stat ?? "STR"} done={m.done} />)}
-        </View>
+        {nowQuest ? (
+          <NowCard questId={nowQuest.id} time={nowQuest.time} nowHour={nowHour} reward={rewardPreview(day, nowQuest.id, player.profile)}
+            quickItem={quickItemFor(nowQuest.id)} quick={quickFor(nowQuest.id)} notice={noticeFor(nowQuest.id)} busy={busy}
+            onStart={() => setSheet({ id: nowQuest.id, slot: "main", done: false })} onDone={() => complete(nowQuest.id, "main")} onQuick={() => nowQuick(nowQuest.id)} />
+        ) : null}
 
         {!day.start.done ? checklist("start", START_PARTS, day.startTicks) : null}
         {bedtime && !day.end?.done ? checklist("end", END_PARTS, day.endTicks) : null}
@@ -377,10 +422,30 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
             }) : <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{player.schedule?.length || player.calendarOn ? t.schedule.freeLine : t.schedule.setUp}</Text>}
             {busyToday.length > 5 ? <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{fill(t.schedule.more, { n: busyToday.length - 5 })}</Text> : null}
           </Pressable>
-          {day.mains.map((m, i) => (
-            <GoalRow key={m.id} questId={m.id} done={m.done} busy={busy} last={i === day.mains.length - 1} time={times[m.id]}
-              onDone={() => complete(m.id, "main")} onOpen={() => setSheet({ id: m.id, slot: "main", done: m.done })} quick={quickFor(m.id)} notice={noticeFor(m.id)} />
-          ))}
+          {/* The rest of today, by part of the day. The Now quest is on top already. */}
+          {openMains.filter((m) => m.id !== nowQuest?.id).map((m, i, list) => {
+            const part = partOfDay(m.time);
+            const head = i === 0 || partOfDay(list[i - 1].time) !== part;
+            return (
+              <View key={m.id}>
+                {head ? <Text style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 2, fontFamily: font.bold, fontSize: 10, letterSpacing: 3, color: color.muted }}>{t.now.parts[part]}</Text> : null}
+                <GoalRow questId={m.id} done={false} busy={busy} last={i === list.length - 1 && !clearedMains.length} time={m.time}
+                  onDone={() => complete(m.id, "main")} onOpen={() => setSheet({ id: m.id, slot: "main", done: false })} quick={quickFor(m.id)} notice={noticeFor(m.id)} />
+              </View>
+            );
+          })}
+          {nowQuest && openMains.length === 1 ? <Text style={{ paddingHorizontal: 16, paddingVertical: 10, fontFamily: font.body, fontSize: 13, color: color.muted }}>{t.now.onlyOne}</Text> : null}
+          {clearedMains.length ? (
+            <Pressable accessibilityRole="button" accessibilityState={{ expanded: showCleared }} onPress={() => setShowCleared((v) => !v)}
+              style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", minHeight: 44, paddingHorizontal: 16, borderTopWidth: 1, borderTopColor: color.line }}>
+              <Text style={{ fontFamily: font.bold, fontSize: 11, letterSpacing: 2, color: color.purple }}>{fill(t.now.cleared, { n: clearedMains.length })}</Text>
+              <Text style={{ fontFamily: font.bodyBold, fontSize: 14, color: color.muted }}>{showCleared ? "▾" : "▸"}</Text>
+            </Pressable>
+          ) : null}
+          {showCleared ? clearedMains.map((m, i) => (
+            <GoalRow key={m.id} questId={m.id} done busy={busy} last={i === clearedMains.length - 1} time={null}
+              onDone={() => complete(m.id, "main")} onOpen={() => setSheet({ id: m.id, slot: "main", done: true })} quick={quickFor(m.id)} notice={null} />
+          )) : null}
           <View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 8, borderTopWidth: 1, borderTopColor: color.line }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <Label>{t.board.reward}</Label>

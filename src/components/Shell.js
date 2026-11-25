@@ -30,6 +30,7 @@ import { useSituation } from "../lib/location";
 import { useWeather } from "../lib/weather";
 import { useAgendaSync } from "../lib/calendar";
 import SystemPopup from "./SystemPopup";
+import QuestClear from "./QuestClear";
 import ErrorCatcher from "./ErrorCatcher";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
@@ -247,6 +248,7 @@ function ShellBody({ user, state }) {
         {!trollQ.active.length && activeAppTime(player) && !penaltyView ? <AppTimeBanner appTime={player.appTime} /> : null}
         {trollQ.active.length && tab !== "quests" && !penaltyView ? <TrollBanner troll={trollQ.active[0]} player={player} more={trollQ.active.length + trollQ.waiting.length - 1} onPress={() => goTo({ tab: "quests" })} /> : null}
         {trail.length > 0 && !penaltyView ? <BackPill place={trail[trail.length - 1]} onPress={goBack} /> : null}
+        <QuestClear />
         <SystemPopup />
       </View>
       {player && !penaltyView ? <Urgent user={user} player={player} /> : null}

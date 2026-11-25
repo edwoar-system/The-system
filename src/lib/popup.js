@@ -10,3 +10,16 @@ export function onSystem(f) {
   listeners.add(f);
   return () => listeners.delete(f);
 }
+
+// The quest-clear window: rewards counting up, the streak when the board is clear, and loot if any dropped.
+// data: { title, coins, bonus, xp, streak, allClear, loot }
+const clearListeners = new Set();
+export function showClear(data) {
+  // Nobody listening (shouldn't happen): run what comes next straight away.
+  if (!clearListeners.size) { data.then?.(); return; }
+  clearListeners.forEach((f) => f({ ...data, key: Date.now() + Math.random() }));
+}
+export function onClear(f) {
+  clearListeners.add(f);
+  return () => clearListeners.delete(f);
+}

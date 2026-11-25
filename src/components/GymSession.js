@@ -1,7 +1,7 @@
 // In the gym: today's split day. Weight and reps are filled in from last time, so most sets are one tap.
 // Log every set, or one line per exercise (Gym split settings). Closing keeps your sets until you finish.
 import { useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import Svg, { Path, Polygon } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { exerciseById } from "../game/gym";
@@ -58,6 +58,8 @@ function Field({ value, onChange, label, width = 64, placeholder }) {
 }
 
 export default function GymSession({ user, player, questId, slot, onClose, onResult }) {
+  // Close first: the clear window opens once this screen is gone (an iPhone sheet would cover it).
+  const leave = (r) => { onClose(); setTimeout(() => onResult?.(r), Platform.OS === "web" ? 0 : 380); };
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const q = getQuest(questId, player);
@@ -97,7 +99,7 @@ export default function GymSession({ user, player, questId, slot, onClose, onRes
       delete drafts[questId];
       doneFeel();
       if (r.prs?.length) setPrs({ list: r.prs, result: r });
-      else { onResult?.(r); onClose(); }
+      else leave(r);
     } catch (e) {
       setError(e.message === "already-done" ? t.gym.alreadyDone : t.gym.failed);
     } finally {
@@ -107,7 +109,7 @@ export default function GymSession({ user, player, questId, slot, onClose, onRes
 
   if (prs) {
     return (
-      <Modal transparent animationType="fade" visible onRequestClose={() => { onResult?.(prs.result); onClose(); }}>
+      <Modal transparent animationType="fade" visible onRequestClose={() => leave(prs.result)}>
         <View style={{ flex: 1, backgroundColor: "rgba(1,4,10,0.95)", justifyContent: "center", padding: 20 }}>
           <Frame kind="premium" cut={16} style={{ width: "100%", maxWidth: 420, alignSelf: "center" }} contentStyle={{ padding: 18, gap: 12 }}>
             <Label tone={color.hi}>{t.gym.prTitle}</Label>
@@ -117,7 +119,7 @@ export default function GymSession({ user, player, questId, slot, onClose, onRes
                 <Text style={{ fontFamily: font.num, fontSize: 18, color: color.hi }}>{p.w ? `${p.w} kg × ${p.r}` : `${p.r} ${t.gym.reps.toLowerCase()}`}</Text>
               </View>
             ))}
-            <SysButton label={t.gym.continue} onPress={() => { onResult?.(prs.result); onClose(); }} />
+            <SysButton label={t.gym.continue} onPress={() => leave(prs.result)} />
           </Frame>
         </View>
       </Modal>

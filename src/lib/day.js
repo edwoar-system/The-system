@@ -9,10 +9,12 @@ import { dayNum, habitRank, isHabit, passTrial, recordTraining, skillView, SKILL
 import { tierForRank } from "../game/tiers";
 import { dutiesDue, dutyQuest, interestOfSkill, interestSkills, mountainFactor } from "../game/profile";
 import { hitsTired, questLoad, tiredSet } from "../game/muscles";
-import { swapPrice } from "../game/shop";
+import { MAX_SHIELDS, swapPrice } from "../game/shop";
+import { rollLoot } from "../game/loot";
 import { gymToday, splitQuest } from "../game/gym";
 import { EXTRA_STEP, deadlineOf, extraPrice, penaltyDue } from "../game/penalty";
 import { isHard } from "../game/hard";
+import { liveStreak, nextStreak, shieldCover } from "../game/streak";
 import { fitsSituation, isOutdoor } from "../game/effort";
 import { WEATHER_BONUS } from "../game/weather";
 import { effectFactor } from "../game/effects";
@@ -120,16 +122,9 @@ export async function refreshOpenMains(uid) {
   });
 }
 
-function yesterdayKey() {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return todayKey(d);
-}
-
-// The streak still counts if the last full day was today or yesterday.
+// The streak as it stands today (rules in game/streak.js: never miss twice, strict in Hard mode).
 export function currentStreak(player) {
-  const last = player?.lastAllMainsDate;
-  return last === todayKey() || last === yesterdayKey() ? player.streak ?? 0 : 0;
+  return liveStreak(player);
 }
 
 export function currentDay(player, uid) {
@@ -148,10 +143,9 @@ export async function ensureDay(uid) {
     if (player.day?.date === todayKey()) return;
     // Yesterday's board still waiting for the penalty check: leave it, the check runs first.
     if (player.day && penaltyDue(player.day, player)) return;
-    // Streak shield: one missed day (all mains done the day before yesterday, not yesterday) keeps the streak.
-    const twoDaysAgo = todayKey(new Date(Date.now() - 2 * 86400000));
-    const shield = (player.streakShields ?? 0) > 0 && player.lastAllMainsDate === twoDaysAgo && (player.streak ?? 0) > 0
-      ? { streakShields: player.streakShields - 1, lastAllMainsDate: yesterdayKey(), shieldUsed: yesterdayKey() } : {};
+    // Streak shield: covers one missed day more than the rules allow (game/streak.js).
+    const covered = shieldCover(player);
+    const shield = covered ? { streakShields: player.streakShields - 1, lastAllMainsDate: covered, shieldUsed: covered } : {};
     tx.set(ref, { day: newDay(player, uid), ...shield, updatedAt: serverTimestamp() }, { merge: true });
   });
 }
@@ -355,9 +349,13 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
       bonus += allMainsBonus(day.mainCoins);
       day.bonusPaid = true;
       // Streak = days in a row with every main quest done.
-      streak = lastAllMainsDate === yesterdayKey() ? streak + 1 : 1;
+      streak = nextStreak(player, day.date);
       lastAllMainsDate = day.date;
     }
+
+    // Now and then a clear drops loot on top (game/loot.js); at most a few a day.
+    const loot = rollLoot({ seed: `${uid}:${day.date}:${slot}:${questId}`, q, coins, xp, dropsToday: day.loot ?? 0, shields: player.streakShields ?? 0, slot });
+    if (loot) day.loot = (day.loot ?? 0) + 1;
 
     // Skill progress: the quest's minutes count toward its skill.
     let skills = null;
@@ -379,13 +377,14 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
     // Muscles: the quest's load goes into this week's body map and each muscle's fatigue.
     const trained = opts.quick ? null : trainMuscles(player, questLoad(q), weekNum(today));
 
-    const totalXp = (player.xp ?? 0) + xp + (skillUp?.xp ?? 0);
+    const totalXp = (player.xp ?? 0) + xp + (skillUp?.xp ?? 0) + (loot?.xp ?? 0);
     const before = levelFromXp(player.xp ?? 0).level;
     const after = levelFromXp(totalXp).level;
 
     tx.set(ref, {
       day,
-      coins: (player.coins ?? 0) + coins + bonus,
+      coins: (player.coins ?? 0) + coins + bonus + (loot?.coins ?? 0),
+      ...(loot?.shield ? { streakShields: Math.min(MAX_SHIELDS, (player.streakShields ?? 0) + loot.shield) } : {}),
       xp: totalXp,
       level: after,
       statXp: { ...(player.statXp ?? {}), [q.stat]: (player.statXp?.[q.stat] ?? 0) + xp },
@@ -407,6 +406,7 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
 
     return {
       programDone, coins, xp, bonus, levelUp: after > before ? after : null, stat: q.stat, streak, skillUp, trialDone: trial?.complete ?? false,
+      loot, allClear: slot === "main" && lastAllMainsDate === day.date && (player.lastAllMainsDate ?? null) !== day.date, title: q.title,
       muscles: trained ? trained.report : null,
     };
   });
@@ -416,7 +416,7 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
   setDoc(logRef, {
     questId, slot, title: q.title, type: q.type, stat: q.stat, ...(log?.value != null ? { value: log.value, unit: log.unit ?? null } : {}),
     ...(opts.quick ? { quick: true } : {}),
-    coins: result.coins, xp: result.xp, bonus: result.bonus, date: todayKey(), at: serverTimestamp(),
+    coins: result.coins, xp: result.xp, bonus: result.bonus, ...(result.loot ? { loot: result.loot.kind } : {}), date: todayKey(), at: serverTimestamp(),
   }).catch(() => {});
 
   return { ...result, logId: logRef.id, slot };

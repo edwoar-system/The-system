@@ -1,6 +1,6 @@
 // Quest details: what counts, the reward, and an optional log (a rep counter or a timer) before you complete it.
 import { useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { completeQuest, currentDay, getQuest, rewardPreview, swapMain } from "../lib/day";
 import { skillById } from "../game/guild";
@@ -14,7 +14,7 @@ import { courseForSkill } from "../game/courses";
 import { todayKey } from "../game/quests";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
-import { doneFeel, tapFeel } from "../lib/haptics";
+import { tapFeel } from "../lib/haptics";
 import { quickReps, quickTarget, quickToday, setItemFor } from "../game/quick";
 import { quickLog } from "../lib/quick";
 import { DIFF_SETS, difficultyOf } from "../game/difficulty";
@@ -68,7 +68,7 @@ function SetsPanel({ user, player, item, day, onFinished }) {
     setErr(null);
     try {
       const r = await quickLog(user.uid, item.id, now);
-      if (r.completed) { doneFeel(); onFinished(r.completed); } else tapFeel();
+      if (r.completed) onFinished(r.completed); else tapFeel();
     } catch {
       setErr(t.sheet.failed);
     } finally { setBusy(false); }
@@ -162,9 +162,9 @@ export default function QuestSheet({ user, player, questId, slot, done, onClose,
     try {
       // Sets already logged counted their minutes; don't count them twice.
       const r = await completeQuest(user.uid, questId, slot, setItem ? null : log, setsLogged ? { quick: true } : {});
-      doneFeel();
-      onResult?.(r);
+      // Close the sheet first: the clear window opens once it's gone (an iPhone sheet would cover it).
       onClose();
+      setTimeout(() => onResult?.(r), Platform.OS === "web" ? 0 : 380);
     } catch (e) {
       if (e.message === "below-test") setError(fill(t.sheet.below, { n: need.kind === "max" ? clock(need.value) : need.value }));
       else if (e.message === "already-done") onClose();
@@ -213,7 +213,7 @@ export default function QuestSheet({ user, player, questId, slot, done, onClose,
             </View>
 
             {!done && setItem ? (
-              <SetsPanel user={user} player={player} item={setItem} day={day} onFinished={(r) => { onResult?.(r); onClose(); }} />
+              <SetsPanel user={user} player={player} item={setItem} day={day} onFinished={(r) => { onClose(); setTimeout(() => onResult?.(r), Platform.OS === "web" ? 0 : 380); }} />
             ) : !done ? (
               <Frame cut={12} contentStyle={{ padding: 14, gap: 12 }}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
