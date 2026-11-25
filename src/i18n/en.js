@@ -286,6 +286,7 @@ export default {
     count: "Count",
     timer: "Timer",
     reps: "reps",
+    setup: "(+{n} min getting ready, counted in the reward)",
     sets: "YOUR SETS",
     whatSet: "A set is as many clean reps as you can do in a row, then you rest about 90 seconds. Log each set as soon as you finish it: it counts for your skill and muscles right away.",
     setN: "Set {n}: {reps}",

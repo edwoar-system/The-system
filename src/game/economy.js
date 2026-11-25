@@ -2,6 +2,8 @@
 // Design: see the doc "The System — wat we willen" (Economie). Anchor (24 Nov): a good day, all main quests plus
 // 1–2 extra quests, ≈ 30 coins ≈ 30 minutes of a sealed app. Saving up over days buys longer sessions.
 
+import { setupMinutes } from "./effort";
+
 export const ECONOMY = {
   coinsPerEffortMinute: 0.2, // 1 hour of real work = 12 minutes of screen time
   difficulty: { easy: 0.8, normal: 1, hard: 1.3 },
@@ -20,16 +22,17 @@ export function repeatFactor(timesAlreadyToday) {
 
 // Coins for finishing a quest.
 // mountain: your personal factor for this kind of quest (questionnaire): what's hard for you pays more.
-export function questCoins({ minutes, difficulty = "normal", urgent = false, choice = false, timesAlreadyToday = 0, mountain = 1 }) {
-  let c = minutes * ECONOMY.coinsPerEffortMinute * (ECONOMY.difficulty[difficulty] ?? 1) * mountain;
+// minutes include the getting-ready time (game/effort.js) when the quest has a skill with setup.
+export function questCoins({ minutes, difficulty = "normal", urgent = false, choice = false, timesAlreadyToday = 0, mountain = 1, skill, setup }) {
+  let c = (minutes + setupMinutes({ skill, setup })) * ECONOMY.coinsPerEffortMinute * (ECONOMY.difficulty[difficulty] ?? 1) * mountain;
   if (urgent) c *= ECONOMY.urgentMultiplier;
   if (choice) c *= ECONOMY.choiceMultiplier;
   c *= repeatFactor(timesAlreadyToday);
   return Math.max(1, Math.round(c));
 }
 
-export function questXp({ minutes, difficulty = "normal", timesAlreadyToday = 0 }) {
-  const x = minutes * ECONOMY.xpPerEffortMinute * (ECONOMY.difficulty[difficulty] ?? 1) * repeatFactor(timesAlreadyToday);
+export function questXp({ minutes, difficulty = "normal", timesAlreadyToday = 0, skill, setup }) {
+  const x = (minutes + setupMinutes({ skill, setup })) * ECONOMY.xpPerEffortMinute * (ECONOMY.difficulty[difficulty] ?? 1) * repeatFactor(timesAlreadyToday);
   return Math.max(1, Math.round(x));
 }
 

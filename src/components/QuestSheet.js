@@ -9,6 +9,7 @@ import { skillView } from "../game/skills";
 import { Coins, Frame, Label, SysButton } from "./sys";
 import { swapPrice } from "../game/shop";
 import { isHard } from "../game/hard";
+import { setupMinutes } from "../game/effort";
 import { todayKey } from "../game/quests";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
@@ -181,7 +182,7 @@ export default function QuestSheet({ user, player, questId, slot, done, onClose,
             <View style={{ gap: 6 }}>
               <Label tone={q.trial ? color.purple : color.accent}>{kicker}</Label>
               <Text accessibilityRole="header" style={{ fontFamily: font.bold, fontSize: 22, lineHeight: 28, color: "#FFFFFF" }}>{q.title}</Text>
-              <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{t.stats[q.stat]} · {t.quests.difficulty[q.difficulty]} · {fill(t.guild.min, { n: q.minutes })}</Text>
+              <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{t.stats[q.stat]} · {t.quests.difficulty[q.difficulty]} · {fill(t.guild.min, { n: q.minutes })}{setupMinutes(q) ? ` ${fill(t.sheet.setup, { n: setupMinutes(q) })}` : ""}</Text>
               {onOpenSkill && skill ? (
                 <Pressable accessibilityRole="button" onPress={() => onOpenSkill(q.skill)} style={{ alignSelf: "flex-start", minHeight: 36, justifyContent: "center" }}>
                   <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.accent }}>{fill(t.sheet.openSkill, { skill: skill.name })}</Text>
