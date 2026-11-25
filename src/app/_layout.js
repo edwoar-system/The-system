@@ -1,4 +1,4 @@
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useFonts, Unbounded_600SemiBold, Unbounded_700Bold } from "@expo-google-fonts/unbounded";
@@ -11,6 +11,10 @@ import {
 import { Rajdhani_700Bold } from "@expo-google-fonts/rajdhani";
 import { ThemeProvider, themes } from "../theme";
 import { DEFAULT_THEME } from "../theme/themes";
+import { t } from "../i18n";
+
+// The test website (built from the dev branch) shows a label, so you always know which one you're on.
+const TEST = process.env.EXPO_PUBLIC_STAGE === "test";
 
 export default function RootLayout() {
   const [loaded] = useFonts({
@@ -25,6 +29,11 @@ export default function RootLayout() {
     <ThemeProvider>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: bg } }} />
+      {TEST ? (
+        <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, alignItems: "center" }}>
+          <Text style={{ marginTop: 2, paddingHorizontal: 8, paddingVertical: 2, fontFamily: "Oxanium_700Bold", fontSize: 10, letterSpacing: 2, color: "#01040A", backgroundColor: "#F6B45A" }}>{t.stage.test}</Text>
+        </View>
+      ) : null}
     </ThemeProvider>
   );
 }

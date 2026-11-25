@@ -608,6 +608,7 @@ export default {
     remove: "HOLD TO REMOVE FRIEND",
     holdHint: "Hold for a second",
   },
+  stage: { test: "TEST VERSION" },
   shop: {
     title: "[ Shop ]",
     back: "Back",

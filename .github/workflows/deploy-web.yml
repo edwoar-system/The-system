@@ -1,8 +1,13 @@
 name: Deploy website
 
+# The live site (/The-system) is built from main, the test site (/The-system/test) from dev.
+# Both go up together, because GitHub Pages hosts one site per repository.
+# A push to dev starts this through "Test website" (dispatch), so it runs from main, which may deploy to Pages.
 on:
   push:
     branches: [main]
+  repository_dispatch:
+    types: [deploy-web]
   workflow_dispatch:
 
 permissions:
@@ -19,17 +24,41 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: live
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npx expo export -p web
-      # Single-page app: let GitHub Pages serve index.html for unknown paths.
-      - run: cp dist/index.html dist/404.html && touch dist/.nojekyll
+      - name: Build the live site (main)
+        working-directory: live
+        run: |
+          npm ci
+          npx expo export -p web
+          cp dist/index.html dist/404.html && touch dist/.nojekyll
+      - name: Check for a dev branch
+        id: dev
+        run: |
+          if git ls-remote --exit-code --heads https://github.com/${{ github.repository }}.git dev >/dev/null; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@v4
+        if: steps.dev.outputs.ok == 'true'
+        with:
+          ref: dev
+          path: test
+      - name: Build the test site (dev)
+        if: steps.dev.outputs.ok == 'true'
+        working-directory: test
+        env:
+          EXPO_PUBLIC_STAGE: test
+        run: |
+          npm ci
+          sed -i 's#"baseUrl": "/The-system"#"baseUrl": "/The-system/test"#' app.json
+          npx expo export -p web
+          mkdir -p ../live/dist/test
+          cp -r dist/. ../live/dist/test/
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: live/dist
   deploy:
     needs: build
     runs-on: ubuntu-latest

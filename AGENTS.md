@@ -51,3 +51,9 @@ Docs: https://docs.expo.dev/eas/index.md
 - Versions: 1.0.0 = room 0 build; 1.1.0 = room 2 with the v0.1 design (adds react-native-svg); 1.2.0 = local notifications (expo-notifications, remote push off); 1.3.0 = photo proof (expo-image-picker, expo-image-manipulator) and haptics (expo-haptics); 1.4.0 = sound effects (expo-audio, no microphone). The `room-1` branch (app blocking) must move to 1.5.0 when it is merged.
 - TestFlight: `.github/workflows/testflight.yml` builds the `production` profile and submits it. It needs the GitHub secrets ASC_API_KEY (the .p8 contents), ASC_KEY_ID, ASC_ISSUER_ID and APPLE_TEAM_ID, and the App Store Connect app id in eas.json. TestFlight builds use the `preview` update channel too, so one over-the-air update reaches both.
 - Design v0.1 (see the rules doc): black and blue base, purple only for progress, gold for coins and titles, red only for the penalty. Shared pieces live in `src/components/sys.js`.
+
+## Test version first
+
+- New work goes to the `dev` branch. A push to dev rebuilds the websites: the live site (`/The-system`) from main and the test site (`/The-system/test`, with a TEST VERSION label) from dev. The iPhone app is not touched.
+- "Ship it" = merge dev into main (fast-forward). That updates the live website and sends the over-the-air update to the iPhone.
+- The test site uses the same Firebase project and login as the live app, so test with care: it reads and writes real player data.
