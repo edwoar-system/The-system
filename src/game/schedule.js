@@ -9,12 +9,54 @@ import { dayTimes } from "./profile";
 export const weekdayOf = (dateKey) => (new Date(`${dateKey}T12:00:00`).getDay() + 6) % 7;
 export const MAX_BLOCKS = 20;
 
-// Today's busy blocks, sorted, with your changes for today.
+// Cuts free gaps out of blocks: a free hour in the middle of school splits it in two.
+function minusGaps(blocks, gaps) {
+  let out = blocks;
+  (gaps ?? []).forEach((g) => {
+    out = out.flatMap((b) => {
+      if (g.end <= b.start || g.start >= b.end) return [b];
+      const parts = [];
+      if (g.start > b.start) parts.push({ ...b, id: `${b.id}-a`, end: g.start });
+      if (g.end < b.end) parts.push({ ...b, id: `${b.id}-b`, start: g.end });
+      return parts;
+    });
+  });
+  return out;
+}
+
+// Today's busy blocks, sorted, with your changes for today:
+// scheduleDay = { date, skip: [ids], extra: [blocks], edits: { id: { start, end } }, gaps: [{ id, start, end }] }.
+// Calendar events (calendarBusy[date], from your iPhone Calendar) count as busy too.
 export function busyBlocks(player, dateKey) {
   const day = player?.scheduleDay?.date === dateKey ? player.scheduleDay : null;
   const wd = weekdayOf(dateKey);
-  const usual = (player?.schedule ?? []).filter((b) => b.days?.includes(wd) && !day?.skip?.includes(b.id));
-  return [...usual, ...(day?.extra ?? [])].filter((b) => b.end > b.start).sort((a, b) => a.start - b.start);
+  const usual = (player?.schedule ?? []).filter((b) => b.days?.includes(wd) && !day?.skip?.includes(b.id))
+    .map((b) => ({ ...b, ...(day?.edits?.[b.id] ?? {}) }));
+  const cal = (player?.calendarBusy?.[dateKey] ?? []).map((e, i) => ({ id: `cal${i}`, label: e.label ?? null, start: e.start, end: e.end, calendar: true }));
+  return minusGaps([...usual, ...(day?.extra ?? []), ...cal], day?.gaps).filter((b) => b.end > b.start).sort((a, b) => a.start - b.start);
+}
+
+// ---- Editing the week one day at a time ----
+// Blocks can be shared by several days (days: [0, 2, 4]). Changing one on a single day splits it off.
+const newId = () => `b${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
+export const blocksOn = (schedule, d) => (schedule ?? []).filter((b) => b.days?.includes(d)).sort((a, b) => a.start - b.start);
+export function editOnDay(schedule, id, d, patch) {
+  const b = schedule.find((x) => x.id === id);
+  if (!b) return schedule;
+  if (b.days.length === 1) return schedule.map((x) => (x.id === id ? { ...x, ...patch } : x));
+  return [...schedule.map((x) => (x.id === id ? { ...x, days: x.days.filter((k) => k !== d) } : x)), { ...b, ...patch, id: newId(), days: [d] }];
+}
+export function removeOnDay(schedule, id, d) {
+  return schedule.map((x) => (x.id === id ? { ...x, days: x.days.filter((k) => k !== d) } : x)).filter((x) => x.days.length);
+}
+export const addOnDay = (schedule, d, block) => [...schedule, { ...block, id: newId(), days: [d] }];
+// Copy one day to other days: those days get exactly the same blocks.
+export function copyDay(schedule, from, to) {
+  const targets = to.filter((d) => d !== from);
+  return schedule.map((x) => {
+    const days = x.days.filter((k) => !targets.includes(k));
+    return { ...x, days: x.days.includes(from) ? [...new Set([...days, ...targets])].sort() : days };
+  }).filter((x) => x.days.length);
 }
 
 export const isBusy = (blocks, hour) => blocks.some((b) => hour >= b.start && hour < b.end);
