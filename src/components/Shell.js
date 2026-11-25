@@ -32,7 +32,7 @@ import { useAgendaSync } from "../lib/calendar";
 import SystemPopup from "./SystemPopup";
 import ErrorCatcher from "./ErrorCatcher";
 
-const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
+const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
 // The shop will open from your coins (it comes with app blocking), so friends take its place in the bar.
 const TABS = ["status", "quests", "skills", "learn", "friends", "settings"];

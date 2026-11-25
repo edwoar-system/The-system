@@ -18,7 +18,7 @@ import { t } from "../i18n";
 
 const PARTIES_ON = false;
 
-const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
+const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
 function lastSeen(card) {
   const d = activeAgo(card?.active);

@@ -19,7 +19,7 @@ import { Frame, Glow, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
-const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
+const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 const AMBER = "#F6B45A";
 const TABS = ["habits", "quit", "sleep", "screen"];
 const habitName = (player, id) => skillById[id]?.name ?? t.habits.checks[id] ?? (player.customChecks ?? []).find((c) => c.id === id)?.name ?? id;

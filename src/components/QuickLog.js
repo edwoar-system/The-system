@@ -10,7 +10,7 @@ import { doneFeel, tapFeel } from "../lib/haptics";
 import { DIFF_SETS, difficultyOf } from "../game/difficulty";
 import { fitsSituation } from "../game/effort";
 
-const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
+const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
 export default function QuickLog({ user, player, day, onCompleted, style, situation = null }) {
   const { color, font } = useTheme();

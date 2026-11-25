@@ -12,7 +12,7 @@ import { Coins, Frame, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
-const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
+const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 const titleOf = (p) => (p.kind === "group" ? groupById[p.quest]?.title : raidById[p.raid]?.title) ?? "";
 
 function Chip({ label, on, onPress, flex, sub }) {

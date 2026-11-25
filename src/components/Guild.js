@@ -17,7 +17,7 @@ import { useTheme } from "../theme";
 import { t } from "../i18n";
 import { HelpDot } from "./Explain";
 
-const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
+const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
 function Chevron({ c, back }) {
   return (

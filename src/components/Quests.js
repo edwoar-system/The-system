@@ -41,7 +41,7 @@ import { t } from "../i18n";
 import { doneFeel, tapFeel } from "../lib/haptics";
 import { HelpDot } from "./Explain";
 
-const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
+const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 const DEADLINE_HOUR = 21;
 const pad = (n) => String(n).padStart(2, "0");
 

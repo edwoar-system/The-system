@@ -11,7 +11,7 @@ import { Frame, Glow, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
-const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
+const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 const mainMuscles = (e) => Object.entries(e.muscles).filter(([, k]) => k >= 0.9).map(([m]) => muscleById[m]?.name).filter(Boolean);
 const regionOf = (e) => {
   const [top] = Object.entries(e.muscles).sort((a, b) => b[1] - a[1]);

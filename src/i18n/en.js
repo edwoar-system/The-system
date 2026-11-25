@@ -280,6 +280,7 @@ export default {
     continue: "CONTINUE",
   },
   sheet: {
+    openSkill: "Open {skill}",
     swapFree: "Swap this quest (first swap today is free)",
     swapCost: "Swap this quest ({n} coins)",
     swapNoCoins: "Not enough coins to swap.",

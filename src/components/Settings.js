@@ -39,7 +39,7 @@ import GymSetup from "./GymSetup";
 import Schedule from "./Schedule";
 import { TEMPLATES } from "../game/gym";
 
-const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
+const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
 function Input({ label, value, onChangeText, keyboardType, width, maxLength }) {
   const { color, font } = useTheme();

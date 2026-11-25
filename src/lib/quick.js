@@ -16,7 +16,7 @@ import { WATER_GOAL } from "../game/effects";
 import { showSystem } from "./popup";
 import { t } from "../i18n";
 
-const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
+const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
 const ref = (uid) => doc(db, "players", uid);
 

@@ -7,7 +7,7 @@ import { askLocation, chooseSituation, refreshSituation, setLocationOn } from ".
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
-const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
+const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
 export default function SituationLine({ user, player, situation, weather }) {
   const { color, font } = useTheme();

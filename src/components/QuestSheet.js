@@ -19,7 +19,7 @@ import { quickReps, quickTarget, quickToday, setItemFor } from "../game/quick";
 import { quickLog } from "../lib/quick";
 import { DIFF_SETS, difficultyOf } from "../game/difficulty";
 
-const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
+const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 const ROMAN = ["I", "II", "III"];
 const COUNT_TYPES = ["workout", "climb"];
 const pad = (n) => String(n).padStart(2, "0");

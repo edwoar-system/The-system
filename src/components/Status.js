@@ -25,7 +25,7 @@ import { PARTS, partsDone } from "../game/profile";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
-const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
+const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
 function useCountUp(duration = 1400) {
   const v = useRef(new Animated.Value(0)).current;

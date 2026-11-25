@@ -15,7 +15,7 @@ import { programQuest } from "./programs";
 import { splitQuest } from "./gym";
 import { t } from "../i18n";
 
-const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
+const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
 export const NOTIFY_KINDS = ["morning", "nudge", "schedule", "urgentSoon", "urgent", "deadline", "bedtime", "penalty", "water", "trial", "rust", "apptime"];
 export const NOTIFY_DEFAULTS = Object.fromEntries(NOTIFY_KINDS.map((k) => [k, true]));

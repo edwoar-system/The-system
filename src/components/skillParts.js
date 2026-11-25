@@ -4,7 +4,7 @@ import { HexBadge } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
-export const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
+export const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 export const AMBER = "#F6B45A";
 
 // Four cut segments that fill up: the I–IV steps inside a rank.

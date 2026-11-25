@@ -19,7 +19,7 @@ import { ladderById } from "../game/ladders";
 import { tapFeel } from "../lib/haptics";
 import { statValue } from "../game/economy";
 const FILTERS = ["all", "new", "trained", "rust", "liked"];
-const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
+const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
 function Row({ v, name, onPress }) {
   const { color, font } = useTheme();
