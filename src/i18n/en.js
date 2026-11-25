@@ -870,6 +870,12 @@ export default {
     screenAvg: "On average {t} a day.",
     screenLater: "With app blocking (coming last), the System will see your blocked apps' time itself.",
   },
+  crash: {
+    kicker: "[ SYSTEM ERROR ]",
+    title: "This screen broke",
+    body: "Your progress is safe. The error below was sent to Edward. Try again, or switch tabs.",
+    retry: "TRY AGAIN",
+  },
   popup: {
     system: "[ SYSTEM ]",
     water: "Hydration",

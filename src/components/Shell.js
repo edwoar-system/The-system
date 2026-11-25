@@ -30,6 +30,7 @@ import { useSituation } from "../lib/location";
 import { useWeather } from "../lib/weather";
 import { useAgendaSync } from "../lib/calendar";
 import SystemPopup from "./SystemPopup";
+import ErrorCatcher from "./ErrorCatcher";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 
@@ -225,6 +226,8 @@ function ShellBody({ user, state }) {
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>
       <View style={{ flex: 1 }}>
+        {/* key={tab}: a broken screen resets when you switch tabs. */}
+        <ErrorCatcher key={tab} place={tab} uid={user.uid} name={state.player?.name}>
         {tab === "status" ? <Status user={user} {...state} onOpenQuests={() => goTo({ tab: "quests" })} onOpenSettings={() => goTo({ tab: "settings" })} /> : null}
         {tab === "quests" ? (state.player ? <Quests user={user} player={state.player} focus={focus} onFocusDone={() => setFocus(null)}
           onOpenSkill={(id, sheet) => goTo({ tab: "skills", skillFocus: id }, { tab: "quests", focus: sheet ?? undefined })} /> : <Status user={user} {...state} />) : null}
@@ -235,6 +238,7 @@ function ShellBody({ user, state }) {
           onGoToQuest={(f) => goTo({ tab: "quests", focus: f }, { tab: "learn" })} /> : <Status user={user} {...state} />) : null}
         {tab === "friends" ? (state.player ? <Friends user={user} player={state.player} /> : <Status user={user} {...state} />) : null}
         {tab === "settings" ? (state.player ? <Settings user={user} player={state.player} synced={state.synced} /> : <Status user={user} {...state} />) : null}
+        </ErrorCatcher>
         {!trollQ.active.length && activeAppTime(player) && !penaltyView ? <AppTimeBanner appTime={player.appTime} /> : null}
         {trollQ.active.length && tab !== "quests" && !penaltyView ? <TrollBanner troll={trollQ.active[0]} player={player} more={trollQ.active.length + trollQ.waiting.length - 1} onPress={() => goTo({ tab: "quests" })} /> : null}
         {trail.length > 0 && !penaltyView ? <BackPill place={trail[trail.length - 1]} onPress={goBack} /> : null}

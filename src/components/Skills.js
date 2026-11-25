@@ -1,5 +1,5 @@
 // Skills tab: your trained skills first, then every skill: search, filter, fold per stat, or a random one.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -43,10 +43,16 @@ export default function Skills({ user, player, onGoToQuest, focusSkill, onFocusD
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   // Opened from somewhere else (a quest or the body report): start on that skill's page.
-  const [open, setOpen] = useState(focusSkill ?? null);
+  // Opens a moment later, so the window you came from has closed first (two at once crashes the iPhone app).
+  const focusTimer = useRef(null);
+  const [open, setOpen] = useState(null);
   useEffect(() => {
-    if (focusSkill) onFocusDone?.();
+    if (!focusSkill) return;
+    const f = focusSkill;
+    onFocusDone?.();
+    focusTimer.current = setTimeout(() => setOpen(f), 600);
   }, [focusSkill, onFocusDone]);
+  useEffect(() => () => clearTimeout(focusTimer.current), []);
   const [guildFor, setGuildFor] = useState(null);
   const [info, setInfo] = useState(null);
   const [query, setQuery] = useState("");

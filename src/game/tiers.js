@@ -56,7 +56,7 @@ export const TIERS = {
   study: [["Two 45-min blocks with a 10-min break", 90, "normal"], ["Three 50-min deep-work blocks", 150, "hard"]],
   reading: [["45 min, plus 3 lines on what you read", 45, "normal"], ["90 min of a hard book, plus a short summary", 90, "normal"]],
   chess: [["30 puzzles plus one rapid game with a review", 45, "normal"], ["A classical game with a full review, plus endgame study", 75, "hard"]],
-  japanese: [["Translate a short text and write 10 sentences", 40, "normal"], ["30 min listening without subtitles plus a written summary", 50, "hard"]],
+  japanese: [["15 new words + 5 sentences of your own", 20, "normal"], ["Translate a short text and write 10 sentences", 40, "hard"]],
   latin: [["Translate a full passage of an author with a dictionary", 40, "normal"], ["Read 60 lines of Caesar, Ovid or Virgil", 60, "hard"]],
   spanish: [["30 min: a podcast or show episode with notes, then 10 sentences", 40, "normal"], ["A 15-minute conversation, or read and summarise an article", 50, "hard"]],
   french: [["30 min: a podcast or show episode with notes, then 10 sentences", 40, "normal"], ["A 15-minute conversation, or read and summarise an article", 50, "hard"]],

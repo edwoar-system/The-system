@@ -136,7 +136,10 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
   const [body, setBody] = useState(null); // body report after a quest that trained muscles
   const [check, setCheck] = useState(null); // check-in after an important quest: { logId, title }
   // Opened from somewhere else (a quest just accepted in the guild): start with that quest open.
-  const [sheet, setSheet] = useState(focus ?? null); // { id, slot, done }
+  // It opens a moment later: on the iPhone a new window can't open while the one you came from (the Guild,
+  // a skill page) is still closing, and trying to crashes the app.
+  const [sheet, setSheet] = useState(null); // { id, slot, done }
+  const focusTimer = useRef(null);
   const [trollOpen, setTrollOpen] = useState(null);
   const [fab, setFab] = useState(false);
   const sit = useSituation(player)?.id ?? null;
@@ -159,8 +162,12 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
     finally { setBusy(false); }
   }
   useEffect(() => {
-    if (focus) onFocusDone?.();
+    if (!focus) return;
+    const f = focus;
+    onFocusDone?.();
+    focusTimer.current = setTimeout(() => setSheet(f), 600);
   }, [focus, onFocusDone]);
+  useEffect(() => () => clearTimeout(focusTimer.current), []);
 
   // Active rank trials, with the parts still to do.
   const trials = Object.entries(player.trials ?? {}).map(([skillId, tr]) => {
@@ -289,7 +296,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
     );
   }
 
-  if (guild) return <Guild user={user} player={player} onClose={() => setGuild(false)} onAccepted={(id) => { setGuild(false); setSheet({ id, slot: "guild" }); }} />;
+  if (guild) return <Guild user={user} player={player} onClose={() => setGuild(false)} onAccepted={(id) => { setGuild(false); focusTimer.current = setTimeout(() => setSheet({ id, slot: "guild" }), 600); }} />;
 
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>
@@ -409,6 +416,39 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
         </Frame>
 
         <View style={{ marginTop: 18, marginHorizontal: 14, gap: 12 }}>
+          {/* Guild quests you took sit right under your goals, not at the bottom. */}
+          {day.guild.length ? (
+            <Frame cut={12}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", paddingHorizontal: 14, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: color.line }}>
+                <Label tone={color.hi}>{t.board.guildQuests}</Label>
+                <Text style={{ fontFamily: font.num, fontSize: 16, color: color.frame }}>{guildDone.length}<Text style={{ fontSize: 13, color: color.muted }}> / {day.guild.length}</Text></Text>
+              </View>
+              {[...guildOpen, ...guildDone].map((g, i, all) => {
+                const q = getQuest(g.id);
+                if (!q) return null;
+                const r = rewardPreview(day, g.id, player.profile);
+                return (
+                  <View key={g.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 14, paddingRight: 8, opacity: g.done ? 0.55 : 1,
+                    borderBottomWidth: i === all.length - 1 ? 0 : 1, borderBottomColor: color.line }}>
+                    <HexBadge w={30} h={34} label={q.stat} labelSize={9} />
+                    <Pressable accessibilityRole="button" accessibilityHint={t.board.openHint} onPress={() => setSheet({ id: g.id, slot: "guild", done: g.done })}
+                      style={({ pressed }) => ({ flex: 1, gap: 4, opacity: pressed ? 0.7 : 1 })}>
+                      <Text style={{ fontFamily: font.bold, fontSize: 15, lineHeight: 20, color: "#FFFFFF" }}>{q.title}</Text>
+                      {g.done ? null : (
+                        <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+                          <Coins value={r.coins} sign="+" size={15} />
+                          <Text style={{ fontFamily: font.num, fontSize: 15, color: color.accent }}>+{r.xp} {t.status.exp}</Text>
+                        </View>
+                      )}
+                    </Pressable>
+                    <HexCheck size={34} done={g.done} disabled={busy} onPress={() => complete(g.id, "guild")}
+                      label={fill(g.done ? t.board.isDone : t.board.markDone, { title: q.title })} />
+                  </View>
+                );
+              })}
+              <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted, paddingHorizontal: 14, paddingBottom: 10 }}>{t.board.guildHint}</Text>
+            </Frame>
+          ) : null}
           {trials.length ? (
             <Frame cut={12} tone={color.purple}>
               <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: color.line }}>
@@ -516,38 +556,6 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
                   </View>
                 );
               })}
-            </Frame>
-          ) : null}
-          {day.guild.length ? (
-            <Frame cut={12}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", paddingHorizontal: 14, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: color.line }}>
-                <Label tone={color.hi}>{t.board.guildQuests}</Label>
-                <Text style={{ fontFamily: font.num, fontSize: 16, color: color.frame }}>{guildDone.length}<Text style={{ fontSize: 13, color: color.muted }}> / {day.guild.length}</Text></Text>
-              </View>
-              {[...guildOpen, ...guildDone].map((g, i, all) => {
-                const q = getQuest(g.id);
-                if (!q) return null;
-                const r = rewardPreview(day, g.id, player.profile);
-                return (
-                  <View key={g.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 14, paddingRight: 8, opacity: g.done ? 0.55 : 1,
-                    borderBottomWidth: i === all.length - 1 ? 0 : 1, borderBottomColor: color.line }}>
-                    <HexBadge w={30} h={34} label={q.stat} labelSize={9} />
-                    <Pressable accessibilityRole="button" accessibilityHint={t.board.openHint} onPress={() => setSheet({ id: g.id, slot: "guild", done: g.done })}
-                      style={({ pressed }) => ({ flex: 1, gap: 4, opacity: pressed ? 0.7 : 1 })}>
-                      <Text style={{ fontFamily: font.bold, fontSize: 15, lineHeight: 20, color: "#FFFFFF" }}>{q.title}</Text>
-                      {g.done ? null : (
-                        <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-                          <Coins value={r.coins} sign="+" size={15} />
-                          <Text style={{ fontFamily: font.num, fontSize: 15, color: color.accent }}>+{r.xp} {t.status.exp}</Text>
-                        </View>
-                      )}
-                    </Pressable>
-                    <HexCheck size={34} done={g.done} disabled={busy} onPress={() => complete(g.id, "guild")}
-                      label={fill(g.done ? t.board.isDone : t.board.markDone, { title: q.title })} />
-                  </View>
-                );
-              })}
-              <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted, paddingHorizontal: 14, paddingBottom: 10 }}>{t.board.guildHint}</Text>
             </Frame>
           ) : null}
         </View>

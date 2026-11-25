@@ -59,7 +59,7 @@ const RAW = {
     ["study", "Studying", "45 min block (or 18 questions)", "Phone sealed for the whole block.", 45, "normal", "study"],
     ["reading", "Reading", "20 min", "A book, not a screen feed.", 20, "normal", "reading"],
     ["chess", "Chess", "15 puzzles", "Solve, then check why the answer works.", 20, "normal", "chess"],
-    ["japanese", "Japanese", "15 new verbs + 5 own sentences", "Write the sentences yourself, no copying.", 20, "normal", "language"],
+    ["japanese", "Japanese", "Learn the next 10 kana (Learn tab, Japanese)", "Read them, write them, then pass the quick test.", 15, "easy", "language"],
     ["latin", "Latin", "20 min: one passage or 15 words", "Translate it yourself first.", 20, "normal", "language"],
     ["spanish", "Spanish", "20 min: 15 words + 5 own sentences", "Say the sentences out loud; no copying.", 20, "normal", "language"],
     ["french", "French", "20 min: 15 words + 5 own sentences", "Say the sentences out loud; no copying.", 20, "normal", "language"],
