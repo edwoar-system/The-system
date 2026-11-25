@@ -219,7 +219,7 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
         </Text>
       </View>
 
-      <View style={{ marginBottom: 14 }}><StatusEffects user={user} player={player} onOpenHabits={() => setSleepOpen(true)} /></View>
+      <View style={{ marginBottom: 14, marginHorizontal: 14 }}><StatusEffects user={user} player={player} onOpenHabits={() => setSleepOpen(true)} /></View>
       {sleepOpen ? <HabitsScreen user={user} player={player} start="sleep" onClose={() => setSleepOpen(false)} /> : null}
 
       <QuoteCard quote={quote} onOpen={() => setQuotePage(true)} onNext={() => setQuoteShift((n) => n + 1)} onLibrary={() => setLibrary(true)} />
