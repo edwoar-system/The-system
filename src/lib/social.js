@@ -176,7 +176,7 @@ export async function completeTroll(uid, troll, player, proof = null) {
   const x = trollById[troll.troll];
   if (!x) return null;
   if (trollNeedsProof(x) && !proof?.photo) throw new Error("need-proof");
-  if (x.place && !proof?.place?.ok) throw new Error("need-place");
+  if (x.place && !proof?.place?.ok && !proof?.place?.skipped) throw new Error("need-place");
   const xp = trollXp(x);
   const playerRef = doc(db, "players", uid);
   const trollRef = doc(db, "public", uid, "trolls", troll.id);
@@ -191,7 +191,7 @@ export async function completeTroll(uid, troll, player, proof = null) {
     tx.update(trollRef, {
       status: "done", doneAtMs: Date.now(), title,
       ...(proof?.photo ? { photo: proof.photo } : {}),
-      ...(proof?.place ? { place: { kind: proof.place.kind, ok: !!proof.place.ok, name: proof.place.name ?? null } } : {}),
+      ...(proof?.place ? { place: { kind: proof.place.kind, ok: !!proof.place.ok, skipped: !!proof.place.skipped, name: proof.place.name ?? null } } : {}),
     });
     tx.set(logRef, { questId: `troll:${x.id}`, title, coins: 0, xp, stat: x.stat, slot: "troll", date: todayKey(), at: serverTimestamp(), ...(proof?.photo ? { proof: "photo" } : {}) });
     return { xp, stat: x.stat, levelUp: levelFromXp(total).level > levelFromXp(p.xp ?? 0).level ? levelFromXp(total).level : null };

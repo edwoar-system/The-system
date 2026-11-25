@@ -138,7 +138,7 @@ function TrollSection({ me, myName, myCoins, trollsDone, friend }) {
             <Text style={{ fontFamily: font.body, fontSize: 12, color: x.status === "done" ? color.accent : color.muted }}>{t.troll.status[x.status] ?? t.troll.status.new}</Text>
             {x.hasPhoto || x.place ? (
               <Text style={{ fontFamily: font.body, fontSize: 12, color: color.accent }}>
-                {[x.hasPhoto ? t.troll.gotPhoto : null, x.place?.ok ? fill(t.troll.gotPlace, { place: x.place.name ?? t.troll.places[x.place.kind] }) : null].filter(Boolean).join("  ·  ")}
+                {[x.hasPhoto ? t.troll.gotPhoto : null, x.place?.ok ? fill(t.troll.gotPlace, { place: x.place.name ?? t.troll.places[x.place.kind] }) : x.place?.skipped ? t.troll.placeSkipped : null].filter(Boolean).join("  ·  ")}
               </Text>
             ) : null}
           </View>

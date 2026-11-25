@@ -24,7 +24,10 @@ export default function TrollDo({ user, player, troll, onClose, onDone }) {
   const [msg, setMsg] = useState(null);
   if (!x) return null;
   const needPhoto = trollNeedsProof(x);
-  const ready = (!needPhoto || photo) && (!x.place || place?.ok);
+  // The map doesn't know every gym or pool: after a check that didn't find it, you can finish with the photo only.
+  // The sender then sees "location not checked".
+  const [skipPlace, setSkipPlace] = useState(false);
+  const ready = (!needPhoto || photo) && (!x.place || place?.ok || skipPlace);
 
   async function take(source) {
     setMsg(null);
@@ -47,7 +50,7 @@ export default function TrollDo({ user, player, troll, onClose, onDone }) {
     setBusy(true);
     setMsg(null);
     try {
-      const r = await completeTroll(user.uid, troll, player, needPhoto ? { photo, place: x.place ? { kind: x.place, ...place } : null } : null);
+      const r = await completeTroll(user.uid, troll, player, needPhoto ? { photo, place: x.place ? { kind: x.place, ...place, skipped: !place?.ok && skipPlace } : null } : null);
       doneFeel();
       onDone?.(r);
       onClose();
@@ -83,6 +86,11 @@ export default function TrollDo({ user, player, troll, onClose, onDone }) {
                   <View style={{ gap: 6 }}>
                     <SysButton label={place?.ok ? t.troll.placeChecked : fill(t.troll.checkPlace, { place: t.troll.places[x.place].toUpperCase() })} onPress={check} disabled={busy || place?.ok} />
                     {placeText ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, lineHeight: 18, color: place?.ok ? color.accent : "#F6B45A" }}>{placeText}</Text> : null}
+                    {place && !place.ok ? (
+                      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: skipPlace }} onPress={() => setSkipPlace((v) => !v)} style={{ minHeight: 40, justifyContent: "center" }}>
+                        <Text style={{ fontFamily: font.bodyBold, fontSize: 13, lineHeight: 18, color: skipPlace ? color.accent : color.muted }}>{`${skipPlace ? "✓ " : ""}${fill(t.troll.skipPlace, { name: troll.fromName })}`}</Text>
+                      </Pressable>
+                    ) : null}
                   </View>
                 ) : null}
                 {photo ? <Image source={{ uri: photo }} accessibilityLabel={t.troll.gotPhoto} style={{ width: "100%", height: 200, resizeMode: "cover" }} /> : null}

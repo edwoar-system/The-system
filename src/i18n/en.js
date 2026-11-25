@@ -1061,6 +1061,8 @@ export default {
     complete: "DONE",
     needPhoto: "Add a photo first.",
     doFailed: "That didn't work. Check your connection and try again.",
+    skipPlace: "I'm really there, the map just doesn't know it. Finish with the photo only ({name} sees: location not checked).",
+    placeSkipped: "Location not checked",
     needBoth: "Check your location and add a photo first.",
     later: "Later",
     title: "TROLL QUESTS",
