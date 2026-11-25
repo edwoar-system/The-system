@@ -15,7 +15,8 @@ import { BodyCard } from "./Body";
 import QuoteLibrary from "./QuoteLibrary";
 import QuotePage from "./QuotePage";
 import StatInfo from "./StatInfo";
-import { HabitsCard } from "./Habits";
+import { HabitsCard, HabitsScreen } from "./Habits";
+import StatusEffects from "./StatusEffects";
 import Shop from "./Shop";
 import NameText from "./NameText";
 import { trollTitle } from "../game/social";
@@ -134,6 +135,7 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
   const [locking, setLocking] = useState(false);
   const [quoteShift, setQuoteShift] = useState(0);
   const [library, setLibrary] = useState(false);
+  const [sleepOpen, setSleepOpen] = useState(false);
   const [info, setInfo] = useState(null); // a stat to explain
   const [quotePage, setQuotePage] = useState(false);
   const [shop, setShop] = useState(false);
@@ -216,6 +218,9 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
           {t.status.mainsToday} <Text style={{ fontFamily: font.num, fontSize: 17, color: color.text }}>{mainsDone}/{day.mains.length}</Text>
         </Text>
       </View>
+
+      <View style={{ marginBottom: 14 }}><StatusEffects user={user} player={player} onOpenHabits={() => setSleepOpen(true)} /></View>
+      {sleepOpen ? <HabitsScreen user={user} player={player} start="sleep" onClose={() => setSleepOpen(false)} /> : null}
 
       <QuoteCard quote={quote} onOpen={() => setQuotePage(true)} onNext={() => setQuoteShift((n) => n + 1)} onLibrary={() => setLibrary(true)} />
       {library ? <QuoteLibrary mine={player.profile?.schools ?? []} favs={favs} onStar={star} onClose={() => setLibrary(false)} /> : null}

@@ -8,6 +8,8 @@ import { ladderById } from "../game/ladders";
 import { todayKey } from "../game/quests";
 import { dayNum, habitRank, isHabit, recordTraining } from "../game/skills";
 import { CHECK_KEEP_DAYS, DAY_MS, DEFAULT_TRACKED, SLEEP_KEEP_DAYS, checkById, cleanDays, staleKeys } from "../game/habits";
+import { showSystem } from "./popup";
+import { t } from "../i18n";
 
 const ref = (uid) => doc(db, "players", uid);
 
@@ -111,6 +113,20 @@ export async function logSleep(uid, bed, wake, quality = null, date = todayKey()
     const log = { [date]: quality ? [...night, quality] : night };
     staleKeys(p.sleepLog, SLEEP_KEEP_DAYS, date).forEach((k) => { log[k] = deleteField(); });
     tx.set(ref(uid), { sleepLog: log, updatedAt: serverTimestamp() }, { merge: true });
+  }).then((r) => {
+    // The System tells you what last night does for today.
+    if (date === todayKey()) {
+      const hours = Math.round((((wake - (bed < 12 ? bed + 24 : bed)) % 24) + 24) % 24 * 10) / 10;
+      const bad = hours < 6 || (quality != null && quality <= 2);
+      const good = hours >= 7.5 && (quality == null || quality >= 4);
+      showSystem({
+        title: bad ? t.popup.badSleep : good ? t.popup.rested : t.popup.sleepLogged,
+        bar: { value: Math.min(hours, 8), max: 8, label: `${hours} h` },
+        lines: [bad ? t.popup.debuffSleep : good ? t.popup.buffRested : t.popup.sleepOk],
+        tone: bad ? "debuff" : "buff",
+      });
+    }
+    return r;
   });
 }
 

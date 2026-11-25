@@ -12,6 +12,11 @@ import { questLoad } from "../game/muscles";
 import { trainMuscles } from "./muscles";
 import { levelFromXp } from "../game/economy";
 import { DIFF_SETS, difficultyOf } from "../game/difficulty";
+import { WATER_GOAL } from "../game/effects";
+import { showSystem } from "./popup";
+import { t } from "../i18n";
+
+const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 
 const ref = (uid) => doc(db, "players", uid);
 
@@ -82,6 +87,17 @@ export async function quickLog(uid, itemId, reps = null) {
     } catch {
       // Already done in the meantime: nothing to finish.
     }
+  }
+  // A glass of water: the System shows your hydration bar.
+  if (itemId === "water") {
+    const goal = WATER_GOAL;
+    const n = res.count;
+    showSystem({
+      title: n >= goal ? t.popup.hydrated : t.popup.water,
+      bar: { value: Math.min(n, goal), max: goal, label: fill(t.popup.glasses, { n, goal }) },
+      lines: n === goal ? [t.popup.buffHydrated] : n > goal ? [t.popup.overGoal] : [fill(t.popup.waterLeft, { n: goal - n, ml: (goal - n) * 250 })],
+      tone: "buff",
+    });
   }
   return res;
 }

@@ -15,6 +15,7 @@ import { EXTRA_STEP, deadlineOf, extraPrice, penaltyDue } from "../game/penalty"
 import { isHard } from "../game/hard";
 import { fitsSituation, isOutdoor } from "../game/effort";
 import { WEATHER_BONUS } from "../game/weather";
+import { effectFactor } from "../game/effects";
 import { weatherNow } from "./weather";
 import { DIFF_TIER, difficultyOf } from "../game/difficulty";
 import { trainMuscles } from "./muscles";
@@ -300,7 +301,8 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
     const times = day.typeCounts[q.type] ?? 0;
     // Trial parts pay EXP but no coins: the rank is the reward, and a high placement shouldn't flood you with coins.
     const coins = slot === "trial" ? 0 : questCoins({ ...q, timesAlreadyToday: times, mountain: mountainFactor(player.profile, q.type) });
-    const xp = questXp({ ...q, timesAlreadyToday: times });
+    // Status effects (hydrated, well-rested, bad sleep…) move EXP by up to 15%.
+    const xp = Math.round(questXp({ ...q, timesAlreadyToday: times }) * effectFactor(player));
     day.typeCounts[q.type] = times + 1;
     if (slot === "main") day.mainCoins += coins;
 
