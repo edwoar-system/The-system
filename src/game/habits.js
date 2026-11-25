@@ -7,9 +7,28 @@ import { dayTimes } from "./profile";
 // Habits are the habit skills (water, sleep, walk...). Their days come from the skill's training days,
 // so quests, quick logs and a tap on the Habits screen all count.
 export const HABIT_IDS = LADDERS.filter((l) => l.basis === "habit").map((l) => l.id);
+
+// Checks: simple daily yes/no habits that aren't skills (pills, brushing teeth...), plus your own.
+// Their days live in checkDays = { id: [day numbers] }.
+export const CHECKS = [
+  { id: "pills", stat: "VIT" },
+  { id: "teeth", stat: "VIT" },
+  { id: "sleepBack", stat: "VIT" },
+  { id: "morningJournal", stat: "WIL" },
+  { id: "noPhoneMorning", stat: "WIL" },
+  { id: "noSocialMorning", stat: "WIL" },
+];
+export const checkById = Object.fromEntries(CHECKS.map((c) => [c.id, c]));
+export const isCheck = (id, player) => !!checkById[id] || (player?.customChecks ?? []).some((c) => c.id === id);
+export const CHECK_KEEP_DAYS = 60;
+
 export const DEFAULT_TRACKED = ["water", "sleep", "walk", "nophone"];
-export const MAX_TRACKED = 8;
-export const tracked = (player) => (player?.habits?.length ? player.habits : DEFAULT_TRACKED).filter((id) => HABIT_IDS.includes(id));
+export const MAX_TRACKED = 10;
+export const tracked = (player) => (player?.habits?.length ? player.habits : DEFAULT_TRACKED)
+  .filter((id) => HABIT_IDS.includes(id) || isCheck(id, player));
+
+// The days a habit was done, whether it's a skill or a check.
+export const habitEntry = (player, id) => (HABIT_IDS.includes(id) ? player?.skills?.[id] : { days: player?.checkDays?.[id] ?? [] });
 
 // Done/not done for each of the last `weeks` weeks (Monday first), oldest first. null = in the future.
 export function habitGrid(entry, today = dayNum(), weeks = 5) {
@@ -52,14 +71,15 @@ export const nextMilestone = (days) => QUIT_MILESTONES.find((m) => m > days) ?? 
 export const REDEMPTION_QUESTS = ["g:walk", "g:coldshower", "g:journal", "g:meditation"];
 
 // ---- Sleep ----
-// sleepLog = { "<wake date>": [bedHour, wakeHour] } with hours as decimals (23.5 = 23:30, 0.5 = 00:30).
+// sleepLog = { "<wake date>": [bedHour, wakeHour, quality] } with hours as decimals (23.5 = 23:30, 0.5 = 00:30)
+// and quality 1–5 (how well you slept; may be missing on old nights).
 // Bedtimes are compared on an evening scale (after midnight counts as 24+), so averages work across midnight.
 const evening = (h) => (h < 12 ? h + 24 : h);
 export const SLEEP_KEEP_DAYS = 35;
 export const hhmm = (h) => { const m = Math.round(h * 60); return `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; };
 export function sleepNights(log = {}, n = 14) {
   return Object.entries(log).sort(([a], [b]) => (a < b ? -1 : 1)).slice(-n)
-    .map(([date, [bed, wake]]) => ({ date, bed: evening(bed), wake, hours: Math.round((wake + 24 - evening(bed)) * 10) / 10 }));
+    .map(([date, [bed, wake, quality]]) => ({ date, bed: evening(bed), wake, quality: quality ?? null, hours: Math.round((wake + 24 - evening(bed)) * 10) / 10 }));
 }
 export function sleepSummary(log, profile) {
   const nights = sleepNights(log, 7);
@@ -67,7 +87,9 @@ export function sleepSummary(log, profile) {
   const avg = (k) => nights.reduce((s, x) => s + x[k], 0) / nights.length;
   const { wake, bed } = dayTimes(profile);
   const avgBed = avg("bed");
-  return { nights: nights.length, hours: Math.round(avg("hours") * 10) / 10, bed: avgBed, wake: avg("wake"), lateBy: Math.round((avgBed - bed) * 60), targetBed: bed, targetWake: wake };
+  const rated = nights.filter((x) => x.quality);
+  const quality = rated.length ? Math.round((rated.reduce((a, x) => a + x.quality, 0) / rated.length) * 10) / 10 : null;
+  return { quality, nights: nights.length, hours: Math.round(avg("hours") * 10) / 10, bed: avgBed, wake: avg("wake"), lateBy: Math.round((avgBed - bed) * 60), targetBed: bed, targetWake: wake };
 }
 
 // ---- Screen time ----

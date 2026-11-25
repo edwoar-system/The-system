@@ -13,8 +13,8 @@ import { t } from "../i18n";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 
-export const NOTIFY_KINDS = ["morning", "urgent", "deadline", "penalty", "water", "trial", "rust", "apptime"];
-export const NOTIFY_DEFAULTS = { morning: true, urgent: true, deadline: true, penalty: true, water: true, trial: true, rust: true, apptime: true };
+export const NOTIFY_KINDS = ["morning", "urgentSoon", "urgent", "deadline", "penalty", "water", "trial", "rust", "apptime"];
+export const NOTIFY_DEFAULTS = { morning: true, urgentSoon: true, urgent: true, deadline: true, penalty: true, water: true, trial: true, rust: true, apptime: true };
 export const WATER_HOURS = [10, 12, 14, 16, 18];
 export const DEADLINE_WARNING_HOUR = 20;
 const LOOK_AHEAD_DAYS = 2; // today and tomorrow; rescheduled every time the app opens or the player changes
@@ -72,9 +72,12 @@ export function notificationPlan(player, uid, now = new Date()) {
     if (s.urgent) {
       const perDay = player.urgentPerDay ?? URGENT.defaultPerDay;
       const done = d === 0 && player.urgentToday?.date === key ? player.urgentToday.count : 0;
-      urgentTimes(uid, key, perDay, base, player.profile).slice(done).forEach((date, i) => add({
-        id: `urgent-${key}-${i}`, date, title: t.notify.urgentTitle, body: t.notify.urgentBody, data: { kind: "urgent" },
-      }));
+      urgentTimes(uid, key, perDay, base, player.profile).slice(done).forEach((date, i) => {
+        // A heads-up 5 to 10 minutes before, so it doesn't catch you in the middle of something.
+        const lead = 5 + Math.floor(seeded(`${uid}:${key}:${i}:pre`)() * 6);
+        if (s.urgentSoon) add({ id: `urgent-pre-${key}-${i}`, date: new Date(date.getTime() - lead * 60000), title: t.notify.urgentSoonTitle, body: fill(t.notify.urgentSoonBody, { n: lead }), data: { kind: "status" } });
+        add({ id: `urgent-${key}-${i}`, date, title: t.notify.urgentTitle, body: t.notify.urgentBody, data: { kind: "urgent" } });
+      });
     }
     if (s.deadline && mainsOpen > 0) {
       add({ id: `deadline-${key}`, date: at(base, 0, DEADLINE_WARNING_HOUR), title: t.notify.deadlineTitle,

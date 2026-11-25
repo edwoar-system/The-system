@@ -7,11 +7,11 @@ import { dayTimes } from "../game/profile";
 import { todayKey } from "../game/quests";
 import { dayNum } from "../game/skills";
 import {
-  HABIT_IDS, MAX_TRACKED, QUIT_PRESETS, REDEMPTION_QUESTS, cleanDays, habitGrid, habitStreak, hhmm, longestClean,
+  CHECKS, HABIT_IDS, MAX_TRACKED, QUIT_PRESETS, REDEMPTION_QUESTS, cleanDays, habitEntry, habitGrid, habitStreak, hhmm, isCheck, longestClean,
   nextMilestone, screenDays, sleepNights, sleepSummary, tracked, weekPct,
 } from "../game/habits";
 import { getQuest } from "../lib/day";
-import { addQuit, logHabit, logScreen, logSleep, removeQuit, setTracked, slipQuit, takeRedemption } from "../lib/habits";
+import { addCustomCheck, addQuit, logCheck, logHabit, logScreen, logSleep, removeQuit, setTracked, slipQuit, takeRedemption } from "../lib/habits";
 import { doneFeel, tapFeel } from "../lib/haptics";
 import { Frame, Glow, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
@@ -20,6 +20,7 @@ import { t } from "../i18n";
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 const AMBER = "#F6B45A";
 const TABS = ["habits", "quit", "sleep", "screen"];
+const habitName = (player, id) => skillById[id]?.name ?? t.habits.checks[id] ?? (player.customChecks ?? []).find((c) => c.id === id)?.name ?? id;
 
 function Chip({ label, on, onPress, flex }) {
   const { color, font } = useTheme();
@@ -73,8 +74,10 @@ function Bars({ items, value, max, target, label }) {
 function HabitsTab({ user, player }) {
   const { color, font } = useTheme();
   const [choosing, setChoosing] = useState(false);
+  const [mine, setMine] = useState("");
   const today = dayNum();
   const list = tracked(player);
+  const checkIds = [...CHECKS.map((c) => c.id), ...(player.customChecks ?? []).map((c) => c.id)];
   const toggle = (id) => {
     const next = list.includes(id) ? list.filter((x) => x !== id) : list.length < MAX_TRACKED ? [...list, id] : list;
     setTracked(user.uid, next).catch(() => {});
@@ -82,18 +85,18 @@ function HabitsTab({ user, player }) {
   return (
     <View style={{ gap: 12 }}>
       {list.map((id) => {
-        const e = player.skills?.[id];
-        const doneToday = e?.days?.[e.days.length - 1] === today;
+        const e = habitEntry(player, id);
+        const doneToday = (e?.days ?? []).includes(today);
         const grid = habitGrid(e, today);
         return (
           <Frame key={id} cut={12} contentStyle={{ padding: 14, gap: 10 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <View style={{ flex: 1, gap: 2 }}>
-                <Text style={{ fontFamily: font.bold, fontSize: 16, color: "#FFFFFF" }}>{skillById[id]?.name ?? id}</Text>
+                <Text style={{ fontFamily: font.bold, fontSize: 16, color: "#FFFFFF" }}>{habitName(player, id)}</Text>
                 <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{fill(t.habits.line, { s: habitStreak(e, today), p: weekPct(e, today) })}</Text>
               </View>
               <Pressable accessibilityRole="button" accessibilityState={{ checked: doneToday }} disabled={doneToday}
-                onPress={() => logHabit(user.uid, id).then((r) => { if (!r?.already) doneFeel(); }).catch(() => {})}
+                onPress={() => (isCheck(id, player) ? logCheck(user.uid, id) : logHabit(user.uid, id)).then((r) => { if (!r?.already) doneFeel(); }).catch(() => {})}
                 style={{ minHeight: 40, paddingHorizontal: 12, justifyContent: "center", borderWidth: 1, borderColor: doneToday ? color.purple : color.frame, backgroundColor: doneToday ? "rgba(168,126,255,0.18)" : "transparent" }}>
                 <Text style={{ fontFamily: font.bold, fontSize: 12, color: doneToday ? "#FFFFFF" : color.accent }}>{doneToday ? t.habits.doneToday : t.habits.markToday}</Text>
               </Pressable>
@@ -113,9 +116,21 @@ function HabitsTab({ user, player }) {
       <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.habits.how}</Text>
       <SysButton label={choosing ? t.habits.chooseDone : t.habits.choose} onPress={() => setChoosing(!choosing)} />
       {choosing ? (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-          {HABIT_IDS.map((id) => <Chip key={id} label={skillById[id]?.name ?? id} on={list.includes(id)} onPress={() => toggle(id)} />)}
-          <Text style={{ width: "100%", fontFamily: font.body, fontSize: 12, color: color.muted }}>{fill(t.habits.max, { n: MAX_TRACKED })}</Text>
+        <View style={{ gap: 10 }}>
+          <Label tone={color.hi}>{t.habits.checksTitle}</Label>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+            {checkIds.map((id) => <Chip key={id} label={habitName(player, id)} on={list.includes(id)} onPress={() => toggle(id)} />)}
+          </View>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <TextInput value={mine} onChangeText={setMine} placeholder={t.habits.ownPh} placeholderTextColor="#4A5A7A" accessibilityLabel={t.habits.ownPh} maxLength={40}
+              style={{ flex: 1, minWidth: 0, minHeight: 44, paddingHorizontal: 12, fontFamily: font.body, fontSize: 14, color: "#FFFFFF", borderWidth: 1, borderColor: "rgba(159,203,255,0.3)", backgroundColor: "rgba(5,10,24,0.7)" }} />
+            <SysButton label={t.habits.add} disabled={mine.trim().length < 2 || list.length >= MAX_TRACKED} onPress={() => { addCustomCheck(user.uid, mine).catch(() => {}); setMine(""); }} style={{ minHeight: 44 }} />
+          </View>
+          <Label tone={color.hi}>{t.habits.skillsTitle}</Label>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+            {HABIT_IDS.map((id) => <Chip key={id} label={skillById[id]?.name ?? id} on={list.includes(id)} onPress={() => toggle(id)} />)}
+          </View>
+          <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{fill(t.habits.max, { n: MAX_TRACKED })}</Text>
         </View>
       ) : null}
     </View>
@@ -226,6 +241,7 @@ function SleepTab({ user, player }) {
   const last = player.sleepLog?.[todayKey()];
   const [bed, setBed] = useState(last ? (last[0] < 12 ? last[0] + 24 : last[0]) : times.bed);
   const [wake, setWake] = useState(last ? last[1] : times.wake);
+  const [quality, setQuality] = useState(last?.[2] ?? null);
   const [saved, setSaved] = useState(!!last);
   const nights = sleepNights(player.sleepLog, 14);
   const sum = sleepSummary(player.sleepLog, player.profile);
@@ -236,7 +252,11 @@ function SleepTab({ user, player }) {
         <Label tone={color.hi}>{t.habits.lastNight}</Label>
         <Stepper label={t.habits.wentToBed} value={bed} onChange={(v) => { setBed(v); setSaved(false); }} step={0.25} min={18} max={30} format={hhmm} />
         <Stepper label={t.habits.wokeUp} value={wake} onChange={(v) => { setWake(v); setSaved(false); }} step={0.25} min={3} max={14} format={hhmm} />
-        <SysButton label={saved ? t.habits.sleepSaved : t.habits.saveSleep} disabled={saved} onPress={() => logSleep(user.uid, bed % 24, wake).then(() => { doneFeel(); setSaved(true); }).catch(() => {})} />
+        <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{t.habits.howSlept}</Text>
+        <View style={{ flexDirection: "row", gap: 4 }}>
+          {[1, 2, 3, 4, 5].map((q) => <Chip key={q} flex label={t.habits.quality[q]} on={quality === q} onPress={() => { setQuality(quality === q ? null : q); setSaved(false); }} />)}
+        </View>
+        <SysButton label={saved ? t.habits.sleepSaved : t.habits.saveSleep} disabled={saved} onPress={() => logSleep(user.uid, bed % 24, wake, quality).then(() => { doneFeel(); setSaved(true); }).catch(() => {})} />
       </Frame>
       {sum ? (
         <Frame cut={12} contentStyle={{ padding: 14, gap: 10 }}>
@@ -244,6 +264,7 @@ function SleepTab({ user, player }) {
           <Text style={{ fontFamily: font.body, fontSize: 14, lineHeight: 20, color: color.text }}>
             {fill(t.habits.sleepAvg, { h: sum.hours, bed: hhmm(sum.bed), t: hhmm(sum.targetBed) })}
             {Math.abs(sum.lateBy) >= 15 ? ` ${fill(sum.lateBy > 0 ? t.habits.later : t.habits.earlier, { m: Math.abs(sum.lateBy) })}` : ` ${t.habits.onTime}`}
+            {sum.quality ? ` ${fill(t.habits.qualityAvg, { q: t.habits.quality[Math.round(sum.quality)].toLowerCase() })}` : ""}
           </Text>
           {nights.length >= 2 ? <Bars items={nights} value={(n) => n.hours} max={12} target={target} label={(n) => `${n.hours} h`} /> : null}
           <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{fill(t.habits.sleepLine, { h: target })}</Text>
@@ -314,7 +335,8 @@ export function HabitsCard({ user, player }) {
   const [open, setOpen] = useState(null);
   const today = dayNum();
   const list = tracked(player);
-  const done = list.filter((id) => player.skills?.[id]?.days?.slice(-1)[0] === today).length;
+  const doneOn = (id) => (habitEntry(player, id)?.days ?? []).includes(today);
+  const done = list.filter(doneOn).length;
   const best = [...(player.quits ?? [])].sort((a, b) => cleanDays(b) - cleanDays(a))[0];
   const hour = new Date().getHours() + new Date().getMinutes() / 60;
   const needSleep = !player.sleepLog?.[todayKey()] && hour >= dayTimes(player.profile).wake && hour < 14;
@@ -328,10 +350,10 @@ export function HabitsCard({ user, player }) {
           </View>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
             {list.map((id) => {
-              const on = player.skills?.[id]?.days?.slice(-1)[0] === today;
+              const on = doneOn(id);
               return (
                 <View key={id} style={{ paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: on ? color.purple : "rgba(159,203,255,0.18)", backgroundColor: on ? "rgba(168,126,255,0.15)" : "transparent" }}>
-                  <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: on ? "#FFFFFF" : color.muted }}>{skillById[id]?.name ?? id}</Text>
+                  <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: on ? "#FFFFFF" : color.muted }}>{habitName(player, id)}</Text>
                 </View>
               );
             })}

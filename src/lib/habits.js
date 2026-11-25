@@ -7,7 +7,7 @@ import { skillById } from "../game/guild";
 import { ladderById } from "../game/ladders";
 import { todayKey } from "../game/quests";
 import { dayNum, habitRank, isHabit, recordTraining } from "../game/skills";
-import { DAY_MS, SLEEP_KEEP_DAYS, cleanDays, staleKeys } from "../game/habits";
+import { CHECK_KEEP_DAYS, DAY_MS, DEFAULT_TRACKED, SLEEP_KEEP_DAYS, checkById, cleanDays, staleKeys } from "../game/habits";
 
 const ref = (uid) => doc(db, "players", uid);
 
@@ -43,6 +43,37 @@ export async function logHabit(uid, skillId) {
   });
 }
 
+// A check (pills, teeth...) done today: a little EXP for its stat, no coins.
+export async function logCheck(uid, id) {
+  return runTransaction(db, async (tx) => {
+    const p = (await tx.get(ref(uid))).data() ?? {};
+    const today = dayNum(todayKey());
+    const days = (p.checkDays?.[id] ?? []).filter((d) => d > today - CHECK_KEEP_DAYS);
+    if (days.includes(today)) return { already: true };
+    const stat = checkById[id]?.stat ?? "WIL";
+    const xp = 2;
+    const total = (p.xp ?? 0) + xp;
+    tx.set(ref(uid), {
+      checkDays: { ...(p.checkDays ?? {}), [id]: [...days, today] },
+      xp: total, level: levelFromXp(total).level,
+      statXp: { ...(p.statXp ?? {}), [stat]: (p.statXp?.[stat] ?? 0) + xp },
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+    return { xp };
+  });
+}
+
+// Your own check, like "Stretch before bed". It's added to what you track.
+export async function addCustomCheck(uid, name) {
+  return runTransaction(db, async (tx) => {
+    const p = (await tx.get(ref(uid))).data() ?? {};
+    const id = `my${Date.now().toString(36)}`;
+    const list = [...(p.customChecks ?? []), { id, name: String(name).trim().slice(0, 40) }];
+    const habits = [...(p.habits?.length ? p.habits : DEFAULT_TRACKED), id];
+    tx.update(ref(uid), { customChecks: list, habits, updatedAt: serverTimestamp() });
+  });
+}
+
 // ---- Quitting ----
 export async function addQuit(uid, quit) {
   return runTransaction(db, async (tx) => {
@@ -73,10 +104,11 @@ export async function slipQuit(uid, id) {
 export const takeRedemption = (uid, questId) => acceptQuest(uid, questId);
 
 // ---- Sleep and screen time ----
-export async function logSleep(uid, bed, wake, date = todayKey()) {
+export async function logSleep(uid, bed, wake, quality = null, date = todayKey()) {
   return runTransaction(db, async (tx) => {
     const p = (await tx.get(ref(uid))).data() ?? {};
-    const log = { [date]: [Math.round(bed * 4) / 4 % 24, Math.round(wake * 4) / 4] };
+    const night = [Math.round(bed * 4) / 4 % 24, Math.round(wake * 4) / 4];
+    const log = { [date]: quality ? [...night, quality] : night };
     staleKeys(p.sleepLog, SLEEP_KEEP_DAYS, date).forEach((k) => { log[k] = deleteField(); });
     tx.set(ref(uid), { sleepLog: log, updatedAt: serverTimestamp() }, { merge: true });
   });
