@@ -15,6 +15,8 @@ import QuestSheet from "./QuestSheet";
 import { BodyReport } from "./Body";
 import CheckIn from "./CheckIn";
 import GymSession from "./GymSession";
+import Schedule from "./Schedule";
+import { busyBlocks, hhmm, suggestTimes } from "../game/schedule";
 import QuickLog from "./QuickLog";
 import { QUICK, goalFor, quickToday } from "../game/quick";
 import { dayNum, trialQuestId, trialState, weekNum } from "../game/skills";
@@ -67,7 +69,7 @@ function QuestHex({ stat, done }) {
   );
 }
 
-function GoalRow({ questId, done, busy, onDone, onOpen, last, quick }) {
+function GoalRow({ questId, done, busy, onDone, onOpen, last, quick, time }) {
   const { color, font } = useTheme();
   const q = getQuest(questId);
   // Quick logs count toward the quest: show taps instead of minutes.
@@ -89,7 +91,7 @@ function GoalRow({ questId, done, busy, onDone, onOpen, last, quick }) {
           </Text>
         </View>
         <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>
-          {t.stats[q.stat]} · {t.quests.difficulty[q.difficulty]}
+          {t.stats[q.stat]} · {t.quests.difficulty[q.difficulty]}{time != null && !done ? `  ·  ${fill(t.schedule.around, { time: hhmm(time) })}` : ""}
         </Text>
       </Pressable>
       <HexCheck done={done} disabled={busy} onPress={onDone}
@@ -126,6 +128,11 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
   }).filter(Boolean);
   const duties = dutiesToday(player, day.date, weekNum(dayNum(day.date)));
   const trollQ = trollQueue(useTrolls(user.uid));
+  // Suggested times for open main quests, in your free time today (from now on).
+  const [schedOpen, setSchedOpen] = useState(false);
+  const busyToday = busyBlocks(player, day.date);
+  const nowD = new Date();
+  const times = suggestTimes(day.mains.filter((m) => !m.done).map((m) => ({ id: m.id, minutes: getQuest(m.id)?.minutes })), player, day.date, nowD.getHours() + nowD.getMinutes() / 60);
   const toastAnim = useRef(new Animated.Value(0)).current;
 
   const quickCounts = quickToday(player);
@@ -194,7 +201,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
         </View>
 
         <View style={{ flexDirection: "row", justifyContent: "center", gap: 4, marginTop: 16 }}>
-          {day.mains.map((m) => <QuestHex key={m.id} stat={questById[m.id].stat} done={m.done} />)}
+          {day.mains.map((m) => <QuestHex key={m.id} stat={getQuest(m.id)?.stat ?? "STR"} done={m.done} />)}
         </View>
 
         {!day.start.done ? (
@@ -217,8 +224,16 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
               {mainsDone}<Text style={{ fontSize: 14, color: color.muted }}> / {day.mains.length}</Text>
             </Text>
           </View>
+          {busyToday.length || player.schedule?.length ? (
+            <Pressable accessibilityRole="button" onPress={() => setSchedOpen(true)} style={{ paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: color.line }}>
+              <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>
+                {busyToday.length ? fill(t.schedule.busyLine, { list: busyToday.map((b) => `${b.label} ${hhmm(b.start)}–${hhmm(b.end)}`).join(", ") }) : t.schedule.freeLine}
+                <Text style={{ fontFamily: font.bodyBold, color: color.accent }}>{`  ${t.schedule.edit}`}</Text>
+              </Text>
+            </Pressable>
+          ) : null}
           {day.mains.map((m, i) => (
-            <GoalRow key={m.id} questId={m.id} done={m.done} busy={busy} last={i === day.mains.length - 1}
+            <GoalRow key={m.id} questId={m.id} done={m.done} busy={busy} last={i === day.mains.length - 1} time={times[m.id]}
               onDone={() => complete(m.id, "main")} onOpen={() => setSheet({ id: m.id, slot: "main", done: m.done })} quick={quickFor(m.id)} />
           ))}
           <View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 8, borderTopWidth: 1, borderTopColor: color.line }}>
@@ -403,6 +418,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
         </Animated.View>
       ) : null}
 
+      {schedOpen ? <Schedule user={user} player={player} onClose={() => setSchedOpen(false)} /> : null}
       {sheet && sheet.id.startsWith("gs:") && !sheet.done ? (
         <GymSession user={user} player={player} questId={sheet.id} slot={sheet.slot} onClose={() => setSheet(null)} onResult={(r) => onResult(r, sheet.id)} />
       ) : null}

@@ -31,6 +31,7 @@ import { t } from "../i18n";
 import { Glossary } from "./Explain";
 import { FeedbackSheet } from "./Feedback";
 import GymSetup from "./GymSetup";
+import Schedule from "./Schedule";
 import { TEMPLATES } from "../game/gym";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
@@ -270,6 +271,7 @@ export default function Settings({ user, player, synced }) {
   const [quotes, setQuotes] = useState(false);
   const [feedback, setFeedback] = useState(false);
   const [gymOpen, setGymOpen] = useState(false);
+  const [schedOpen, setSchedOpen] = useState(false);
   const { stamp, track, Provider } = useSavedStamp();
 
   // Changing your name: the first change is free, then it costs coins (so it means something).
@@ -328,6 +330,12 @@ export default function Settings({ user, player, synced }) {
           {pendingSeverity ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: color.frame }}>{fill(t.settings.severityNext, { sev: t.penalty.severities[pendingSeverity] })}</Text> : null}
         </View>
       </Section>
+
+      <Section title={t.schedule.section} sub={t.schedule.sectionSub}>
+        <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{fill(t.schedule.summary, { n: (player.schedule ?? []).length })}</Text>
+        <SysButton label={t.schedule.open} onPress={() => setSchedOpen(true)} />
+      </Section>
+      {schedOpen ? <Schedule user={user} player={player} onClose={() => setSchedOpen(false)} /> : null}
 
       <Section title={t.gym.section} sub={t.gym.sectionSub}>
         <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>

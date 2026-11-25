@@ -9,6 +9,7 @@ import { dayNum, skillView, trialState, TRIAL_DAYS } from "./skills";
 import { quoteOfDay } from "./quotes";
 import { quickById, quickToday } from "./quick";
 import { dayTimes } from "./profile";
+import { busyBlocks, isBusy } from "./schedule";
 import { t } from "../i18n";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
@@ -41,17 +42,30 @@ const fromDayNum = (n, hour) => {
 
 // Urgent quest times for one day: spread over your waking hours (an hour after waking until an hour
 // before bed, within 8:00–22:00), one per slot.
-export function urgentTimes(uid, dateKey, count, base, profile = null) {
+// busy: today's busy blocks (game/schedule). Urgent quests are spread over the free time only.
+export function urgentTimes(uid, dateKey, count, base, profile = null, busy = []) {
   const rand = seeded(`${uid}:${dateKey}`);
   const { wake, bed } = dayTimes(profile);
   const start = Math.max(URGENT.dayStartHour, wake + 1) * 60;
   const end = Math.min(URGENT.dayEndHour, bed - 1) * 60;
-  const span = Math.max(60, end - start - 30);
-  const slot = span / Math.max(1, count);
-  return Array.from({ length: count }, (_, i) => {
-    const minute = Math.round(start + i * slot + rand() * Math.max(0, slot - 45));
-    return at(base, 0, Math.floor(minute / 60), minute % 60);
+  // Free stretches (minutes) between start and end.
+  const free = [];
+  let cur = start;
+  busy.map((x) => ({ s: x.start * 60, e: x.end * 60 })).sort((x, y) => x.s - y.s).forEach(({ s: bs, e: be }) => {
+    if (bs > cur) free.push([cur, Math.min(bs, end)]);
+    cur = Math.max(cur, be);
   });
+  if (cur < end) free.push([cur, end]);
+  const spans = free.filter(([x, y]) => y - x >= 20);
+  const total = spans.reduce((n, [x, y]) => n + (y - x), 0);
+  if (total < 30) return [];
+  // Walk along the free minutes as if they were one line, one urgent quest per equal slot.
+  const toClock = (m) => { for (const [x, y] of spans) { if (m <= y - x) return x + m; m -= y - x; } return null; };
+  const slot = total / Math.max(1, count);
+  return Array.from({ length: count }, (_, i) => {
+    const minute = toClock(Math.round(i * slot + 10 + rand() * Math.max(0, slot - 25)));
+    return minute == null ? null : at(base, 0, Math.floor(minute / 60), Math.round(minute % 60));
+  }).filter(Boolean);
 }
 
 // The list of notifications to schedule: { id, date, title, body, data }.
@@ -72,10 +86,11 @@ export function notificationPlan(player, uid, now = new Date()) {
     if (s.urgent) {
       const perDay = player.urgentPerDay ?? URGENT.defaultPerDay;
       const done = d === 0 && player.urgentToday?.date === key ? player.urgentToday.count : 0;
-      urgentTimes(uid, key, perDay, base, player.profile).slice(done).forEach((date, i) => {
+      urgentTimes(uid, key, perDay, base, player.profile, busyBlocks(player, key)).slice(done).forEach((date, i) => {
         // A heads-up 5 to 10 minutes before, so it doesn't catch you in the middle of something.
         const lead = 5 + Math.floor(seeded(`${uid}:${key}:${i}:pre`)() * 6);
-        if (s.urgentSoon) add({ id: `urgent-pre-${key}-${i}`, date: new Date(date.getTime() - lead * 60000), title: t.notify.urgentSoonTitle, body: fill(t.notify.urgentSoonBody, { n: lead }), data: { kind: "status" } });
+        const preAt = new Date(date.getTime() - lead * 60000);
+        if (s.urgentSoon && !isBusy(busyBlocks(player, key), preAt.getHours() + preAt.getMinutes() / 60)) add({ id: `urgent-pre-${key}-${i}`, date: new Date(date.getTime() - lead * 60000), title: t.notify.urgentSoonTitle, body: fill(t.notify.urgentSoonBody, { n: lead }), data: { kind: "status" } });
         add({ id: `urgent-${key}-${i}`, date, title: t.notify.urgentTitle, body: t.notify.urgentBody, data: { kind: "urgent" } });
       });
     }
@@ -90,7 +105,8 @@ export function notificationPlan(player, uid, now = new Date()) {
       const goal = quickById.water.goal;
       const had = d === 0 ? quickToday(player).water ?? 0 : 0;
       if (had < goal) {
-        WATER_HOURS.forEach((h) => add({ id: `water-${key}-${h}`, date: at(base, 0, h), title: t.notify.waterTitle,
+        const busy = busyBlocks(player, key);
+        WATER_HOURS.filter((h) => !isBusy(busy, h)).forEach((h) => add({ id: `water-${key}-${h}`, date: at(base, 0, h), title: t.notify.waterTitle,
           body: fill(t.notify.waterBody, { n: had, goal }), data: { kind: "quests" } }));
       }
     }

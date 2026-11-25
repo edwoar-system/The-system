@@ -1,5 +1,6 @@
 // Urgent quests: a pop-up with a rest option and a short task. Pure data and rules, no Firestore here.
 import { questCoins, questXp } from "./economy";
+import { busyBlocks, isBusy } from "./schedule";
 
 export const URGENT = {
   acceptMinutes: 10, // the pop-up disappears after this
@@ -69,6 +70,9 @@ export function urgentReason(player, now = Date.now(), todayKey, rand = Math.ran
   if (u && ["offered", "active", "followup"].includes(u.status)) return null;
   const hour = new Date(now).getHours();
   if (hour < URGENT.dayStartHour || hour >= URGENT.dayEndHour) return null;
+  // Not during your busy blocks (school, training...).
+  const d = new Date(now);
+  if (todayKey && isBusy(busyBlocks(player, todayKey), d.getHours() + d.getMinutes() / 60)) return null;
   const perDay = player?.urgentPerDay ?? URGENT.defaultPerDay;
   const count = player?.urgentToday?.date === todayKey ? player.urgentToday.count : 0;
   if (count >= perDay) return null;
