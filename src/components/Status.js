@@ -4,9 +4,9 @@ import { Animated, Easing, Pressable, ScrollView, Text, View } from "react-nativ
 import Svg, { Polygon, Defs, LinearGradient, Stop } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { setPlayerName, toggleFavQuote } from "../lib/player";
-import { currentDay, currentStreak } from "../lib/day";
+import { currentDay, currentStreak, getQuest } from "../lib/day";
 import { levelFromXp, statValue } from "../game/economy";
-import { questById, STATS, todayKey } from "../game/quests";
+import { STATS, todayKey } from "../game/quests";
 import { Button, Field } from "./ui";
 import { Coins, Frame, Glow, Label, hexPoints } from "./sys";
 import StatShape from "./StatShape";
@@ -157,7 +157,7 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
   const day = currentDay(player, user.uid);
   const stats = Object.fromEntries(STATS.map((s) => [s, statValue(player.statXp?.[s] ?? 0)]));
   const next = day.mains.find((m) => !m.done);
-  const nextQ = next ? questById[next.id] : null;
+  const nextQ = next ? getQuest(next.id) : null;
   const mainsDone = day.mains.filter((m) => m.done).length;
   const n = (v) => Math.round(v * k);
 

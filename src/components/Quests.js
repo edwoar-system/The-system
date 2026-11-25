@@ -194,7 +194,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
         </View>
 
         <View style={{ flexDirection: "row", justifyContent: "center", gap: 4, marginTop: 16 }}>
-          {day.mains.map((m) => <QuestHex key={m.id} stat={questById[m.id].stat} done={m.done} />)}
+          {day.mains.map((m) => <QuestHex key={m.id} stat={getQuest(m.id)?.stat ?? "STR"} done={m.done} />)}
         </View>
 
         {!day.start.done ? (
