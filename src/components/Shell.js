@@ -8,6 +8,7 @@ import Quests from "./Quests";
 import Skills from "./Skills";
 import Settings from "./Settings";
 import Friends from "./Friends";
+import Learn from "./Learn";
 import Urgent from "./Urgent";
 import PenaltyZone, { PenaltyBar, ShieldNotice } from "./PenaltyZone";
 import { checkPenalty, dismissNotice } from "../lib/penalty";
@@ -29,7 +30,7 @@ import { t } from "../i18n";
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 
 // The shop will open from your coins (it comes with app blocking), so friends take its place in the bar.
-const TABS = ["status", "quests", "skills", "friends", "settings"];
+const TABS = ["status", "quests", "skills", "learn", "friends", "settings"];
 
 function TabIcon({ id, active, c }) {
   const p = { fill: active ? "rgba(159,203,255,0.25)" : "none", stroke: c, strokeWidth: 1.6 };
@@ -38,6 +39,12 @@ function TabIcon({ id, active, c }) {
       {id === "status" ? <Polygon points="12,2.5 20.5,7.3 20.5,16.7 12,21.5 3.5,16.7 3.5,7.3" {...p} /> : null}
       {id === "quests" ? <Path d="M6 3h12v18l-6-4-6 4z" {...p} /> : null}
       {id === "skills" ? <Path d="M4 20V10M10 20V4M16 20v-7M22 20H2" {...p} fill="none" /> : null}
+      {id === "learn" ? (
+        <>
+          <Path d="M12 6.5C9.5 4.8 6.5 4.3 3.5 4.8v13.5c3-.5 6 0 8.5 1.7 2.5-1.7 5.5-2.2 8.5-1.7V4.8c-3-.5-6 0-8.5 1.7z" {...p} />
+          <Path d="M12 6.5V20" stroke={c} strokeWidth={1.6} />
+        </>
+      ) : null}
       {id === "friends" ? (
         <>
           <Polygon points="9,3.5 14,6.4 14,12.1 9,15 4,12.1 4,6.4" {...p} />
@@ -208,6 +215,9 @@ function ShellBody({ user, state }) {
           onOpenSkill={(id, sheet) => goTo({ tab: "skills", skillFocus: id }, { tab: "quests", focus: sheet ?? undefined })} /> : <Status user={user} {...state} />) : null}
         {tab === "skills" ? (state.player ? <Skills user={user} player={state.player} focusSkill={skillFocus} onFocusDone={() => setSkillFocus(null)}
           onGoToQuest={(f, fromSkill) => goTo({ tab: "quests", focus: f }, { tab: "skills", skillFocus: fromSkill ?? undefined })} /> : <Status user={user} {...state} />) : null}
+        {tab === "learn" ? (state.player ? <Learn user={user} player={state.player}
+          onOpenSkill={(id) => goTo({ tab: "skills", skillFocus: id }, { tab: "learn" })}
+          onGoToQuest={(f) => goTo({ tab: "quests", focus: f }, { tab: "learn" })} /> : <Status user={user} {...state} />) : null}
         {tab === "friends" ? (state.player ? <Friends user={user} player={state.player} /> : <Status user={user} {...state} />) : null}
         {tab === "settings" ? (state.player ? <Settings user={user} player={state.player} synced={state.synced} /> : <Status user={user} {...state} />) : null}
         {!trollQ.active.length && activeAppTime(player) && !penaltyView ? <AppTimeBanner appTime={player.appTime} /> : null}
