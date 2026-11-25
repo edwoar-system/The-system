@@ -9,6 +9,7 @@ import { buyAppTime, buyEffect, buyShield, buySkin, endAppTime } from "../lib/sh
 import { sendTroll, useFriends, useTrolls } from "../lib/social";
 import { TrollPicker } from "./Friends";
 import NameText from "./NameText";
+import Unlock from "./Unlock";
 import { doneFeel } from "../lib/haptics";
 import { Coins, Frame, Glow, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
@@ -39,17 +40,10 @@ export default function Shop({ user, player, onClose }) {
   const rate = rateAt(kind, used);
   const refund = refundFor(active, now);
 
-  async function buy(minutes) {
-    setBusy(true);
-    setMsg(null);
-    try {
-      await buyAppTime(user.uid, kind, minutes, fill(t.shop.logTitle, { kind: t.shop.kinds[kind], min: minutes }));
-      doneFeel();
-      setMsg({ ok: true, text: fill(t.shop.bought, { min: minutes }) });
-    } catch (e) {
-      setMsg({ ok: false, text: e.message === "no-coins" ? t.shop.noCoins : e.message === "other-kind" ? t.shop.otherKind : t.shop.failed });
-    } finally { setBusy(false); }
-  }
+  // Buying app time goes through the seal: hold it until it breaks, then the purchase happens.
+  const [unlock, setUnlock] = useState(null); // { minutes, cost }
+  const buy = (minutes) => { setMsg(null); setUnlock({ minutes, cost: priceFor(kind, minutes, used) }); };
+
   // Any other purchase: run it, then show what happened.
   async function run(fn, okText) {
     setBusy(true);
@@ -218,6 +212,10 @@ export default function Shop({ user, player, onClose }) {
           </Frame>
         </ScrollView>
       </View>
+      {unlock ? (
+        <Unlock kind={t.shop.kinds[kind]} minutes={unlock.minutes} cost={unlock.cost} onClose={() => setUnlock(null)}
+          onConfirm={() => buyAppTime(user.uid, kind, unlock.minutes, fill(t.shop.logTitle, { kind: t.shop.kinds[kind], min: unlock.minutes }))} />
+      ) : null}
       {trollFor ? <TrollPicker name={trollFor.card?.name ?? trollFor.name} coins={coins} onPick={pickTroll} onClose={() => setTrollFor(null)} /> : null}
     </Modal>
   );
