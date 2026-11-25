@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text, View, Platform } from "react-native";
 import Svg, { Circle, Path, Polygon } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usePlayer } from "../lib/player";
@@ -138,6 +138,13 @@ function ShellBody({ user, state }) {
   const [trail, setTrail] = useState([]); // [{ tab, focus?, skillFocus? }]
   const checking = useRef(false);
   const player = state.player;
+  // Website: the page behind the app and Safari's own bars take your skin's background, so no white edges.
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof document === "undefined") return;
+    document.documentElement.style.backgroundColor = color.bg;
+    document.body.style.backgroundColor = color.bg;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", color.bg);
+  }, [color.bg]);
   const inPenalty = isInPenalty(player);
 
   const open = (place) => {

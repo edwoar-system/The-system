@@ -11,7 +11,7 @@ import { dutiesDue, dutyQuest, interestOfSkill, interestSkills, mountainFactor }
 import { hitsTired, questLoad, tiredSet } from "../game/muscles";
 import { swapPrice } from "../game/shop";
 import { gymToday, splitQuest } from "../game/gym";
-import { penaltyDue } from "../game/penalty";
+import { EXTRA_STEP, deadlineOf, extraPrice, penaltyDue } from "../game/penalty";
 import { isHard } from "../game/hard";
 import { trainMuscles } from "./muscles";
 
@@ -144,6 +144,23 @@ export async function swapMain(uid, questId) {
     const mains = day.mains.map((m, k) => (k === i ? { id: next.id, done: false } : m));
     tx.set(ref, { day: { ...day, mains, swaps: swaps + 1 }, coins: (player.coins ?? 0) - cost, updatedAt: serverTimestamp() }, { merge: true });
     return { id: next.id, cost };
+  });
+}
+
+// Pay coins for more time today: pushes the deadline back 30 minutes (twice at most). Only before the deadline.
+export async function buyExtraTime(uid, title) {
+  const ref = doc(db, "players", uid);
+  const logRef = doc(collection(db, "players", uid, "log"));
+  return runTransaction(db, async (tx) => {
+    const player = (await tx.get(ref)).data() ?? {};
+    const day = player.day?.date === todayKey() ? player.day : newDay(player, uid);
+    if (Date.now() >= deadlineOf(day.date, player.profile, day.extraMin ?? 0)) throw new Error("too-late");
+    const cost = extraPrice(day, isHard(player));
+    if (cost == null) throw new Error("max");
+    if ((player.coins ?? 0) < cost) throw new Error("no-coins");
+    tx.set(ref, { day: { ...day, extraMin: (day.extraMin ?? 0) + EXTRA_STEP }, coins: player.coins - cost, coinsSpent: (player.coinsSpent ?? 0) + cost, updatedAt: serverTimestamp() }, { merge: true });
+    tx.set(logRef, { questId: "shop:extra-time", title, coins: -cost, slot: "shop", date: day.date, at: serverTimestamp() });
+    return { cost };
   });
 }
 

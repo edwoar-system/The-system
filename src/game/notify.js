@@ -111,7 +111,7 @@ export function notificationPlan(player, uid, now = new Date()) {
         add({ id: `urgent-${key}-${i}`, date, title: t.notify.urgentTitle, body: t.notify.urgentBody, data: { kind: "urgent" } });
       });
     }
-    const end = dayEndHour(player.profile);
+    const end = dayEndHour(player.profile) + (d === 0 && day?.extraMin ? day.extraMin / 60 : 0);
     const endAt = at(base, 0, Math.floor(end), Math.round((end % 1) * 60));
     const hard = isHard(player, base.getTime());
     const busy = busyBlocks(player, key);

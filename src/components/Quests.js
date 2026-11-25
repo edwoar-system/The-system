@@ -3,9 +3,10 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Polygon } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { END_PARTS, START_PARTS, completeQuest, currentDay, getQuest, rewardPreview, tickStart } from "../lib/day";
+import { END_PARTS, START_PARTS, buyExtraTime, completeQuest, currentDay, getQuest, rewardPreview, tickStart } from "../lib/day";
 import { logCheck } from "../lib/habits";
-import { dayEndHour } from "../game/penalty";
+import { dayEndHour, extraPrice } from "../game/penalty";
+import { isHard } from "../game/hard";
 import { quickLog } from "../lib/quick";
 import { SIDE_BONUS } from "../game/quests";
 import Guild from "./Guild";
@@ -31,7 +32,7 @@ import { RANKS, ladderById as ladders } from "../game/ladders";
 import { skillById } from "../game/guild";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
-import { doneFeel } from "../lib/haptics";
+import { doneFeel, tapFeel } from "../lib/haptics";
 import { HelpDot } from "./Explain";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
@@ -137,7 +138,9 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
   const busyToday = busyBlocks(player, day.date);
   const nowD = new Date();
   // The bedtime quest shows up when the day ends (an hour before bed).
-  const bedtime = nowD.getHours() + nowD.getMinutes() / 60 >= dayEndHour(player.profile);
+  const endH = dayEndHour(player.profile) + (day.extraMin ?? 0) / 60;
+  const bedtime = nowD.getHours() + nowD.getMinutes() / 60 >= endH;
+  const extraCost = extraPrice(day, isHard(player));
   const times = suggestTimes(day.mains.filter((m) => !m.done).map((m) => ({ id: m.id, minutes: getQuest(m.id)?.minutes })), player, day.date, nowD.getHours() + nowD.getMinutes() / 60);
   const toastAnim = useRef(new Animated.Value(0)).current;
 
@@ -212,6 +215,20 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
     }
   }
 
+  // More time: pushes today's deadline back 30 minutes for coins.
+  async function moreTime() {
+    setBusy(true);
+    try {
+      const r = await buyExtraTime(user.uid, t.board.moreTimeLog);
+      tapFeel();
+      showToast({ note: fill(t.board.moreTimeDone, { n: r.cost, time: hhmm(endH + 0.5) }) });
+    } catch (e) {
+      showToast({ error: true, text: e.message === "no-coins" ? t.board.moreTimeNoCoins : e.message === "too-late" ? t.board.moreTimeLate : null });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function checklist(which, parts, ticks) {
     const words = which === "end" ? t.board.endParts : t.board.startParts;
     return (
@@ -269,6 +286,19 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
               {mainsDone}<Text style={{ fontSize: 14, color: color.muted }}> / {day.mains.length}</Text>
             </Text>
           </View>
+          {mainsDone < day.mains.length && !bedtime ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: color.line }}>
+              <Text style={{ flex: 1, fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>
+                {fill(day.extraMin ? t.board.endsExtra : t.board.ends, { time: hhmm(endH), n: day.extraMin ?? 0 })}
+              </Text>
+              {extraCost != null ? (
+                <Pressable accessibilityRole="button" disabled={busy} onPress={moreTime}
+                  style={({ pressed }) => ({ minHeight: 36, paddingHorizontal: 10, justifyContent: "center", borderWidth: 1, borderColor: "rgba(159,203,255,0.3)", backgroundColor: pressed ? "rgba(159,203,255,0.15)" : "transparent" })}>
+                  <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: color.text }}>{fill(t.board.moreTime, { n: extraCost })}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
           {busyToday.length || player.schedule?.length ? (
             <Pressable accessibilityRole="button" onPress={() => setSchedOpen(true)} style={{ paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: color.line }}>
               <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>
@@ -478,6 +508,8 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
           <Frame kind="premium" cut={10} contentStyle={{ flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 10, paddingHorizontal: 16 }}>
             {toast.error ? (
               <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.danger }}>{toast.text ?? t.quests.error}</Text>
+            ) : toast.note ? (
+              <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.accent }}>{toast.note}</Text>
             ) : (
               <>
                 {toast.coins ? <Coins value={toast.coins} sign="+" size={22} /> : null}

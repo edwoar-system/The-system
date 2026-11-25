@@ -31,9 +31,19 @@ const at = (dateKey, hour, addDays = 0) => {
 export function dayEndHour(profile) {
   return Math.min(23, Math.max(20, dayTimes(profile).bed - 1));
 }
-export const deadlineOf = (dateKey, profile = null) => {
+// extraMin: minutes bought for today (pay coins for more time, up to your bedtime).
+export const deadlineOf = (dateKey, profile = null, extraMin = 0) => {
   const h = dayEndHour(profile);
-  return at(dateKey, Math.floor(h)) + Math.round((h % 1) * 60) * 60000;
+  return at(dateKey, Math.floor(h)) + (Math.round((h % 1) * 60) + extraMin) * 60000;
+};
+
+// More time: 30 minutes at a time, twice at most (so up to your bedtime). 15 coins, then 30; double in Hard mode.
+export const EXTRA_STEP = 30;
+export const EXTRA_PRICES = [15, 30];
+export const extraBought = (day) => Math.round((day?.extraMin ?? 0) / EXTRA_STEP);
+export const extraPrice = (day, hard = false) => {
+  const p = EXTRA_PRICES[extraBought(day)];
+  return p == null ? null : p * (hard ? 2 : 1);
 };
 
 // When the penalty for a missed day ends.
@@ -46,7 +56,7 @@ export function penaltyUntil(dateKey, severity = PENALTY.defaultSeverity) {
 export function penaltyDue(day, player, now = Date.now()) {
   if (!day?.date || day.penaltyChecked) return null;
   if (!Array.isArray(day.mains) || day.mains.every((m) => m.done)) return null;
-  if (now < deadlineOf(day.date, player?.profile)) return null;
+  if (now < deadlineOf(day.date, player?.profile, day.extraMin ?? 0)) return null;
   if (now >= penaltyUntil(day.date, severityFor(player, day.date))) return null; // already over (app wasn't opened)
   return (player.shields ?? 0) > 0 ? "shield" : "penalty";
 }
