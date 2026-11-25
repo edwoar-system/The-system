@@ -25,18 +25,19 @@ export const quickToday = (player) => (player?.quick?.date === todayKey() ? play
 
 // Guild quests for the same skill count too ("g:pushups", "g:pushups:2").
 const isGuildOf = (item, id) => id === `g:${item.skill}` || id.startsWith(`g:${item.skill}:`);
-// Sets per guild tier (tier 0, I, II), matching the quest text.
+// Sets per guild tier (tier 0, I, II), matching the quest text. Tier 0 follows your difficulty (4–7 sets).
 const SET_GOALS = { pushups: [5, 9, 6], pullups: [5, 7, 5] };
-function goalOf(item, id) {
-  if (!isGuildOf(item, id)) return goalFor(item, id);
+function goalOf(item, id, sets) {
+  if (!isGuildOf(item, id)) return item.goalUnit === "sets" && sets ? sets : goalFor(item, id);
   const tier = Number(id.split(":")[2] ?? 0);
+  if (tier === 0 && sets) return sets;
   return SET_GOALS[item.id]?.[tier] ?? (typeof item.goal === "number" ? item.goal : 1);
 }
 
-// The open main quest this item counts toward today, if any.
-export function quickTarget(item, day) {
+// The open main quest this item counts toward today, if any. sets: your difficulty's set count (DIFF_SETS).
+export function quickTarget(item, day, sets = null) {
   const open = day?.mains?.find((m) => !m.done && (questsOf(item).includes(m.id) || isGuildOf(item, m.id)));
-  return open ? { questId: open.id, goal: goalOf(item, open.id) } : null;
+  return open ? { questId: open.id, goal: goalOf(item, open.id, sets) } : null;
 }
 
 // Set-based quests (push-ups, pull-ups): the quick item that logs one set, or null.

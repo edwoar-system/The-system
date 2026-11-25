@@ -7,6 +7,7 @@ import { Frame, Label, nativeDriver } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 import { doneFeel, tapFeel } from "../lib/haptics";
+import { DIFF_SETS, difficultyOf } from "../game/difficulty";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 
@@ -58,7 +59,7 @@ export default function QuickLog({ user, player, day, onCompleted, style }) {
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         {quickBar(day).map((item) => {
           const n = counts[item.id] ?? 0;
-          const target = quickTarget(item, day);
+          const target = quickTarget(item, day, DIFF_SETS[difficultyOf(player)]);
           const full = target && n >= target.goal;
           return (
             <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`${item.label}, ${target ? fill(t.quick.progress, { a: n, b: target.goal }) : n}`}

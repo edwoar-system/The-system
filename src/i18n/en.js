@@ -840,6 +840,16 @@ export default {
     screenAvg: "On average {t} a day.",
     screenLater: "With app blocking (coming last), the System will see your blocked apps' time itself.",
   },
+  difficulty: {
+    title: "DIFFICULTY",
+    names: { easy: "Easy", normal: "Normal", hard: "Hard", extreme: "Extreme" },
+    hint: {
+      easy: "Numbers about 30% lower, easier quest levels, 4 sets. For starting out or a busy period.",
+      normal: "Numbers fit your level in each skill. 5 sets.",
+      hard: "About 30% more than your level, one quest level up, 6 sets.",
+      extreme: "About 60% more than your level, one quest level up, 7 sets. Troll quests hit hardest.",
+    },
+  },
   hard: {
     title: "HARD MODE",
     sub: "For when you want the System to stop letting you off easy.",
@@ -853,7 +863,7 @@ export default {
     left: "{n} days of Hard mode left",
     leftOne: "Last day of Hard mode",
     until: "Until {date}, {time}.",
-    locks: "Locked: reminders, Tune the System, penalty strength, urgent quests and quest swaps.",
+    locks: "Locked: reminders, Tune the System, difficulty, penalty strength, urgent quests and quest swaps.",
     leaveCoins: "LEAVE NOW FOR {n} COINS",
     leaveShield: "LEAVE NOW WITH YOUR STREAK SHIELD",
     noCoins: "You need {n} coins to leave. Or finish it.",

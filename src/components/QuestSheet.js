@@ -16,6 +16,7 @@ import { t } from "../i18n";
 import { doneFeel, tapFeel } from "../lib/haptics";
 import { quickReps, quickTarget, quickToday, setItemFor } from "../game/quick";
 import { quickLog } from "../lib/quick";
+import { DIFF_SETS, difficultyOf } from "../game/difficulty";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 const ROMAN = ["I", "II", "III"];
@@ -56,7 +57,7 @@ function SetsPanel({ user, player, item, day, onFinished }) {
   const { color, font } = useTheme();
   const reps = quickReps(player)[item.id] ?? [];
   const n = quickToday(player)[item.id] ?? 0;
-  const target = quickTarget(item, day);
+  const target = quickTarget(item, day, DIFF_SETS[difficultyOf(player)]);
   const goal = target?.goal ?? item.goal;
   const [now, setNow] = useState(reps[reps.length - 1] ?? 10);
   const [busy, setBusy] = useState(false);

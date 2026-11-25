@@ -5,7 +5,8 @@ import * as Updates from "expo-updates";
 import { signOut } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth } from "../lib/firebase";
-import { setFeelSetting, setNotify, setPrivacy, setProof, setReminders } from "../lib/player";
+import { setDifficulty, setFeelSetting, setNotify, setPrivacy, setProof, setReminders } from "../lib/player";
+import { difficultyOf } from "../game/difficulty";
 import { hhmm } from "../game/schedule";
 import { changeName } from "../lib/shop";
 import { NAME_CHANGE_PRICE } from "../game/shop";
@@ -26,7 +27,7 @@ import { severityFor } from "../game/penalty";
 import { todayKey } from "../game/quests";
 import { Coins, Frame, Glow, Label, SysButton } from "./sys";
 import { Button } from "./ui";
-import { SeverityChips, UrgentChips } from "./systemChoices";
+import { DifficultyChips, SeverityChips, UrgentChips } from "./systemChoices";
 import Tune from "./Tune";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
@@ -381,6 +382,10 @@ export default function Settings({ user, player, synced }) {
       </Section>
 
       <Section title={t.settings.system}>
+        <View style={{ gap: 8 }}>
+          <Label>{t.difficulty.title}</Label>
+          <DifficultyChips value={difficultyOf(player)} onChange={(d) => { if (!isHard(player)) track(setDifficulty(user.uid, d)).catch(() => {}); }} />
+        </View>
         <View style={{ gap: 8 }}>
           <Label>{t.settings.urgent.toUpperCase()}</Label>
           <UrgentChips value={player.urgentPerDay ?? URGENT.defaultPerDay} onChange={(n) => { if (!isHard(player)) track(setUrgentPerDay(user.uid, n)).catch(() => {}); }} />

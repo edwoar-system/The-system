@@ -11,6 +11,7 @@ import { dayNum, habitRank, isHabit, recordTraining, weekNum } from "../game/ski
 import { questLoad } from "../game/muscles";
 import { trainMuscles } from "./muscles";
 import { levelFromXp } from "../game/economy";
+import { DIFF_SETS, difficultyOf } from "../game/difficulty";
 
 const ref = (uid) => doc(db, "players", uid);
 
@@ -69,7 +70,7 @@ export async function quickLog(uid, itemId, reps = null) {
       updatedAt: serverTimestamp(),
     }, { merge: true });
 
-    const target = quickTarget(item, currentDay(player, uid));
+    const target = quickTarget(item, currentDay(player, uid), DIFF_SETS[difficultyOf(player)]);
     return { count: counts[itemId], xp, levelUp: after > before ? after : null, target };
   });
 

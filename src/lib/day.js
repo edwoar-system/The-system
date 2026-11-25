@@ -13,6 +13,7 @@ import { swapPrice } from "../game/shop";
 import { gymToday, splitQuest } from "../game/gym";
 import { EXTRA_STEP, deadlineOf, extraPrice, penaltyDue } from "../game/penalty";
 import { isHard } from "../game/hard";
+import { DIFF_TIER, difficultyOf } from "../game/difficulty";
 import { trainMuscles } from "./muscles";
 
 export const MAX_GUILD_QUESTS = 6;
@@ -55,7 +56,9 @@ export function newDay(player, uid) {
     // Your answer to "how good are you at it?": new keeps it at tier 0, experienced starts a tier higher.
     const level = player?.profile?.levels?.[interestOfSkill(id)];
     const byRank = tierForRank(skillView(id, player?.skills?.[id]).rank);
-    const tier = level === 0 ? 0 : level === 2 ? Math.min(2, byRank + 1) : byRank;
+    // Your difficulty setting moves it once more (Easy one tier down, Hard and Extreme one up).
+    const base = level === 0 ? 0 : level === 2 ? Math.min(2, byRank + 1) : byRank;
+    const tier = Math.max(0, Math.min(2, base + DIFF_TIER[difficultyOf(player)]));
     return guildQuest(tier ? `g:${id}:${tier}` : `g:${id}`) ?? guildQuest(`g:${id}`);
   }).filter(Boolean);
   const mains = [...programs, ...pickMainQuests({ date, uid, lastDoneByStat: player?.lastDoneByStat ?? {}, mainSlots: slots - programs.length, liked, tired, outside, extra })];

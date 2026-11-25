@@ -85,6 +85,10 @@ export function patchProfile(uid, patch) {
 }
 
 // Turns one kind of notification on or off (see game/notify.js).
+export function setDifficulty(uid, d) {
+  return updateDoc(doc(db, "players", uid), { difficulty: d, updatedAt: serverTimestamp() });
+}
+
 export function setNotify(uid, kind, on) {
   return updateDoc(doc(db, "players", uid), { [`notify.${kind}`]: on, updatedAt: serverTimestamp() });
 }
