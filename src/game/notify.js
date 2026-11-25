@@ -13,6 +13,8 @@ import { busyBlocks, hhmm, isBusy, outsideBusy } from "./schedule";
 import { isHard } from "./hard";
 import { programQuest } from "./programs";
 import { splitQuest } from "./gym";
+import { reminderDone } from "./reminders";
+import { needsWhy, whyNow } from "./why";
 import { t } from "../i18n";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
@@ -34,6 +36,13 @@ function questTitle(id, player) {
   if (id.startsWith("d:")) return dutyQuest(id)?.title;
   if (id.startsWith("p:")) return programQuest(id, player)?.title;
   if (id.startsWith("gs:")) return splitQuest(id, player?.gym)?.title;
+  return null;
+}
+// The quest itself (for "why now" on hard ones you asked for).
+function questOf(id, player) {
+  if (id.startsWith("g:")) return guildQuest(id);
+  if (id.startsWith("p:")) return programQuest(id, player);
+  if (id.startsWith("gs:")) return splitQuest(id, player?.gym);
   return null;
 }
 const listOf = (titles) => (titles.length > 3 ? `${titles.slice(0, 3).join(", ")} +${titles.length - 3}` : titles.join(", "));
@@ -132,6 +141,19 @@ export function notificationPlan(player, uid, now = new Date()) {
       times.forEach((h, i) => add({ id: `nudge-${key}-${Math.round(h * 60)}`, date: at(base, 0, Math.floor(h), Math.round((h % 1) * 60)), title: hard ? t.notify.nudgeHardTitle : t.notify.nudgeTitle,
         body: `${openLine}\n${quoteLine(key, i + 1, player)}`, data: { kind: "quests" } }));
     }
+    // Hard quests you asked for yourself (guild, program, gym split): the System keeps at you about them,
+    // with a reason to go now. Two alerts per quest at most, outside your busy blocks.
+    if (s.nudge && d === 0 && day) {
+      const { wake } = dayTimes(player.profile);
+      const slots = [wake + 3, wake + 6, wake + 9, end - 2].map((h) => Math.round(h * 4) / 4).filter((h) => h <= end - 1 && !isBusy(busy, h));
+      day.mains.filter((m) => !m.done).map((m) => questOf(m.id, player)).filter((q) => q && needsWhy(q)).slice(0, 2).forEach((q, k) => {
+        const w = whyNow(q, key);
+        slots.map((h) => at(base, 0, Math.floor(h), Math.round((h % 1) * 60) + k * 7)).filter((date) => date > now).slice(0, 2).forEach((date, i) => add({
+          id: `hardq-${key}-${q.id}-${i}`, date, title: fill(t.notify.hardTitle, { title: q.title }),
+          body: `${w.line}\n"${w.quote.text}" (${w.quote.who})`, data: { kind: "quests" },
+        }));
+      });
+    }
     // Your schedule: a reminder 10 minutes before each busy block.
     if (s.schedule) {
       busy.filter((b) => b.label).forEach((b) => {
@@ -165,6 +187,7 @@ export function notificationPlan(player, uid, now = new Date()) {
     // Your own reminders ("don't forget"): daily ones every day, one-off ones on their date.
     (player.reminders ?? []).forEach((r) => {
       if (r.repeat !== "daily" && r.date !== key) return;
+      if (d === 0 && reminderDone(player, r.id, key)) return; // already ticked off today
       const [hh, mm] = String(r.time).split(":").map(Number);
       if (!Number.isFinite(hh) || !Number.isFinite(mm)) return;
       add({ id: `rem-${r.id}-${key}`, date: at(base, 0, hh, mm), title: t.notify.reminderTitle, body: r.text, data: { kind: "status" } });

@@ -38,6 +38,8 @@ import { FeedbackSheet } from "./Feedback";
 import GymSetup from "./GymSetup";
 import Schedule from "./Schedule";
 import { TEMPLATES } from "../game/gym";
+import { parseTime } from "../game/reminders";
+import { askWebNotifications } from "../lib/reminders";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
@@ -268,22 +270,29 @@ function Reminders({ user, player }) {
   const [time, setTime] = useState("");
   const [daily, setDaily] = useState(true);
   const [error, setError] = useState(null);
+  const [saved, setSaved] = useState(null);
   const list = player.reminders ?? [];
   const shown = list.filter((r) => r.repeat === "daily" || r.date >= todayKey()); // past one-off reminders are hidden
 
   async function add() {
-    const m = time.trim().match(/^(\d{1,2})[:.](\d{2})$/);
-    if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) { setError(t.reminders.badTime); return; }
-    const hhmm = `${m[1].padStart(2, "0")}:${m[2]}`;
+    const hhmm = parseTime(time);
+    if (!hhmm) { setError(t.reminders.badTime); return; }
+    const [hh, mm] = hhmm.split(":").map(Number);
     // A one-off reminder is for today, or tomorrow when the time has already passed.
     const now = new Date();
-    const when = new Date(now.getFullYear(), now.getMonth(), now.getDate(), Number(m[1]), Number(m[2]));
+    const when = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, mm);
     if (when <= now) when.setDate(when.getDate() + 1);
     const r = { id: String(Date.now()), text: text.trim(), time: hhmm, repeat: daily ? "daily" : "once", ...(daily ? {} : { date: todayKey(when) }) };
     setError(null);
-    await track(setReminders(user.uid, [...list, r]));
-    setText("");
-    setTime("");
+    askWebNotifications();
+    try {
+      await track(setReminders(user.uid, [...list.filter((x) => x.repeat === "daily" || x.date >= todayKey()), r]));
+      setText("");
+      setTime("");
+      setSaved(fill(r.repeat === "daily" ? t.reminders.savedDaily : t.reminders.savedOnce, { time: hhmm, day: r.date === todayKey() ? t.reminders.today : t.reminders.tomorrow }));
+    } catch {
+      setError(t.reminders.failed);
+    }
   }
 
   return (
@@ -303,7 +312,7 @@ function Reminders({ user, player }) {
       )) : <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{t.reminders.empty}</Text>}
       <Input label={t.reminders.what} value={text} onChangeText={setText} />
       <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-end" }}>
-        <Input label={t.reminders.time} value={time} onChangeText={(v) => { setTime(v); setError(null); }} keyboardType="numbers-and-punctuation" width={120} />
+        <Input label={t.reminders.time} value={time} onChangeText={(v) => { setTime(v); setError(null); setSaved(null); }} keyboardType="numbers-and-punctuation" width={120} />
         <View style={{ flex: 1, flexDirection: "row", gap: 6 }}>
           {[[true, t.reminders.daily], [false, t.reminders.once]].map(([v, label]) => (
             <Pressable key={label} accessibilityRole="button" accessibilityState={{ selected: daily === v }} onPress={() => setDaily(v)}
@@ -314,7 +323,9 @@ function Reminders({ user, player }) {
         </View>
       </View>
       {error ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: color.dangerSoft }}>{error}</Text> : null}
+      {saved ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: color.accent }}>{saved}</Text> : null}
       <SysButton label={t.reminders.add} onPress={add} disabled={!text.trim() || !time.trim()} />
+      <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{Platform.OS === "web" ? t.reminders.howWeb : t.reminders.howApp}</Text>
     </View>
   );
 }

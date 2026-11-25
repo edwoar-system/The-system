@@ -27,6 +27,9 @@ import Schedule from "./Schedule";
 import { busyBlocks, hhmm, suggestTimes } from "../game/schedule";
 import QuickLog from "./QuickLog";
 import Hud from "./Hud";
+import Welcome from "./Welcome";
+import { minutesOf, reminderDone, remindersOn } from "../game/reminders";
+import { tickReminder } from "../lib/player";
 import { showClear } from "../lib/popup";
 import { QUICK, goalFor, quickToday } from "../game/quick";
 import { dayNum, trialQuestId, trialState, weekNum } from "../game/skills";
@@ -147,7 +150,7 @@ function NowCard({ questId, time, nowHour, reward, quickItem, quick, notice, bus
 // Morning, afternoon, evening: where a suggested time falls.
 const partOfDay = (h) => (h == null ? "any" : h < 12 ? "morning" : h < 17 ? "afternoon" : "evening");
 
-export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, onOpenCourse }) {
+export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, onOpenCourse, onOpenAssess }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const day = currentDay(player, user.uid);
@@ -227,6 +230,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
   const rewardCoins = openRewards.reduce((a, r) => a + r.coins, 0);
   const rewardXp = openRewards.reduce((a, r) => a + r.xp, 0);
   const [showCleared, setShowCleared] = useState(false);
+  const todaysReminders = remindersOn(player);
   // Quests you do bit by bit all day (water) are never the "Now" quest unless nothing else is left.
   const allDayIds = new Set(QUICK.filter((it) => it.allDay).flatMap((it) => (Array.isArray(it.quest) ? it.quest : [it.quest])));
   const nowHour = nowD.getHours() + nowD.getMinutes() / 60;
@@ -365,6 +369,25 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
         ) : null}
 
         {!day.start.done ? checklist("start", START_PARTS, day.startTicks) : null}
+
+        {/* Your own reminders for today (Settings), to tick off. */}
+        {todaysReminders.length ? (
+          <Frame style={{ marginTop: 14, marginHorizontal: 14 }} cut={10} contentStyle={{ paddingVertical: 10, paddingHorizontal: 16, gap: 4 }}>
+            <Label tone={color.accent}>{t.reminders.board}</Label>
+            {todaysReminders.map((r) => {
+              const on = reminderDone(player, r.id);
+              const due = !on && minutesOf(r.time) <= nowD.getHours() * 60 + nowD.getMinutes();
+              return (
+                <View key={r.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 44 }}>
+                  <Text style={{ width: 48, fontFamily: font.num, fontSize: 15, color: due ? "#F6B45A" : on ? color.muted : color.accent }}>{r.time}</Text>
+                  <Text style={{ flex: 1, fontFamily: font.bodyMedium, fontSize: 15, color: on ? color.muted : color.text, textDecorationLine: on ? "line-through" : "none" }}>{r.text}</Text>
+                  <HexCheck size={30} done={on} disabled={on} onPress={() => { tapFeel(); tickReminder(user.uid, player, r.id).catch(() => showToast({ error: true })); }}
+                    label={fill(on ? t.board.isDone : t.board.markDone, { title: r.text })} />
+                </View>
+              );
+            })}
+          </Frame>
+        ) : null}
         {bedtime && !day.end?.done ? checklist("end", END_PARTS, day.endTicks) : null}
 
         <QuickLog user={user} player={player} day={day} situation={sit} onCompleted={onResult} style={{ marginTop: 14, marginHorizontal: 14 }} />
@@ -691,6 +714,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
       <CheckIn uid={user.uid} data={check} onClose={() => setCheck(null)} />
       <BodyReport data={check ? null : body} onClose={() => setBody(null)} onOpenSkill={onOpenSkill} />
       <RankUp data={check || body ? null : rankUp} onClose={() => setRankUp(null)} />
+      {!sheet && !check && !body && !levelUp && !rankUp ? <Welcome user={user} player={player} onOpenAssess={onOpenAssess} /> : null}
       <LevelUp data={check || body || rankUp ? null : levelUp} onClose={() => setLevelUp(null)} />
     </View>
   );

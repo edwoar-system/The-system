@@ -6,12 +6,33 @@ import { todayKey } from "../game/quests";
 
 const ref = (uid) => doc(db, "players", uid);
 
+// Today's board already made: put the first session on it right away, instead of waiting for tomorrow.
+function withSession(p, id, done) {
+  const today = todayKey();
+  if (p.day?.date !== today || !Array.isArray(p.day.mains)) return {};
+  const qid = `p:${id}:${done}`;
+  if (p.day.mains.some((m) => m.id === qid || m.id.startsWith(`p:${id}:`))) return {};
+  return { day: { mains: [...p.day.mains, { id: qid, done: false }] } };
+}
+
 export async function startProgram(uid, id) {
   return runTransaction(db, async (tx) => {
     const p = (await tx.get(ref(uid))).data() ?? {};
     const active = Object.entries(p.programs ?? {}).filter(([, st]) => !st.paused).length;
     if (!p.programs?.[id] && active >= MAX_PROGRAMS) throw new Error("max");
-    tx.set(ref(uid), { programs: { [id]: { started: todayKey(), done: p.programs?.[id]?.done ?? 0 } }, updatedAt: serverTimestamp() }, { merge: true });
+    const done = p.programs?.[id]?.done ?? 0;
+    tx.set(ref(uid), { programs: { [id]: { started: todayKey(), done } }, ...withSession(p, id, done), updatedAt: serverTimestamp() }, { merge: true });
+  });
+}
+
+// A program already running whose session is due but isn't on today's board (started after the board was made).
+export async function addSessionToday(uid, id) {
+  return runTransaction(db, async (tx) => {
+    const p = (await tx.get(ref(uid))).data() ?? {};
+    const st = p.programs?.[id];
+    if (!st) return;
+    const extra = withSession(p, id, st.done ?? 0);
+    if (extra.day) tx.set(ref(uid), { ...extra, updatedAt: serverTimestamp() }, { merge: true });
   });
 }
 
@@ -27,7 +48,7 @@ export async function createProgram(uid, c) {
     const list = [...(p.customPrograms ?? []), { ...c, id }];
     tx.set(ref(uid), {
       customPrograms: list,
-      ...(active < MAX_PROGRAMS ? { programs: { [id]: { started: todayKey(), done: 0 } } } : {}),
+      ...(active < MAX_PROGRAMS ? { programs: { [id]: { started: todayKey(), done: 0 } }, ...withSession(p, id, 0) } : {}),
       updatedAt: serverTimestamp(),
     }, { merge: true });
     return id;

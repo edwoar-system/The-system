@@ -206,7 +206,7 @@ export function FriendPage({ friend, me, myName, myCoins = 0, trollsDone = 0, on
                       {c.skills.map((s) => (
                         <View key={s.id} style={{ width: 92, alignItems: "center", gap: 6 }}>
                           <RankHex v={{ letter: RANKS[s.rank], trained: true, rusty: s.rusty }} size={38} />
-                          <Text numberOfLines={2} style={{ textAlign: "center", fontFamily: font.bodyMedium, fontSize: 12, lineHeight: 16, color: color.text }}>{skillById[s.id]?.name ?? s.id}</Text>
+                          <Text numberOfLines={2} style={{ textAlign: "center", fontFamily: font.bodyMedium, fontSize: 12, lineHeight: 16, color: color.text }}>{s.name ?? skillById[s.id]?.name ?? s.id}</Text>
                         </View>
                       ))}
                     </View>

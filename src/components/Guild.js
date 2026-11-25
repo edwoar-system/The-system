@@ -3,19 +3,21 @@ import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { acceptQuest, currentDay, rewardPreview, MAX_GUILD_QUESTS } from "../lib/day";
+import { acceptQuest, currentDay, getQuest, rewardPreview, MAX_GUILD_QUESTS } from "../lib/day";
 import { interestSkills } from "../game/profile";
 import { hitsTired, tiredSet } from "../game/muscles";
 import { GUILD, GYM_COUNTS, GYM_LENGTHS, GYM_SESSIONS, PHILOSOPHY, guildQuest, skillById, suggestSkills } from "../game/guild";
 import { rankLetter, skillView } from "../game/skills";
 import { GYM_TIER_BANDS, TIERS, TIER_RANKS, tierForRank } from "../game/tiers";
 import { RANKS } from "../game/ladders";
-import { STATS } from "../game/quests";
+import { STATS, todayKey } from "../game/quests";
 import { statValue } from "../game/economy";
 import { Coins, Frame, Glow, HexBadge, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 import { HelpDot } from "./Explain";
+import { needsWhy, whyNow } from "../game/why";
+import { showSystem } from "../lib/popup";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
@@ -56,7 +58,8 @@ export default function Guild({ user, player, onClose, initialSkill, onAccepted 
   const [accepted, setAccepted] = useState(null);
 
   const rankOf = (id) => rankLetter(player, id);
-  const maxTier = (id) => tierForRank(skillView(id, player.skills?.[id]).rank);
+  // Skills without harder tiers (your own skills) stay on tier I.
+  const maxTier = (id) => Math.min(tierForRank(skillView(id, player.skills?.[id]).rank), id === "gym" ? 2 : TIERS[id]?.length ?? 0);
   // Quest tier: harder quests unlock with your rank in the skill. Starts at your highest unlocked tier.
   const [tier, setTier] = useState(() => (start ? maxTier(start.id) : 0));
   const openSkill = (s) => { setSkill(s); setTier(maxTier(s.id)); setError(null); setScreen(s.kind === "gym" ? "gym" : s.kind === "philo" ? "philo" : "quest"); };
@@ -75,6 +78,9 @@ export default function Guild({ user, player, onClose, initialSkill, onAccepted 
     setError(null);
     try {
       await acceptQuest(user.uid, questId);
+      // A hard quest: the System tells you why to start now (the quest window shows it too).
+      const gq = getQuest(questId);
+      if (needsWhy(gq)) showSystem({ title: t.guild.acceptedHard, lines: [gq.title, whyNow(gq, todayKey()).line], tone: "info" });
       if (onAccepted) { onAccepted(questId); return; }
       setAccepted(screen === "gym" ? `${GYM_SESSIONS[session].name}, ${GYM_LENGTHS[len]} min` : screen === "reading" ? reading[0] : `${skill.name}: ${skill.quest}`);
       setScreen("done");

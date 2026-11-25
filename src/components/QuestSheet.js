@@ -18,6 +18,7 @@ import { tapFeel } from "../lib/haptics";
 import { quickReps, quickTarget, quickToday, setItemFor } from "../game/quick";
 import { quickLog } from "../lib/quick";
 import { DIFF_SETS, difficultyOf } from "../game/difficulty";
+import { needsWhy, whyNow } from "../game/why";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 const ROMAN = ["I", "II", "III"];
@@ -196,6 +197,15 @@ export default function QuestSheet({ user, player, questId, slot, done, onClose,
             {!done && !q.trial && !(q.tier > 0) && onOpenCourse && courseForSkill(q.skill) ? (
               <SysButton label={t.course.openCourse} onPress={() => onOpenCourse(courseForSkill(q.skill).id)} />
             ) : null}
+
+            {/* A hard quest comes with a reason to start now (and a quote to go with it). */}
+            {!done && needsWhy(q) ? (() => { const w = whyNow(q, todayKey()); return (
+              <View style={{ gap: 6, padding: 12, borderLeftWidth: 2, borderLeftColor: color.purple, backgroundColor: "rgba(168,126,255,0.07)" }}>
+                <Text style={{ fontFamily: font.bold, fontSize: 11, letterSpacing: 3, color: color.purple }}>{t.sheet.whyNow}</Text>
+                <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, lineHeight: 20, color: "#FFFFFF" }}>{w.line}</Text>
+                <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.text, fontStyle: "italic" }}>{`"${w.quote.text}"`}<Text style={{ fontStyle: "normal", color: color.muted }}>{`  ${w.quote.who}`}</Text></Text>
+              </View>
+            ); })() : null}
 
             {q.counts ? (
               <View style={{ gap: 4 }}>

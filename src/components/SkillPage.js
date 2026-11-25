@@ -70,7 +70,7 @@ function Info({ title, text }) {
   );
 }
 
-export default function SkillPage({ user, player, id, onBack, onRequest, onOpenCourse }) {
+export default function SkillPage({ user, player, id, onBack, onRequest, onOpenCourse, initialPlacement = null }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const skill = skillById[id];
@@ -85,7 +85,7 @@ export default function SkillPage({ user, player, id, onBack, onRequest, onOpenC
   const habit = isHabit(L);
   const st = skillStatus(v);
 
-  const [placement, setPlacement] = useState(null); // a higher target rank
+  const [placement, setPlacement] = useState(initialPlacement); // a higher target rank (set when you came from the assessment)
   const [more, setMore] = useState(false);
   const [gymOpen, setGymOpen] = useState(false);
   const [busy, setBusy] = useState(false);

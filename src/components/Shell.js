@@ -32,6 +32,7 @@ import { useAgendaSync } from "../lib/calendar";
 import SystemPopup from "./SystemPopup";
 import QuestClear from "./QuestClear";
 import ErrorCatcher from "./ErrorCatcher";
+import { useReminderAlerts } from "../lib/reminders";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
@@ -141,6 +142,7 @@ function ShellBody({ user, state }) {
   const [focus, setFocus] = useState(null); // a quest to open on the board: { id, slot }
   const [skillFocus, setSkillFocus] = useState(null); // a skill page to open in the Skills tab
   const [courseFocus, setCourseFocus] = useState(null); // a course to open in the Learn tab
+  const [assessFocus, setAssessFocus] = useState(false); // open the rank assessment in the Skills tab
   // Where Back returns to after you got sent somewhere (a quest's skill page, a guild quest on the board...).
   const [trail, setTrail] = useState([]); // [{ tab, focus?, skillFocus? }]
   const checking = useRef(false);
@@ -149,6 +151,7 @@ function ShellBody({ user, state }) {
   useSituation(player);
   useWeather(player);
   useAgendaSync(user.uid, player);
+  useReminderAlerts(player);
   // Website: the page behind the app and Safari's own bars take your skin's background, so no white edges.
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") return;
@@ -163,6 +166,7 @@ function ShellBody({ user, state }) {
     if (place.focus) setFocus(place.focus);
     if (place.skillFocus) setSkillFocus(place.skillFocus);
     if (place.course) setCourseFocus(place.course);
+    if (place.assess) setAssessFocus(true);
   };
   // from: the exact place you're leaving (defaults to the current tab).
   const goTo = (place, from) => { setTrail((tr) => [...tr, from ?? { tab }].slice(-8)); open(place); };
@@ -234,8 +238,10 @@ function ShellBody({ user, state }) {
         {tab === "status" ? <Status user={user} {...state} onOpenQuests={() => goTo({ tab: "quests" })} onOpenSettings={() => goTo({ tab: "settings" })} /> : null}
         {tab === "quests" ? (state.player ? <Quests user={user} player={state.player} focus={focus} onFocusDone={() => setFocus(null)}
           onOpenCourse={(id, sheet) => goTo({ tab: "learn", course: id }, { tab: "quests", focus: sheet ?? undefined })}
-          onOpenSkill={(id, sheet) => goTo({ tab: "skills", skillFocus: id }, { tab: "quests", focus: sheet ?? undefined })} /> : <Status user={user} {...state} />) : null}
+          onOpenSkill={(id, sheet) => goTo({ tab: "skills", skillFocus: id }, { tab: "quests", focus: sheet ?? undefined })}
+          onOpenAssess={() => goTo({ tab: "skills", assess: true })} /> : <Status user={user} {...state} />) : null}
         {tab === "skills" ? (state.player ? <Skills user={user} player={state.player} focusSkill={skillFocus} onFocusDone={() => setSkillFocus(null)}
+          openAssess={assessFocus} onAssessDone={() => setAssessFocus(false)}
           onOpenCourse={(id, fromSkill) => goTo({ tab: "learn", course: id }, { tab: "skills", skillFocus: fromSkill ?? undefined })}
           onGoToQuest={(f, fromSkill) => goTo({ tab: "quests", focus: f }, { tab: "skills", skillFocus: fromSkill ?? undefined })} /> : <Status user={user} {...state} />) : null}
         {tab === "learn" ? (state.player ? <Learn user={user} player={state.player}

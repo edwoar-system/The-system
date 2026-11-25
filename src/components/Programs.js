@@ -2,11 +2,11 @@
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { MAX_PROGRAMS, PROGRAMS, PROGRAM_DONE_BONUS, PROGRAM_IDS, UNITS, customSessions, programById, weekKey } from "../game/programs";
+import { MAX_PROGRAMS, PROGRAMS, PROGRAM_DONE_BONUS, PROGRAM_IDS, UNITS, customSessions, dueSessions, programById, weekKey } from "../game/programs";
 import { INTERESTS, interestSkills } from "../game/profile";
 import { STATS, todayKey, widenBy } from "../game/quests";
 import { currentStreak } from "../lib/day";
-import { createProgram, startProgram, stopProgram } from "../lib/programs";
+import { addSessionToday, createProgram, startProgram, stopProgram } from "../lib/programs";
 import { doneFeel } from "../lib/haptics";
 import { Frame, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
@@ -86,6 +86,7 @@ function Browse({ user, player, onClose }) {
   const insets = useSafeAreaInsets();
   const [making, setMaking] = useState(false);
   const [msg, setMsg] = useState(null);
+  const [peek, setPeek] = useState(null); // program whose sessions are shown
   const active = Object.keys(player.programs ?? {});
   const full = active.length >= MAX_PROGRAMS;
   const start = (id) => startProgram(user.uid, id).then(() => { doneFeel(); setMsg(t.programs.started); }).catch((e) => setMsg(e.message === "max" ? fill(t.programs.max, { n: MAX_PROGRAMS }) : t.programs.failed));
@@ -107,6 +108,15 @@ function Browse({ user, player, onClose }) {
                 <Text style={{ fontFamily: font.bold, fontSize: 17, color: "#FFFFFF" }}>{p.name}</Text>
                 <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.text }}>{p.sub}</Text>
                 <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{fill(t.programs.meta, { s: p.stat, n: p.sessions.length, w: p.perWeek })}</Text>
+                <Pressable accessibilityRole="button" accessibilityState={{ expanded: peek === id }} onPress={() => setPeek(peek === id ? null : id)} style={{ minHeight: 36, justifyContent: "center" }}>
+                  <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.accent }}>{peek === id ? t.programs.hideSessions : fill(t.programs.showSessions, { n: p.sessions.length })}</Text>
+                </Pressable>
+                {peek === id ? p.sessions.map((ses, k) => (
+                  <View key={k} style={{ gap: 2, paddingVertical: 6, borderTopWidth: 1, borderTopColor: color.line }}>
+                    <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: "#FFFFFF" }}>{`${k + 1}. ${ses.title}`}<Text style={{ fontFamily: font.body, color: color.muted }}>{`  ·  ${ses.minutes} min`}</Text></Text>
+                    <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.text }}>{ses.detail}</Text>
+                  </View>
+                )) : null}
                 <SysButton label={on ? t.programs.following : t.programs.start} disabled={on || full} onPress={() => start(id)} style={{ marginTop: 4 }} />
               </Frame>
             );
@@ -131,6 +141,8 @@ export default function ProgramsSection({ user, player }) {
   const focusNames = INTERESTS.filter((i) => (player.profile?.interests ?? []).includes(i.id)).map((i) => i.name);
   const outside = widenBy(currentStreak(player));
   const entries = Object.entries(player.programs ?? {});
+  const due = dueSessions(player, today);
+  const onBoard = (id) => player.day?.date === today && (player.day.mains ?? []).some((m) => !m.done && m.id.startsWith(`p:${id}:`));
   return (
     <View style={{ gap: 10 }}>
       <Frame cut={14} contentStyle={{ padding: 16, gap: 8 }}>
@@ -166,6 +178,20 @@ export default function ProgramsSection({ user, player }) {
               <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>
                 {finished ? t.programs.finished : fill(t.programs.next, { title: p.sessions[st.done].title, a: thisWeek, b: p.perWeek })}
               </Text>
+              {!finished ? (
+                <View style={{ gap: 3, paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: "rgba(159,203,255,0.3)" }}>
+                  <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, lineHeight: 17, color: color.text }}>{p.sessions[st.done].detail}</Text>
+                  <Text style={{ fontFamily: font.bodyBold, fontSize: 11, color: onBoard(id) ? color.accent : color.muted }}>
+                    {onBoard(id) ? t.programs.onBoard : thisWeek >= p.perWeek ? t.programs.weekDone : st.lastDone === today ? t.programs.doneToday : due.includes(`p:${id}:${st.done}`) && player.day?.date === today ? t.programs.dueToday : t.programs.nextDay}
+                  </Text>
+                  {!onBoard(id) && due.includes(`p:${id}:${st.done}`) && player.day?.date === today ? (
+                    <Pressable accessibilityRole="button" onPress={() => addSessionToday(user.uid, id).then(() => doneFeel()).catch(() => {})}
+                      style={({ pressed }) => ({ minHeight: 40, marginTop: 4, paddingHorizontal: 12, alignSelf: "flex-start", justifyContent: "center", borderWidth: 1, borderColor: color.frame, backgroundColor: pressed ? "rgba(159,203,255,0.2)" : "transparent" })}>
+                      <Text style={{ fontFamily: font.bold, fontSize: 12, letterSpacing: 1, color: "#FFFFFF" }}>{t.programs.addToday}</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : null}
               <Pressable accessibilityRole="button" onPress={() => stopProgram(user.uid, id).catch(() => {})} style={{ minHeight: 32, justifyContent: "center", alignSelf: "flex-start" }}>
                 <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: color.muted }}>{finished ? t.programs.remove : t.programs.stop}</Text>
               </Pressable>

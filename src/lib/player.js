@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { arrayRemove, arrayUnion, deleteField, doc, onSnapshot, setDoc, updateDoc, increment, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "./firebase";
+import { registerCustomSkills } from "../game/custom";
+import { todayKey } from "../game/quests";
 
 // Who is logged in (undefined = still checking, null = nobody).
 export function useAuthUser() {
@@ -32,7 +34,9 @@ export function usePlayer(uid) {
           await createPlayer(uid, null);
           return;
         }
-        setState({ player: snap.data(), error: null, synced: !snap.metadata.hasPendingWrites });
+        const data = snap.data();
+        registerCustomSkills(data.customSkills); // your own skills join the Guild lists before anything reads them
+        setState({ player: data, error: null, synced: !snap.metadata.hasPendingWrites });
       },
       (error) => setState((s) => ({ ...s, error: error.message }))
     );
@@ -85,6 +89,18 @@ export function patchProfile(uid, patch) {
 }
 
 // Turns one kind of notification on or off (see game/notify.js).
+// A reminder ticked off for today (it stops alerting and shows as done).
+export function tickReminder(uid, player, id) {
+  const today = todayKey();
+  const ids = player?.reminderDone?.date === today ? player.reminderDone.ids ?? [] : [];
+  return updateDoc(doc(db, "players", uid), { reminderDone: { date: today, ids: [...new Set([...ids, id])] }, updatedAt: serverTimestamp() });
+}
+
+// A skill you made yourself (game/custom.js).
+export function saveCustomSkill(uid, id, data) {
+  return updateDoc(doc(db, "players", uid), { [`customSkills.${id}`]: data, updatedAt: serverTimestamp() });
+}
+
 // The quick-log buttons you pinned (ids from game/quick.js).
 export function setQuickPins(uid, pins) {
   return updateDoc(doc(db, "players", uid), { quickPins: pins, updatedAt: serverTimestamp() });

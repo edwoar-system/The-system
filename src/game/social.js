@@ -6,6 +6,7 @@ import { STATS, todayKey } from "./quests";
 import { LADDERS } from "./ladders";
 import { skillView } from "./skills";
 import { DIFF_FACTOR, MAX_PUSHUPS, RANK_FACTOR, RUN_KM, difficultyOf, nice } from "./difficulty";
+import { skillById } from "./guild";
 
 export const PRIVACY_KEYS = ["stats", "skills", "streak", "today", "honesty"];
 export const PRIVACY_DEFAULTS = { stats: true, skills: true, streak: true, today: true, honesty: false };
@@ -43,7 +44,7 @@ export function publicCard(player, { streak = 0, mainsDone = 0, mainsOf = 0, cod
     card.skills = LADDERS
       .map((l) => ({ id: l.id, entry: player?.skills?.[l.id] }))
       .filter((x) => x.entry)
-      .map((x) => { const v = skillView(x.id, x.entry); return { id: x.id, rank: v.rank, rusty: !!v.rusty }; })
+      .map((x) => { const v = skillView(x.id, x.entry); return { id: x.id, rank: v.rank, rusty: !!v.rusty, ...(skillById[x.id]?.custom ? { name: skillById[x.id].name } : {}) }; })
       .filter((x) => x.rank > 0 || x.rusty)
       .sort((a, b) => b.rank - a.rank)
       .slice(0, 12);
