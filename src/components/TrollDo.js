@@ -81,7 +81,7 @@ export default function TrollDo({ user, player, troll, onClose, onDone }) {
                 <Text style={{ fontFamily: font.body, fontSize: 14, lineHeight: 20, color: color.text }}>{x.proof}</Text>
                 {x.place ? (
                   <View style={{ gap: 6 }}>
-                    <SysButton label={place?.ok ? t.troll.placeChecked : fill(t.troll.checkPlace, { place: t.troll.places[x.place] })} onPress={check} disabled={busy || place?.ok} />
+                    <SysButton label={place?.ok ? t.troll.placeChecked : fill(t.troll.checkPlace, { place: t.troll.places[x.place].toUpperCase() })} onPress={check} disabled={busy || place?.ok} />
                     {placeText ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, lineHeight: 18, color: place?.ok ? color.accent : "#F6B45A" }}>{placeText}</Text> : null}
                   </View>
                 ) : null}
