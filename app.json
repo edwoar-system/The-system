@@ -56,6 +56,12 @@
         {
           "locationWhenInUsePermission": "The System uses your location while the app is open: to fit quests to where you are, to check the weather, and to confirm you're at the place a troll quest asks for."
         }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "The System reads your calendar (never changes it) so quests and reminders plan around your appointments."
+        }
       ]
     ],
     "scheme": "thesystem",

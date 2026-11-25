@@ -28,6 +28,7 @@ import { useTheme, SkinProvider } from "../theme";
 import { t } from "../i18n";
 import { useSituation } from "../lib/location";
 import { useWeather } from "../lib/weather";
+import { useAgendaSync } from "../lib/calendar";
 import SystemPopup from "./SystemPopup";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
@@ -144,6 +145,7 @@ function ShellBody({ user, state }) {
   // Where you are and the weather, kept fresh app-wide (urgent quests and the board use them).
   useSituation(player);
   useWeather(player);
+  useAgendaSync(user.uid, player);
   // Website: the page behind the app and Safari's own bars take your skin's background, so no white edges.
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") return;

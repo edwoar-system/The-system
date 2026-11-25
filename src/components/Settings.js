@@ -20,6 +20,7 @@ import { NOTIFY_KINDS, notifySettings } from "../game/notify";
 import { HARD_DAYS, HARD_EXIT_MIN, HARD_EXIT_PER_DAY, HARD_MAX_DAYS, hardDaysLeft, hardExitPrice, isHard } from "../game/hard";
 import { leaveHard, startHard } from "../lib/hard";
 import { askLocation, savePlace, setLocationOn } from "../lib/location";
+import { calendarPermission, listCalendars, setCalendarOn } from "../lib/calendar";
 import { setUrgentPerDay } from "../lib/urgent";
 import { scheduleSeverity } from "../lib/penalty";
 import { useHistory } from "../lib/history";
@@ -129,6 +130,55 @@ function HardMode({ user, player }) {
       <Text style={{ fontFamily: font.num, fontSize: 28, color: "#FFFFFF", textAlign: "center" }}>{fill(days === 1 ? t.hard.oneDay : t.hard.days, { n: days })}</Text>
       {sure ? <Text style={{ fontFamily: font.bodyBold, fontSize: 13, lineHeight: 18, color: "#F6B45A" }}>{fill(t.hard.sure, { n: Math.max(HARD_EXIT_MIN, days * HARD_EXIT_PER_DAY) })}</Text> : null}
       <SysButton label={sure ? t.hard.confirm : fill(t.hard.start, { n: days })} onPress={() => (sure ? go(() => startHard(user.uid, days)) : setSure(true))} disabled={busy} />
+      {msg ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: "#F6B45A" }}>{msg}</Text> : null}
+    </View>
+  );
+}
+
+// Agenda: your iPhone Calendar (read only). Pick which calendars count.
+function Agenda({ user, player }) {
+  const { color, font } = useTheme();
+  const [msg, setMsg] = useState(null);
+  const [cals, setCals] = useState(null);
+  const on = !!player.calendarOn;
+  const picked = player.calendarIds ?? [];
+  useEffect(() => {
+    if (!on) return;
+    listCalendars().then(setCals).catch(() => setCals([]));
+  }, [on]);
+  async function toggle(v) {
+    setMsg(null);
+    if (!v) return setCalendarOn(user.uid, false).catch(() => {});
+    const p = await calendarPermission(true);
+    if (p === "granted") await setCalendarOn(user.uid, true).catch(() => {});
+    else setMsg(p === "unavailable" ? (Platform.OS === "web" ? t.agenda.web : t.agenda.unavailable) : t.agenda.denied);
+  }
+  const pick = (id) => {
+    const next = picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id];
+    setCalendarOn(user.uid, true, next).catch(() => {});
+  };
+  return (
+    <View style={{ gap: 10 }}>
+      <View style={{ minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <Text style={{ flex: 1, fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{t.agenda.toggle}</Text>
+        <Switch accessibilityLabel={t.agenda.toggle} value={on} onValueChange={toggle}
+          trackColor={{ false: "#1A2440", true: color.blue }} thumbColor="#EAF4FF" ios_backgroundColor="#1A2440" />
+      </View>
+      {on && cals?.length ? (
+        <View style={{ gap: 6 }}>
+          <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{t.agenda.pick}</Text>
+          {cals.map((c) => {
+            const sel = picked.length === 0 || picked.includes(c.id);
+            return (
+              <Pressable key={c.id} accessibilityRole="checkbox" accessibilityState={{ checked: sel }} onPress={() => pick(c.id)} style={{ minHeight: 40, flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <View style={{ width: 18, height: 18, borderWidth: 1, borderColor: color.frame, backgroundColor: sel ? (c.color ?? color.blue) : "transparent" }} />
+                <Text style={{ flex: 1, fontFamily: font.body, fontSize: 14, color: color.text }}>{c.title}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+      <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.agenda.privacy}</Text>
       {msg ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: "#F6B45A" }}>{msg}</Text> : null}
     </View>
   );
@@ -438,6 +488,9 @@ export default function Settings({ user, player, synced }) {
         <Tune user={user} player={player} />
       </Section>
 
+      <Section title={t.agenda.title} sub={t.agenda.sub} {...fold("agenda")}>
+        <Agenda user={user} player={player} />
+      </Section>
       <Section title={t.places.title} sub={t.places.sub} {...fold("s3")}>
         <Places user={user} player={player} />
       </Section>

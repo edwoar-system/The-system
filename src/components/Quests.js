@@ -337,14 +337,26 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
               ) : null}
             </View>
           ) : null}
-          {busyToday.length || player.schedule?.length ? (
-            <Pressable accessibilityRole="button" onPress={() => setSchedOpen(true)} style={{ paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: color.line }}>
-              <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>
-                {busyToday.length ? fill(t.schedule.busyLine, { list: busyToday.map((b) => `${b.label} ${hhmm(b.start)}–${hhmm(b.end)}`).join(", ") }) : t.schedule.freeLine}
-                <Text style={{ fontFamily: font.bodyBold, color: color.accent }}>{`  ${t.schedule.edit}`}</Text>
-              </Text>
-            </Pressable>
-          ) : null}
+          {/* Agenda today: your schedule (with today's changes) and your iPhone Calendar. Tap to change today. */}
+          <Pressable accessibilityRole="button" accessibilityHint={t.schedule.agendaHint} onPress={() => setSchedOpen(true)}
+            style={{ paddingHorizontal: 16, paddingVertical: 10, gap: 4, borderBottomWidth: 1, borderBottomColor: color.line }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
+              <Text style={{ fontFamily: font.bold, fontSize: 11, letterSpacing: 2, color: color.hi }}>{t.schedule.agenda}</Text>
+              <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: color.accent }}>{t.schedule.changeToday}</Text>
+            </View>
+            {busyToday.length ? busyToday.slice(0, 5).map((b) => {
+              const nowH = nowD.getHours() + nowD.getMinutes() / 60;
+              const now = nowH >= b.start && nowH < b.end;
+              const past = nowH >= b.end;
+              return (
+                <Text key={b.id} style={{ fontFamily: now ? font.bodyBold : font.body, fontSize: 13, lineHeight: 19, color: now ? "#FFFFFF" : past ? color.muted : color.text, opacity: past ? 0.6 : 1 }}>
+                  <Text style={{ fontFamily: font.num, color: now ? color.accent : color.muted }}>{`${hhmm(b.start)}–${hhmm(b.end)}  `}</Text>
+                  {b.label ?? t.schedule.calendarEvent}{now ? `  ·  ${t.schedule.now}` : ""}
+                </Text>
+              );
+            }) : <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{player.schedule?.length || player.calendarOn ? t.schedule.freeLine : t.schedule.setUp}</Text>}
+            {busyToday.length > 5 ? <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{fill(t.schedule.more, { n: busyToday.length - 5 })}</Text> : null}
+          </Pressable>
           {day.mains.map((m, i) => (
             <GoalRow key={m.id} questId={m.id} done={m.done} busy={busy} last={i === day.mains.length - 1} time={times[m.id]}
               onDone={() => complete(m.id, "main")} onOpen={() => setSheet({ id: m.id, slot: "main", done: m.done })} quick={quickFor(m.id)} notice={noticeFor(m.id)} />
