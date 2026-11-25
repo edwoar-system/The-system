@@ -74,6 +74,16 @@ export function dutyQuest(id) {
   return { id, duty: d.id, stat: "VIT", type: "duty", difficulty: "easy", minutes: d.minutes, title: d.name, freq: d.freq };
 }
 
+// Weekly duties have a day (0 = Monday … 6 = Sunday; Saturday when you haven't picked one).
+// From that day on, a weekly duty that isn't done yet becomes a real main quest, and it waits until it's done that week.
+export const DEFAULT_DUTY_DAY = 5;
+export const dutyDay = (profile, id) => profile?.dutyDays?.[id] ?? DEFAULT_DUTY_DAY;
+const weekdayOfKey = (key) => (new Date(`${key}T12:00:00`).getDay() + 6) % 7;
+export function dutiesDue(player, todayKey, week) {
+  const doneWeek = player?.duties?.week === week ? player.duties.thisWeek ?? [] : [];
+  return (player?.profile?.duties ?? []).filter((id) => dutyById[id]?.freq === "weekly" && !doneWeek.includes(id) && weekdayOfKey(todayKey) >= dutyDay(player.profile, id));
+}
+
 // Your duties today: daily ones, and weekly ones not yet done this week.
 export function dutiesToday(player, todayKey, week) {
   const mine = player?.profile?.duties ?? [];

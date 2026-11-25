@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { patchProfile } from "../lib/player";
-import { DUTIES, INTERESTS, MOUNTAINS, MOUNTAIN_LEVELS, PARTS, dayTimes, partsDone } from "../game/profile";
+import { DUTIES, INTERESTS, MOUNTAINS, MOUNTAIN_LEVELS, PARTS, dayTimes, dutyById, dutyDay, partsDone } from "../game/profile";
 import { SCHOOL_NAMES } from "../game/quotes";
 import { useTrack } from "./saved";
 import { HelpDot } from "./Explain";
@@ -95,9 +95,26 @@ function PartForm({ part, draft, set }) {
   }
   if (part === "duties") {
     const list = draft.duties ?? [];
+    const days = draft.dutyDays ?? {};
+    const weekly = list.filter((id) => dutyById[id]?.freq === "weekly");
     return (
-      <View style={row}>
-        {DUTIES.map((d) => <Chip key={d.id} label={d.name} sub={`${d.minutes} min · ${t.tune.freq[d.freq]}`} on={list.includes(d.id)} onPress={() => set({ duties: toggle(list, d.id) })} />)}
+      <View style={{ gap: 14 }}>
+        <View style={row}>
+          {DUTIES.map((d) => <Chip key={d.id} label={d.name} sub={`${d.minutes} min · ${t.tune.freq[d.freq]}`} on={list.includes(d.id)} onPress={() => set({ duties: toggle(list, d.id) })} />)}
+        </View>
+        {weekly.length ? (
+          <View style={{ gap: 10 }}>
+            <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{t.tune.dutyDayAsk}</Text>
+            {weekly.map((id) => (
+              <View key={id} style={{ gap: 6 }}>
+                <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{dutyById[id].name}</Text>
+                <View style={{ flexDirection: "row", gap: 4 }}>
+                  {t.gym.weekdays.map((w, k) => <Chip key={w} flex label={w} on={dutyDay(draft, id) === k} onPress={() => set({ dutyDays: { ...days, [id]: k } })} />)}
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
       </View>
     );
   }
@@ -128,7 +145,7 @@ function patchFor(part, d) {
   if (part === "day") { const { wake, bed } = dayTimes(d); return { wake: hhmm(wake), bed: hhmm(bed) }; }
   if (part === "interests") return { interests: d.interests ?? [] };
   if (part === "mountains") return { mountains: d.mountains ?? {} };
-  if (part === "duties") return { duties: d.duties ?? [] };
+  if (part === "duties") return { duties: d.duties ?? [], dutyDays: d.dutyDays ?? {} };
   if (part === "mind") return { schools: d.schools ?? [] };
   return { age: num(d.ageText), weight: num(d.weightText), sex: d.sex ?? null };
 }

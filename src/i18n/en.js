@@ -64,6 +64,8 @@ export default {
     sideSub: "Something outside your focus. Skip it if you want; do it for 25% extra coins.",
     duties: "YOUR DUTIES",
     dutyFreq: { daily: "Every day", weekly: "Once this week" },
+    dutyOn: "Once a week · a real quest from {day}",
+    dayNames: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
     dutyDone: { daily: "Done today", weekly: "Done this week" },
     guildHint: "The same kind of quest again on one day pays less.",
     progress: "[ {a} / {b} min ]",
@@ -938,6 +940,7 @@ export default {
     missing: "This photo isn't there anymore.",
   },
   tune: {
+    dutyDayAsk: "Which day should each weekly duty be done? From that day on it becomes a real main quest until you do it.",
     title: "TUNE THE SYSTEM",
     sub: "Optional. Answer any part, in any order. Each answer changes what the System gives you.",
     progress: "{n} of {of} parts answered",

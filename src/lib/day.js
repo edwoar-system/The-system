@@ -7,7 +7,7 @@ import { guildQuest } from "../game/guild";
 import { ladderById } from "../game/ladders";
 import { dayNum, habitRank, isHabit, passTrial, recordTraining, skillView, SKILL_RULES, trialQuest, trialState, weekNum } from "../game/skills";
 import { tierForRank } from "../game/tiers";
-import { dutyQuest, interestSkills, mountainFactor } from "../game/profile";
+import { dutiesDue, dutyQuest, interestSkills, mountainFactor } from "../game/profile";
 import { hitsTired, questLoad, tiredSet } from "../game/muscles";
 import { swapPrice } from "../game/shop";
 import { gymToday, splitQuest } from "../game/gym";
@@ -63,6 +63,8 @@ export function newDay(player, uid) {
     const i = at >= 0 ? at : free;
     if (i >= 0) mains[i] = `gs:${gym.index}`;
   }
+  // Weekly duties on (or past) their day become real main quests, on top of the usual ones.
+  dutiesDue(player, date, weekNum(dayNum(date))).forEach((id) => mains.push(`d:${id}`));
   // The side quest: optional, outside your focus, a bonus for stepping out of your comfort zone.
   const side = liked.size ? pickSideQuest({ date, uid, liked, tired, avoid: mains }) : null;
   return {
@@ -210,7 +212,8 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
     } else if (slot === "side") {
       if (!day.side || day.side.id !== questId || day.side.done) throw new Error("already-done");
       day.side.done = true;
-    } else if (slot === "duty") {
+    }
+    if (slot === "duty" || (slot === "main" && questId.startsWith("d:"))) {
       const week = weekNum(today);
       const d = player.duties ?? {};
       const todayList = d.date === day.date ? [...(d.today ?? [])] : [];
@@ -219,7 +222,11 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
       if (list.includes(q.duty)) throw new Error("already-done");
       list.push(q.duty);
       duties = { date: day.date, today: todayList, week, thisWeek: weekList };
-    } else if (slot === "trial") {
+      // Ticked from the duties list while it's also a main quest today: the main counts as done too.
+      const m = day.mains.find((x) => x.id === questId && !x.done);
+      if (slot === "duty" && m) m.done = true;
+    }
+    if (slot === "trial") {
       const ladder = ladderById[q.skill];
       const st = trialState(player.trials?.[q.skill], ladder, player.skills?.[q.skill]?.ticks, today);
       if (!st || st.rank !== q.trial.rank) throw new Error("no-trial");

@@ -21,7 +21,7 @@ import { busyBlocks, hhmm, suggestTimes } from "../game/schedule";
 import QuickLog from "./QuickLog";
 import { QUICK, goalFor, quickToday } from "../game/quick";
 import { dayNum, trialQuestId, trialState, weekNum } from "../game/skills";
-import { dutiesToday } from "../game/profile";
+import { dutiesToday, dutyDay } from "../game/profile";
 import { ASK_SLOTS, needsProof } from "../game/proof";
 import { completeTroll, useTrolls } from "../lib/social";
 import { trollById, trollQueue, trollXp } from "../game/social";
@@ -127,7 +127,8 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
     const st = ladders[skillId] ? trialState(tr, ladders[skillId], player.skills?.[skillId]?.ticks) : null;
     return st ? { skillId, ...st } : null;
   }).filter(Boolean);
-  const duties = dutiesToday(player, day.date, weekNum(dayNum(day.date)));
+  // Duties already on the main board today (a weekly one on its day) only show up there.
+  const duties = dutiesToday(player, day.date, weekNum(dayNum(day.date))).filter((d) => !day.mains.some((m) => m.id === `d:${d.id}`));
   const trollQ = trollQueue(useTrolls(user.uid));
   // Suggested times for open main quests, in your free time today (from now on).
   const [schedOpen, setSchedOpen] = useState(false);
@@ -397,7 +398,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
                       style={({ pressed }) => ({ flex: 1, gap: 4, opacity: pressed ? 0.7 : 1 })}>
                       <Text style={{ fontFamily: font.bold, fontSize: 15, lineHeight: 20, color: "#FFFFFF" }}>{d.name}</Text>
                       <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-                        <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{d.done ? t.board.dutyDone[d.freq] : t.board.dutyFreq[d.freq]}</Text>
+                        <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{d.done ? t.board.dutyDone[d.freq] : d.freq === "weekly" ? fill(t.board.dutyOn, { day: t.board.dayNames[dutyDay(player.profile, d.id)] }) : t.board.dutyFreq[d.freq]}</Text>
                         {d.done ? null : <Coins value={r.coins} sign="+" size={14} />}
                       </View>
                     </Pressable>
