@@ -32,7 +32,7 @@ const WHERE = {
 const PLACE_SKILLS = ["gym", "boulder", "swim", "golf", "windsurf", "snowboard", "ski", "surf", "tennis", "basketball"];
 const HOME_TYPES = ["chores", "duty"];
 const ANYWHERE_TYPES = ["language", "reading", "study", "chess", "mind", "journal", "social", "philosophy"];
-const ANYWHERE_SKILLS = ["meditation", "breath", "philosophy", "gratitude", "craving", "silent", "nophone", "hardfirst", "docu", "memory", "morse", "writing", "listen", "thanks", "compliment", "reachout", "conversation", "kindness", "plan"];
+const ANYWHERE_SKILLS = ["water", "meditation", "breath", "philosophy", "gratitude", "craving", "silent", "nophone", "hardfirst", "docu", "memory", "morse", "writing", "listen", "thanks", "compliment", "reachout", "conversation", "kindness", "plan"];
 export function whereKind(q) {
   if (!q) return "anywhere";
   if (q.where) return q.where;

@@ -26,6 +26,8 @@ import { skillById } from "../game/guild";
 import { isInPenalty } from "../game/penalty";
 import { useTheme, SkinProvider } from "../theme";
 import { t } from "../i18n";
+import { useSituation } from "../lib/location";
+import { useWeather } from "../lib/weather";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 
@@ -138,6 +140,9 @@ function ShellBody({ user, state }) {
   const [trail, setTrail] = useState([]); // [{ tab, focus?, skillFocus? }]
   const checking = useRef(false);
   const player = state.player;
+  // Where you are and the weather, kept fresh app-wide (urgent quests and the board use them).
+  useSituation(player);
+  useWeather(player);
   // Website: the page behind the app and Safari's own bars take your skin's background, so no white edges.
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") return;

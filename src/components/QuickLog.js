@@ -8,10 +8,11 @@ import { useTheme } from "../theme";
 import { t } from "../i18n";
 import { doneFeel, tapFeel } from "../lib/haptics";
 import { DIFF_SETS, difficultyOf } from "../game/difficulty";
+import { fitsSituation } from "../game/effort";
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), s);
 
-export default function QuickLog({ user, player, day, onCompleted, style }) {
+export default function QuickLog({ user, player, day, onCompleted, style, situation = null }) {
   const { color, font } = useTheme();
   const [note, setNote] = useState(null);
   const [busy, setBusy] = useState(null);
@@ -57,7 +58,7 @@ export default function QuickLog({ user, player, day, onCompleted, style }) {
         <Text style={{ fontFamily: font.body, fontSize: 11, color: color.muted }}>{t.quick.hint}</Text>
       </View>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-        {quickBar(day).map((item) => {
+        {quickBar(day).filter((item) => fitsSituation({ skill: item.skill }, situation)).map((item) => {
           const n = counts[item.id] ?? 0;
           const target = quickTarget(item, day, DIFF_SETS[difficultyOf(player)]);
           const full = target && n >= target.goal;

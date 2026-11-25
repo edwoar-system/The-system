@@ -19,6 +19,7 @@ import { askNotifyPermission, notifyPermission, notifySupported } from "../lib/n
 import { NOTIFY_KINDS, notifySettings } from "../game/notify";
 import { HARD_DAYS, HARD_EXIT_MIN, HARD_EXIT_PER_DAY, HARD_MAX_DAYS, hardDaysLeft, hardExitPrice, isHard } from "../game/hard";
 import { leaveHard, startHard } from "../lib/hard";
+import { askLocation, savePlace, setLocationOn } from "../lib/location";
 import { setUrgentPerDay } from "../lib/urgent";
 import { scheduleSeverity } from "../lib/penalty";
 import { useHistory } from "../lib/history";
@@ -120,6 +121,54 @@ function HardMode({ user, player }) {
       {sure ? <Text style={{ fontFamily: font.bodyBold, fontSize: 13, lineHeight: 18, color: "#F6B45A" }}>{fill(t.hard.sure, { n: Math.max(HARD_EXIT_MIN, days * HARD_EXIT_PER_DAY) })}</Text> : null}
       <SysButton label={sure ? t.hard.confirm : fill(t.hard.start, { n: days })} onPress={() => (sure ? go(() => startHard(user.uid, days)) : setSure(true))} disabled={busy} />
       {msg ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: "#F6B45A" }}>{msg}</Text> : null}
+    </View>
+  );
+}
+
+// Places: location on or off, and the places you save yourself (home, school or work).
+function Places({ user, player }) {
+  const { color, font } = useTheme();
+  const [msg, setMsg] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const on = !!player.locationOn;
+  async function toggle(v) {
+    setMsg(null);
+    if (!v) return setLocationOn(user.uid, false).catch(() => {});
+    const p = await askLocation();
+    if (p === "granted") await setLocationOn(user.uid, true).catch(() => {});
+    else setMsg(p === "unavailable" ? t.fit.unavailable : t.fit.denied);
+  }
+  async function save(which) {
+    setBusy(true);
+    setMsg(null);
+    try { await savePlace(user.uid, which); doneFeel(); setMsg(fill(t.places.saved, { place: t.places[which] })); }
+    catch { setMsg(t.places.failed); }
+    finally { setBusy(false); }
+  }
+  return (
+    <View style={{ gap: 10 }}>
+      <View style={{ minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <Text style={{ flex: 1, fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{t.places.toggle}</Text>
+        <Switch accessibilityLabel={t.places.toggle} value={on} onValueChange={toggle}
+          trackColor={{ false: "#1A2440", true: color.blue }} thumbColor="#EAF4FF" ios_backgroundColor="#1A2440" />
+      </View>
+      {on ? (
+        <>
+          {["home", "school"].map((w) => (
+            <View key={w} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Text style={{ flex: 1, fontFamily: font.body, fontSize: 13, color: player.places?.[w] ? color.text : color.muted }}>
+                {player.places?.[w] ? fill(t.places.set, { place: t.places[w] }) : fill(t.places.notSet, { place: t.places[w] })}
+              </Text>
+              <Pressable accessibilityRole="button" disabled={busy} onPress={() => save(w)}
+                style={({ pressed }) => ({ minHeight: 40, paddingHorizontal: 12, justifyContent: "center", borderWidth: 1, borderColor: "rgba(159,203,255,0.3)", backgroundColor: pressed ? "rgba(159,203,255,0.15)" : "transparent" })}>
+                <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: color.text }}>{t.places.here}</Text>
+              </Pressable>
+            </View>
+          ))}
+        </>
+      ) : null}
+      <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.places.privacy}</Text>
+      {msg ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: color.accent }}>{msg}</Text> : null}
     </View>
   );
 }
@@ -375,6 +424,10 @@ export default function Settings({ user, player, synced }) {
 
       <Section title={t.tune.title} sub={t.tune.sub}>
         <Tune user={user} player={player} />
+      </Section>
+
+      <Section title={t.places.title} sub={t.places.sub}>
+        <Places user={user} player={player} />
       </Section>
 
       <Section title={t.hard.title} sub={t.hard.sub}>

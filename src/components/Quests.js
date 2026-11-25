@@ -3,7 +3,11 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Polygon } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { END_PARTS, START_PARTS, buyExtraTime, completeQuest, currentDay, getQuest, rewardPreview, tickStart } from "../lib/day";
+import { END_PARTS, FREE_FIT_SWAPS, START_PARTS, buyExtraTime, completeQuest, currentDay, getQuest, rewardPreview, swapToFit, tickStart } from "../lib/day";
+import { useSituation } from "../lib/location";
+import { useWeather } from "../lib/weather";
+import { fitsSituation, isOutdoor } from "../game/effort";
+import SituationLine from "./SituationLine";
 import { logCheck } from "../lib/habits";
 import { dayEndHour, extraPrice } from "../game/penalty";
 import { isHard } from "../game/hard";
@@ -74,7 +78,7 @@ function QuestHex({ stat, done }) {
   );
 }
 
-function GoalRow({ questId, done, busy, onDone, onOpen, last, quick, time }) {
+function GoalRow({ questId, done, busy, onDone, onOpen, last, quick, time, notice }) {
   const { color, font } = useTheme();
   const q = getQuest(questId);
   // Quick logs count toward the quest: show taps instead of minutes.
@@ -98,6 +102,16 @@ function GoalRow({ questId, done, busy, onDone, onOpen, last, quick, time }) {
         <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>
           {t.stats[q.stat]} · {t.quests.difficulty[q.difficulty]}{time != null && !done ? `  ·  ${fill(t.schedule.around, { time: hhmm(time) })}` : ""}
         </Text>
+        {notice && !done ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, lineHeight: 17, color: "#F6B45A" }}>{notice.text}</Text>
+            {notice.action ? (
+              <Pressable accessibilityRole="button" disabled={busy} onPress={notice.onAction} hitSlop={8}>
+                <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: color.accent }}>{notice.action}</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
       </Pressable>
       <HexCheck done={done} disabled={busy} onPress={onDone}
         label={fill(done ? t.board.isDone : t.board.markDone, { title: q.title })} />
@@ -123,6 +137,25 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
   // Opened from somewhere else (a quest just accepted in the guild): start with that quest open.
   const [sheet, setSheet] = useState(focus ?? null); // { id, slot, done }
   const [trollOpen, setTrollOpen] = useState(null);
+  const sit = useSituation(player)?.id ?? null;
+  const weather = useWeather(player);
+  const freeFits = FREE_FIT_SWAPS - (day.fitSwaps ?? 0);
+  // A main quest that doesn't fit where you are, or an outdoor one in bad weather: say so, offer a free swap.
+  function noticeFor(id) {
+    const q = getQuest(id);
+    if (!q) return null;
+    const misfit = sit && !fitsSituation(q, sit);
+    const wet = weather?.bad && isOutdoor(q);
+    if (!misfit && !wet) return null;
+    const text = misfit ? fill(t.fit.notNow, { where: t.fit.situations[sit] }) : fill(freeFits > 0 ? t.fit.badWeather : t.fit.badWeatherGo, { why: t.fit.weather[weather.bad] });
+    return { text, action: freeFits > 0 ? (misfit ? t.fit.swapFree : t.fit.swapIndoor) : null, onAction: () => fitSwap(id, !!wet) };
+  }
+  async function fitSwap(id, wet) {
+    setBusy(true);
+    try { await swapToFit(user.uid, id, sit, !wet); tapFeel(); }
+    catch (e) { showToast({ error: true, text: e.message === "no-other" ? t.fit.noOther : e.message === "no-free" ? t.fit.noFree : null }); }
+    finally { setBusy(false); }
+  }
   useEffect(() => {
     if (focus) onFocusDone?.();
   }, [focus, onFocusDone]);
@@ -271,6 +304,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
           <Text accessibilityRole="header" style={{ fontFamily: font.bold, fontSize: 26, letterSpacing: 1, color: "#FFFFFF" }}>{t.board.title}</Text>
           <Text style={{ fontFamily: font.body, fontSize: 14, color: color.muted }}>{fill(t.board.sub, { n: day.mains.length, pct })}</Text>
         </View>
+        <SituationLine user={user} player={player} situation={sit} weather={weather} />
 
         <View style={{ flexDirection: "row", justifyContent: "center", gap: 4, marginTop: 16 }}>
           {day.mains.map((m) => <QuestHex key={m.id} stat={getQuest(m.id)?.stat ?? "STR"} done={m.done} />)}
@@ -279,7 +313,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
         {!day.start.done ? checklist("start", START_PARTS, day.startTicks) : null}
         {bedtime && !day.end?.done ? checklist("end", END_PARTS, day.endTicks) : null}
 
-        <QuickLog user={user} player={player} day={day} onCompleted={onResult} style={{ marginTop: 14, marginHorizontal: 14 }} />
+        <QuickLog user={user} player={player} day={day} situation={sit} onCompleted={onResult} style={{ marginTop: 14, marginHorizontal: 14 }} />
 
         <Frame kind="premium" cut={16} corners style={{ marginTop: 14, marginHorizontal: 14 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: "rgba(159,203,255,0.18)" }}>
@@ -311,7 +345,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
           ) : null}
           {day.mains.map((m, i) => (
             <GoalRow key={m.id} questId={m.id} done={m.done} busy={busy} last={i === day.mains.length - 1} time={times[m.id]}
-              onDone={() => complete(m.id, "main")} onOpen={() => setSheet({ id: m.id, slot: "main", done: m.done })} quick={quickFor(m.id)} />
+              onDone={() => complete(m.id, "main")} onOpen={() => setSheet({ id: m.id, slot: "main", done: m.done })} quick={quickFor(m.id)} notice={noticeFor(m.id)} />
           ))}
           <View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 8, borderTopWidth: 1, borderTopColor: color.line }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>

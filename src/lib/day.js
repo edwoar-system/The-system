@@ -13,6 +13,9 @@ import { swapPrice } from "../game/shop";
 import { gymToday, splitQuest } from "../game/gym";
 import { EXTRA_STEP, deadlineOf, extraPrice, penaltyDue } from "../game/penalty";
 import { isHard } from "../game/hard";
+import { fitsSituation, isOutdoor } from "../game/effort";
+import { WEATHER_BONUS } from "../game/weather";
+import { weatherNow } from "./weather";
 import { DIFF_TIER, difficultyOf } from "../game/difficulty";
 import { trainMuscles } from "./muscles";
 
@@ -150,6 +153,31 @@ export async function swapMain(uid, questId) {
   });
 }
 
+// A main quest that doesn't fit where you are (travelling, at school...) or the weather: swap it for one that does,
+// free, up to 3 times a day. Same stat when possible.
+export const FREE_FIT_SWAPS = 3;
+export async function swapToFit(uid, questId, situation, outdoorOk = true) {
+  const ref = doc(db, "players", uid);
+  return runTransaction(db, async (tx) => {
+    const player = (await tx.get(ref)).data() ?? {};
+    const day = player.day?.date === todayKey() ? player.day : newDay(player, uid);
+    const used = day.fitSwaps ?? 0;
+    if (used >= FREE_FIT_SWAPS) throw new Error("no-free");
+    const i = day.mains.findIndex((m) => m.id === questId && !m.done);
+    if (i < 0) throw new Error("not-open");
+    const q = getQuest(questId, player);
+    const onBoard = new Set(day.mains.map((m) => m.id));
+    const ok = (x) => !x.side && !x.kind && !onBoard.has(x.id) && fitsSituation(x, situation) && (outdoorOk || !isOutdoor(x));
+    const same = QUESTS.filter((x) => ok(x) && x.stat === q?.stat);
+    const pool = same.length ? same : QUESTS.filter(ok);
+    if (!pool.length) throw new Error("no-other");
+    const next = pool[Math.floor(Math.random() * pool.length)];
+    const mains = day.mains.map((m, k) => (k === i ? { id: next.id, done: false } : m));
+    tx.set(ref, { day: { ...day, mains, fitSwaps: used + 1 }, updatedAt: serverTimestamp() }, { merge: true });
+    return { id: next.id };
+  });
+}
+
 // Pay coins for more time today: pushes the deadline back 30 minutes (twice at most). Only before the deadline.
 export async function buyExtraTime(uid, title) {
   const ref = doc(db, "players", uid);
@@ -277,6 +305,9 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
     if (slot === "main") day.mainCoins += coins;
 
     let bonus = slot === "side" ? Math.round(coins * SIDE_BONUS) : 0;
+    // Out in bad weather anyway (an outdoor quest while the weather is bad): 25% more.
+    const rough = isOutdoor(q) && slot !== "trial" ? weatherNow()?.bad : null;
+    if (rough) bonus += Math.round(coins * WEATHER_BONUS);
     // Program session: the program moves on (missed ones wait, so it's always the next session).
     let programs = null;
     let programDone = null;
@@ -291,7 +322,7 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
     let streak = player.streak ?? 0;
     let lastAllMainsDate = player.lastAllMainsDate ?? null;
     if (slot === "main" && !day.bonusPaid && day.mains.every((x) => x.done)) {
-      bonus = allMainsBonus(day.mainCoins);
+      bonus += allMainsBonus(day.mainCoins);
       day.bonusPaid = true;
       // Streak = days in a row with every main quest done.
       streak = lastAllMainsDate === yesterdayKey() ? streak + 1 : 1;

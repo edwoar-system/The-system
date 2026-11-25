@@ -1,6 +1,7 @@
 // Urgent quests: a pop-up with a rest option and a short task. Pure data and rules, no Firestore here.
 import { questCoins, questXp } from "./economy";
 import { busyBlocks, isBusy } from "./schedule";
+import { fitsSituation } from "./effort";
 
 export const URGENT = {
   acceptMinutes: 10, // the pop-up disappears after this
@@ -31,7 +32,12 @@ export const TASK_OPTIONS = [
   { id: "walk", title: "Walk 10 minutes outside", how: "Out the door, no phone in your hand.", minutes: 10, difficulty: "easy", stat: "VIT" },
   { id: "words", title: "Japanese: 10 new words", how: "Say each one out loud in a sentence.", minutes: 10, difficulty: "normal", stat: "INT" },
   { id: "puzzles", title: "Chess: 5 puzzles", how: "Find the move before you check.", minutes: 10, difficulty: "normal", stat: "INT" },
+  { id: "boxbreath", title: "Box breathing, 5 minutes", how: "In 4, hold 4, out 4, hold 4. Eyes closed if you can.", minutes: 5, difficulty: "easy", stat: "WIL" },
+  { id: "stoic", title: "Read one Stoic passage and answer its question", how: "Learn tab, Philosophy. Write one line back.", minutes: 10, difficulty: "normal", stat: "WIL" },
+  { id: "phrases", title: "Learn 5 phrases in a language", how: "Learn tab, Languages. Say each one out loud (or in your head).", minutes: 10, difficulty: "normal", stat: "INT" },
 ];
+// Where each task can be done (see game/effort.js): travelling or at school only gets the "anywhere" ones.
+const TASK_WHERE = { squats: "body", pushups: "body", plank: "body", jacks: "body", desk: "home", walk: "outside", words: "anywhere", puzzles: "anywhere", boxbreath: "anywhere", stoic: "anywhere", phrases: "anywhere" };
 
 // After the rest option you pick one of these within an hour.
 export const FOLLOW_UPS = [
@@ -83,6 +89,9 @@ export function urgentReason(player, now = Date.now(), todayKey, rand = Math.ran
 }
 
 // Two options: one rest, one task, picked at random.
-export function pickOptions(rand = Math.random) {
-  return { rest: REST_OPTIONS[Math.floor(rand() * REST_OPTIONS.length)].id, task: TASK_OPTIONS[Math.floor(rand() * TASK_OPTIONS.length)].id };
+// situation: where you are (null = unknown). Only tasks that fit; resting only where you can lie down or sit.
+export function pickOptions(rand = Math.random, situation = null) {
+  const tasks = TASK_OPTIONS.filter((x) => fitsSituation({ where: TASK_WHERE[x.id] ?? "body" }, situation));
+  const rests = situation === "travelling" || situation === "school" ? REST_OPTIONS.filter((r) => r.id !== "nap") : REST_OPTIONS;
+  return { rest: rests[Math.floor(rand() * rests.length)].id, task: tasks[Math.floor(rand() * tasks.length)].id };
 }

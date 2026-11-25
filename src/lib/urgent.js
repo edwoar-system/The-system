@@ -3,6 +3,7 @@ import { collection, doc, runTransaction, serverTimestamp, setDoc } from "fireba
 import { db } from "./firebase";
 import { levelFromXp } from "../game/economy";
 import { todayKey } from "../game/quests";
+import { currentSituation } from "./location";
 import {
   FOLLOW_FAIL_COST, URGENT, failCost, followById, followReward, pickOptions, restById, restReward, skipCost, taskById, taskReward, urgentReason,
 } from "../game/urgent";
@@ -38,7 +39,7 @@ function countToday(player) {
 }
 
 function newOffer(reason) {
-  const o = pickOptions();
+  const o = pickOptions(Math.random, currentSituation());
   return { id: String(Date.now()), reason, status: "offered", offeredAt: Date.now(), rest: o.rest, task: o.task };
 }
 
