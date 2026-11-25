@@ -1,6 +1,6 @@
 // Quest board (design v0.1, version B): one System window with today's goals, the reward and the penalty warning.
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Pressable, ScrollView, Text, View } from "react-native";
+import { Animated, Easing, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Polygon } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { END_PARTS, FREE_FIT_SWAPS, START_PARTS, buyExtraTime, completeQuest, currentDay, getQuest, rewardPreview, swapToFit, tickStart } from "../lib/day";
@@ -13,10 +13,11 @@ import { dayEndHour, extraPrice } from "../game/penalty";
 import { isHard } from "../game/hard";
 import { quickLog } from "../lib/quick";
 import { SIDE_BONUS } from "../game/quests";
+import { activeAppTime } from "../game/shop";
 import Guild from "./Guild";
 import { requestUrgent } from "../lib/urgent";
 import { ECONOMY } from "../game/economy";
-import { Coins, Frame, Glow, HexBadge, HexCheck, Label, SysButton, nativeDriver } from "./sys";
+import { Coins, Frame, Glow, HexBadge, HexCheck, Label, nativeDriver } from "./sys";
 import LevelUp from "./LevelUp";
 import RankUp from "./RankUp";
 import QuestSheet from "./QuestSheet";
@@ -137,6 +138,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
   // Opened from somewhere else (a quest just accepted in the guild): start with that quest open.
   const [sheet, setSheet] = useState(focus ?? null); // { id, slot, done }
   const [trollOpen, setTrollOpen] = useState(null);
+  const [fab, setFab] = useState(false);
   const sit = useSituation(player)?.id ?? null;
   const weather = useWeather(player);
   const freeFits = FREE_FIT_SWAPS - (day.fitSwaps ?? 0);
@@ -292,7 +294,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>
       <ScrollView style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: insets.top + 14, paddingBottom: 40, maxWidth: 520, width: "100%", alignSelf: "center" }}>
+        contentContainerStyle={{ paddingTop: insets.top + 14, paddingBottom: 96, maxWidth: 520, width: "100%", alignSelf: "center" }}>
         <Glow height={440} at={0.26} />
 
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 18 }}>
@@ -523,22 +525,43 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
               <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted, paddingHorizontal: 14, paddingBottom: 10 }}>{t.board.guildHint}</Text>
             </Frame>
           ) : null}
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-            <Text style={{ flex: 1, fontFamily: font.body, fontSize: 14, color: color.muted }}>{t.board.guildTitle}</Text>
-            <SysButton label={t.board.guildButton.toUpperCase()} onPress={() => setGuild(true)} />
-          </View>
-          <Pressable accessibilityRole="button" disabled={busy || urgentOpen} onPress={async () => {
-            setBusy(true);
-            try { await requestUrgent(user.uid); } catch (e) { showToast({ error: true, text: t.urgent.open }); } finally { setBusy(false); }
-          }} style={{ minHeight: 52, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: "rgba(246,180,90,0.45)", backgroundColor: "rgba(246,180,90,0.06)", opacity: urgentOpen ? 0.5 : 1 }}>
-            <View style={{ width: 8, height: 8, backgroundColor: "#F6B45A", transform: [{ rotate: "45deg" }] }} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: font.bold, fontSize: 14, color: "#F6B45A" }}>{t.urgent.ask}</Text>
-              <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{urgentOpen ? t.urgent.open : t.urgent.askHint}</Text>
-            </View>
-          </Pressable>
         </View>
       </ScrollView>
+
+      {/* Always in reach while you scroll: ask for a quest (urgent, or one from the guild). */}
+      <Pressable accessibilityRole="button" accessibilityLabel={t.board.fab} onPress={() => { tapFeel(); setFab(true); }}
+        style={({ pressed }) => ({ position: "absolute", right: 14, bottom: activeAppTime(player) ? 56 : 14, minHeight: 52, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", gap: 8,
+          borderWidth: 1, borderColor: color.frame, backgroundColor: pressed ? "rgba(30,50,90,0.98)" : "rgba(8,16,34,0.96)", shadowColor: color.blue, shadowOpacity: 0.5, shadowRadius: 14 })}>
+        <Text style={{ fontFamily: font.bold, fontSize: 22, color: color.accent, marginTop: -2 }}>+</Text>
+        <Text style={{ fontFamily: font.bold, fontSize: 13, letterSpacing: 1.5, color: "#FFFFFF" }}>{t.board.fab}</Text>
+      </Pressable>
+      {fab ? (
+        <Modal transparent animationType="fade" visible onRequestClose={() => setFab(false)}>
+          <Pressable accessibilityLabel={t.board.fabClose} onPress={() => setFab(false)} style={{ flex: 1, backgroundColor: "rgba(1,4,10,0.6)", justifyContent: "flex-end" }}>
+            <View style={{ padding: 14, paddingBottom: insets.bottom + 70, gap: 10, maxWidth: 520, width: "100%", alignSelf: "center" }}>
+              <Pressable accessibilityRole="button" disabled={busy || urgentOpen} onPress={async () => {
+                setFab(false);
+                setBusy(true);
+                try { await requestUrgent(user.uid); } catch { showToast({ error: true, text: t.urgent.open }); } finally { setBusy(false); }
+              }} style={{ minHeight: 60, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, borderWidth: 1, borderColor: "rgba(246,180,90,0.6)", backgroundColor: "rgba(20,14,6,0.97)", opacity: urgentOpen ? 0.5 : 1 }}>
+                <View style={{ width: 8, height: 8, backgroundColor: "#F6B45A", transform: [{ rotate: "45deg" }] }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: font.bold, fontSize: 15, color: "#F6B45A" }}>{t.urgent.ask}</Text>
+                  <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{urgentOpen ? t.urgent.open : t.urgent.askHint}</Text>
+                </View>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={() => { setFab(false); setGuild(true); }}
+                style={{ minHeight: 60, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, borderWidth: 1, borderColor: color.frame, backgroundColor: "rgba(8,16,34,0.97)" }}>
+                <View style={{ width: 8, height: 8, backgroundColor: color.accent, transform: [{ rotate: "45deg" }] }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: font.bold, fontSize: 15, color: "#FFFFFF" }}>{t.board.guildButton}</Text>
+                  <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{t.board.guildTitle}</Text>
+                </View>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Modal>
+      ) : null}
 
       {toast ? (
         <Animated.View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: insets.top + 54, alignItems: "center",

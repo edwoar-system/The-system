@@ -58,6 +58,8 @@ export default {
     guildTitle: "Want more? Ask the guild.",
     guildButton: "Request a quest",
     guildQuests: "GUILD QUESTS",
+    fab: "QUEST",
+    fabClose: "Close",
     startParts: { bed: "Make your bed", water: "Drink a glass of water" },
     ends: "Your day ends at {time}, an hour before bed.",
     endsExtra: "Your day ends at {time} (+{n} min bought).",
