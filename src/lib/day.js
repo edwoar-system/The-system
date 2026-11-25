@@ -47,6 +47,9 @@ const rankXp = (from, to) => {
 // Today's quest board lives in the player document as `day`. A new board is made the first time you open the app each day.
 // Muscles that are still tired steer the picks; on a gym day the split's day takes the STR slot (or the last one).
 // Program sessions due today come first; the rest comes from your focus (your interests), widening with your streak.
+// What today's board was built from: when your Tune answers or difficulty change, the board offers to update.
+export const boardSource = (player) => JSON.stringify([player?.profile?.interests ?? [], player?.profile?.levels ?? {}, difficultyOf(player), player?.mainSlots ?? 3]);
+
 export function newDay(player, uid) {
   const date = todayKey();
   const tired = tiredSet(player?.fatigue);
@@ -89,7 +92,32 @@ export function newDay(player, uid) {
     typeCounts: {},
     mainCoins: 0,
     bonusPaid: false,
+    source: boardSource(player),
   };
+}
+
+// Rebuilds today's open main quests from your current answers. Done ones, program sessions and duties stay.
+export async function refreshOpenMains(uid) {
+  const ref = doc(db, "players", uid);
+  return runTransaction(db, async (tx) => {
+    const player = (await tx.get(ref)).data() ?? {};
+    const day = player.day?.date === todayKey() ? player.day : null;
+    if (!day) return { changed: 0 };
+    const fresh = newDay(player, uid);
+    const keep = (m) => m.done || m.id.startsWith("p:") || m.id.startsWith("d:") || m.id.startsWith("gs:");
+    const taken = new Set(day.mains.filter(keep).map((m) => m.id));
+    const pool = fresh.mains.map((m) => m.id).filter((id) => !taken.has(id) && !id.startsWith("d:"));
+    let changed = 0;
+    const mains = day.mains.map((m) => {
+      if (keep(m) || !pool.length) return m;
+      const id = pool.shift();
+      if (id !== m.id) changed += 1;
+      return { id, done: false };
+    });
+    const side = day.side && !day.side.done && fresh.side ? fresh.side : day.side;
+    tx.set(ref, { day: { ...day, mains, ...(side ? { side } : {}), source: boardSource(player) }, updatedAt: serverTimestamp() }, { merge: true });
+    return { changed };
+  });
 }
 
 function yesterdayKey() {

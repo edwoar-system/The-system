@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Polygon } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { END_PARTS, FREE_FIT_SWAPS, START_PARTS, buyExtraTime, completeQuest, currentDay, getQuest, rewardPreview, swapToFit, tickStart } from "../lib/day";
+import { END_PARTS, FREE_FIT_SWAPS, START_PARTS, boardSource, buyExtraTime, refreshOpenMains, completeQuest, currentDay, getQuest, rewardPreview, swapToFit, tickStart } from "../lib/day";
 import { useSituation } from "../lib/location";
 import { useWeather } from "../lib/weather";
 import { fitsSituation, isOutdoor } from "../game/effort";
@@ -335,6 +335,19 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill }
                   <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: color.text }}>{fill(t.board.moreTime, { n: extraCost })}</Text>
                 </Pressable>
               ) : null}
+            </View>
+          ) : null}
+          {/* Your Tune answers or difficulty changed since this board was made: offer to update the open quests. */}
+          {day.source && day.source !== boardSource(player) && day.mains.some((m) => !m.done) ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: color.line, backgroundColor: "rgba(159,203,255,0.06)" }}>
+              <Text style={{ flex: 1, fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.text }}>{t.board.retune}</Text>
+              <Pressable accessibilityRole="button" disabled={busy} onPress={async () => {
+                setBusy(true);
+                try { const r = await refreshOpenMains(user.uid); tapFeel(); showToast({ note: r.changed ? fill(t.board.retuned, { n: r.changed }) : t.board.retunedNone }); }
+                catch { showToast({ error: true }); } finally { setBusy(false); }
+              }} style={({ pressed }) => ({ minHeight: 36, paddingHorizontal: 10, justifyContent: "center", borderWidth: 1, borderColor: color.frame, backgroundColor: pressed ? "rgba(159,203,255,0.18)" : "transparent" })}>
+                <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: color.text }}>{t.board.retuneGo}</Text>
+              </Pressable>
             </View>
           ) : null}
           {/* Agenda today: your schedule (with today's changes) and your iPhone Calendar. Tap to change today. */}
