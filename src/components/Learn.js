@@ -108,8 +108,8 @@ function KanaGrid({ list }) {
   const { color, font } = useTheme();
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4 }}>
-      {list.map(([k, r]) => (
-        <View key={k} style={{ width: 58, paddingVertical: 6, alignItems: "center", borderWidth: 1, borderColor: "rgba(159,203,255,0.2)" }}>
+      {list.map(([k, r], i) => (
+        <View key={k || `gap${i}`} style={{ width: "18.5%", minHeight: 58, paddingVertical: 6, alignItems: "center", borderWidth: 1, borderColor: k ? "rgba(159,203,255,0.2)" : "transparent" }}>
           <Text style={{ fontSize: 24, color: "#FFFFFF" }}>{k}</Text>
           <Text style={{ fontFamily: font.body, fontSize: 11, color: color.muted }}>{r}</Text>
         </View>

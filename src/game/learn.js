@@ -2,9 +2,10 @@
 // System words) comes from the rest of the game, and anything missing comes from Wikipedia.
 
 // Basic hiragana with their sounds, in table order. Katakana is the same table shifted in Unicode.
-const HIRA = "あa いi うu えe おo かka きki くku けke こko さsa しshi すsu せse そso たta ちchi つtsu てte とto なna にni ぬnu ねne のno はha ひhi ふfu へhe ほho まma みmi むmu めme もmo やya ゆyu よyo らra りri るru れre ろro わwa をwo んn";
-export const HIRAGANA = HIRA.split(" ").map((x) => [x[0], x.slice(1)]);
-export const KATAKANA = HIRAGANA.map(([k, r]) => [String.fromCharCode(k.charCodeAt(0) + 0x60), r]);
+const HIRA = "あa いi うu えe おo かka きki くku けke こko さsa しshi すsu せse そso たta ちchi つtsu てte とto なna にni ぬnu ねne のno はha ひhi ふfu へhe ほho まma みmi むmu めme もmo やya _ ゆyu _ よyo らra りri るru れre ろro わwa _ _ _ をwo んn";
+// "_" keeps the table's gaps (no yi, ye, wi, wu, we), so every row lines up with its vowels.
+export const HIRAGANA = HIRA.split(" ").map((x) => (x === "_" ? ["", ""] : [x[0], x.slice(1)]));
+export const KATAKANA = HIRAGANA.map(([k, r]) => [k ? String.fromCharCode(k.charCodeAt(0) + 0x60) : "", r]);
 
 export const LANGUAGES = [
   {
