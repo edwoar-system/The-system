@@ -29,6 +29,7 @@ export async function deleteAccount(password) {
   for (const f of friends ?? []) await soft(deleteDoc(doc(db, "public", f.id, "friends", uid)));
   await soft(clear(["public", uid, "requests"]));
   await soft(clear(["public", uid, "trolls"]));
+  await soft(clear(["public", uid, "events"]));
   await soft(deleteDoc(doc(db, "public", uid)));
   // Your friend code (one of a few salts).
   for (let salt = 0; salt < 5; salt++) {

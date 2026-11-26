@@ -14,6 +14,9 @@ import PartySection from "./Party";
 import { RankHex } from "./skillParts";
 import { Coins, Frame, Glow, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
+import { SPONSOR_AMOUNTS, observerName, sponsorFriend, useObservers, watchFriend } from "../lib/observers";
+import { shownTitle } from "../game/titles";
+import { showSystem } from "../lib/popup";
 import { t } from "../i18n";
 
 const PARTIES_ON = false;
@@ -157,11 +160,69 @@ function TrollSection({ me, myName, myCoins, trollsDone, friend }) {
   );
 }
 
+// Sponsor a friend: some of your coins, sent under your title.
+function SponsorSection({ me, myTitle, myCoins, friend }) {
+  const { color } = useTheme();
+  const [busy, setBusy] = useState(false);
+  async function send(n) {
+    setBusy(true);
+    try {
+      await sponsorFriend(me, myTitle, friend.uid, n);
+      doneFeel();
+      showSystem({ title: fill(t.observers.youSponsored, { name: friend.card?.name ?? friend.name, n }), lines: [fill(t.observers.asWho, { who: observerName(myTitle) })], tone: "buff" });
+    } catch { showSystem({ title: t.observers.noCoins, tone: "debuff" }); } finally { setBusy(false); }
+  }
+  return (
+    <Section title={t.observers.sponsorTitle} sub={fill(t.observers.sponsorSub, { who: observerName(myTitle) })}>
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        {SPONSOR_AMOUNTS.map((n) => (
+          <Pressable key={n} accessibilityRole="button" disabled={busy || myCoins < n} onPress={() => send(n)}
+            style={({ pressed }) => ({ flex: 1, minHeight: 48, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: color.frame,
+              backgroundColor: pressed ? "rgba(255,255,255,0.12)" : "transparent", opacity: myCoins < n ? 0.4 : 1 })}>
+            <Coins value={n} size={16} />
+          </Pressable>
+        ))}
+      </View>
+    </Section>
+  );
+}
+
+const agoText = (ms) => {
+  const m = Math.max(0, Math.round((Date.now() - (ms ?? 0)) / 60000));
+  return m < 60 ? fill(t.observers.minAgo, { n: m }) : m < 1440 ? fill(t.observers.hAgo, { n: Math.round(m / 60) }) : fill(t.observers.dAgo, { n: Math.round(m / 1440) });
+};
+
+// Who's been watching you: titles only; tap one to see who it is.
+function ObserverList({ uid, friends }) {
+  const { color, font } = useTheme();
+  const list = useObservers(uid);
+  const [shown, setShown] = useState({});
+  if (!list?.length) return null;
+  const nameOf = (from) => friends.find((f) => f.uid === from)?.name ?? t.observers.unknown;
+  return (
+    <Section title={t.observers.title} sub={t.observers.sub}>
+      {list.slice(0, 8).map((e) => (
+        <Pressable key={e.id} accessibilityRole="button" onPress={() => { tapFeel(); setShown((s) => ({ ...s, [e.id]: !s[e.id] })); }}
+          style={{ minHeight: 48, justifyContent: "center", gap: 2, paddingTop: 8, borderTopWidth: 1, borderTopColor: color.line }}>
+          <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, lineHeight: 18, color: color.text }}>
+            {`[${e.kind === "sponsor" ? fill(t.observers.sponsored, { who: observerName(e.title), n: e.amount }) : fill(t.observers.watching, { who: observerName(e.title) })}]`}
+          </Text>
+          <Text style={{ fontFamily: font.body, fontSize: 11, color: shown[e.id] ? color.accent : color.muted }}>
+            {shown[e.id] ? fill(t.observers.itWas, { name: nameOf(e.from) }) : `${agoText(e.atMs)} · ${t.observers.tapToReveal}`}
+          </Text>
+        </Pressable>
+      ))}
+    </Section>
+  );
+}
+
 // One friend, full screen.
-export function FriendPage({ friend, me, myName, myCoins = 0, trollsDone = 0, onClose }) {
+export function FriendPage({ friend, me, myName, myTitle = null, myCoins = 0, trollsDone = 0, onClose }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const [info, setInfo] = useState(null);
+  // Opening a profile = watching: they get "an observer is watching you" with your title (once a day).
+  useEffect(() => { watchFriend(me, myTitle, friend.uid).catch(() => {}); }, [me, myTitle, friend.uid]);
   const c = friend.card;
   const shown = c?.shown ?? {};
   const fact = (label, value) => (
@@ -219,6 +280,7 @@ export function FriendPage({ friend, me, myName, myCoins = 0, trollsDone = 0, on
               ) : null}
             </>
           )}
+          <SponsorSection me={me} myTitle={myTitle} myCoins={myCoins} friend={friend} />
           <TrollSection me={me} myName={myName} myCoins={myCoins} trollsDone={trollsDone} friend={friend} />
           <View style={{ marginTop: 30, marginHorizontal: 14 }}>
             <HoldButton label={t.friends.remove} tone="#F6B45A" onDone={() => { removeFriend(me, friend.uid).catch(() => {}); onClose(); }} />
@@ -293,6 +355,8 @@ export default function Friends({ user, player }) {
           </Section>
         ) : null}
 
+        <ObserverList uid={user.uid} friends={friends ?? []} />
+
         <Section title={t.friends.list} right={friends?.length ? <Text style={{ fontFamily: font.num, fontSize: 15, color: color.muted }}>{friends.length}</Text> : null}>
           {friends === null ? <Text style={{ fontFamily: font.body, fontSize: 13, color: color.muted }}>{t.friends.loading}</Text> : null}
           {error ? <Text style={{ fontFamily: font.body, fontSize: 13, color: "#F6B45A" }}>{t.friends.loadFailed}</Text> : null}
@@ -343,7 +407,7 @@ export default function Friends({ user, player }) {
           </View>
         </Section>
       </ScrollView>
-      {open ? <FriendPage friend={friends?.find((f) => f.uid === open.uid) ?? open} me={user.uid} myName={name} myCoins={player.coins ?? 0} trollsDone={player.trollsDone ?? 0} onClose={() => setOpen(null)} /> : null}
+      {open ? <FriendPage friend={friends?.find((f) => f.uid === open.uid) ?? open} me={user.uid} myName={name} myTitle={shownTitle(player)?.name ?? null} myCoins={player.coins ?? 0} trollsDone={player.trollsDone ?? 0} onClose={() => setOpen(null)} /> : null}
     </View>
   );
 }

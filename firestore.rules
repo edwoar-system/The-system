@@ -75,6 +75,19 @@ service cloud.firestore {
         allow delete: if signedIn() && request.auth.uid == uid;
       }
 
+      // Observers: a friend watching {uid} (opening their profile) or sponsoring coins (paid from the friend's own coins).
+      // Only friends create them, only {uid} reads them and marks them seen.
+      match /events/{id} {
+        allow create: if signedIn() && request.resource.data.from == request.auth.uid && request.auth.uid != uid
+          && isFriend(uid)
+          && request.resource.data.seen == false
+          && (request.resource.data.kind == "watch"
+            || (request.resource.data.kind == "sponsor" && request.resource.data.amount in [5, 20, 50]));
+        allow read, delete: if signedIn() && request.auth.uid == uid;
+        allow update: if signedIn() && request.auth.uid == uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["seen"]);
+      }
+
       // {fid} is a friend of {uid}. Written when {uid} or {fid} accepts the other's request.
       match /friends/{fid} {
         allow read: if signedIn() && (request.auth.uid == uid || request.auth.uid == fid);
