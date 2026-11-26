@@ -54,6 +54,7 @@ Docs: https://docs.expo.dev/eas/index.md
 - App Store Connect app: "The system: quest", Apple ID 6839325471 (in eas.json). The first TestFlight build is 1.6.0.
 - TestFlight: `.github/workflows/testflight.yml` builds the `production` profile and submits it. It needs the GitHub secrets ASC_API_KEY (the .p8 contents), ASC_KEY_ID, ASC_ISSUER_ID and APPLE_TEAM_ID, and the App Store Connect app id in eas.json. TestFlight builds use the `preview` update channel too, so one over-the-air update reaches both.
 - Shop themes live in `SKINS` (`src/game/shop.js`): common = colours only; rare/legendary also set `shape` (frame outline in `sys.js`) and `backdrop` (drawn by `Glow`). Price comes from rarity (`SKIN_PRICES`). Titles are earned, never bought: `src/game/titles.js` (counters in `players.feats`, written in `completeQuest`). Test accounts: `tester: true` on the player doc (set by hand in the Firebase console) shows Tester tools in Settings and gives every title.
+- Sub-scenarios (urgent quests, `src/game/urgent.js`): short tasks only from skills the player ticked, offered only while the situation is "home", as a small notice above the tab bar (`Urgent.js`). Passing or timing out costs nothing; no notifications are scheduled for them. System messages are scenario style: stacked [bracketed] boxes that type out (`Scenario.js`, `SystemPopup.js`).
 - Design v0.1 (see the rules doc): black and blue base, purple only for progress, gold for coins and titles, red only for the penalty. Shared pieces live in `src/components/sys.js`.
 
 ## Test version first

@@ -733,7 +733,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
               <Pressable accessibilityRole="button" disabled={busy || urgentOpen} onPress={async () => {
                 setFab(false);
                 setBusy(true);
-                try { await requestUrgent(user.uid); } catch { showToast({ error: true, text: t.urgent.open }); } finally { setBusy(false); }
+                try { await requestUrgent(user.uid); } catch (e) { showToast({ error: true, text: e?.message === "no-skills" ? t.urgent.noSkills : t.urgent.open }); } finally { setBusy(false); }
               }} style={{ minHeight: 60, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, borderWidth: 1, borderColor: "rgba(246,180,90,0.6)", backgroundColor: "rgba(20,14,6,0.97)", opacity: urgentOpen ? 0.5 : 1 }}>
                 <View style={{ width: 8, height: 8, backgroundColor: "#F6B45A", transform: [{ rotate: "45deg" }] }} />
                 <View style={{ flex: 1 }}>

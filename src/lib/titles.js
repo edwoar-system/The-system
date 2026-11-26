@@ -28,7 +28,7 @@ export function useTitleAlerts(uid, player) {
         showSystem({
           title: names.length === 1 ? t.titles.newOne : fill(t.titles.newMany, { n: names.length }),
           lines: [
-            ...names.slice(0, 4).map((n) => `「${n}」`),
+            ...names.slice(0, 4).map((n) => fill(t.titles.gotName, { name: n })),
             ...(names.length > 4 ? [fill(t.titles.andMore, { n: names.length - 4 })] : []),
             first ? fill(t.titles.wearingNow, { name: titleById[first]?.name }) : t.titles.wearHint,
           ],

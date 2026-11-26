@@ -1,7 +1,7 @@
 // Which notifications the phone should have scheduled, worked out from the player. Pure: no native calls.
 // Everything is local (scheduled on the phone), so nothing needs a server.
 import { questById, todayKey } from "./quests";
-import { URGENT, urgentPerDayOf } from "./urgent";
+import { URGENT } from "./urgent";
 import { dayEndHour, isInPenalty } from "./penalty";
 import { ladderById, RANKS } from "./ladders";
 import { guildQuest, skillById } from "./guild";
@@ -20,7 +20,7 @@ import { t } from "../i18n";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
-export const NOTIFY_KINDS = ["morning", "nudge", "schedule", "urgentSoon", "urgent", "deadline", "bedtime", "penalty", "water", "trial", "rust", "apptime"];
+export const NOTIFY_KINDS = ["morning", "nudge", "schedule", "deadline", "bedtime", "penalty", "water", "trial", "rust", "apptime"];
 export const NOTIFY_DEFAULTS = Object.fromEntries(NOTIFY_KINDS.map((k) => [k, true]));
 const MAX_SCHEDULED = 60; // iPhone keeps at most 64 waiting notifications
 export const WATER_HOURS = [10, 12, 14, 16, 18];
@@ -110,17 +110,7 @@ export function notificationPlan(player, uid, now = new Date()) {
     const key = todayKey(base);
     const mainsOpen = d === 0 ? openMains : 3;
 
-    if (s.urgent) {
-      const perDay = urgentPerDayOf(player);
-      const done = d === 0 && player.urgentToday?.date === key ? player.urgentToday.count : 0;
-      urgentTimes(uid, key, perDay, base, player.profile, busyBlocks(player, key)).slice(done).forEach((date, i) => {
-        // A heads-up 5 to 10 minutes before, so it doesn't catch you in the middle of something.
-        const lead = 5 + Math.floor(seeded(`${uid}:${key}:${i}:pre`)() * 6);
-        const preAt = new Date(date.getTime() - lead * 60000);
-        if (s.urgentSoon && !isBusy(busyBlocks(player, key), preAt.getHours() + preAt.getMinutes() / 60)) add({ id: `urgent-pre-${key}-${i}`, date: new Date(date.getTime() - lead * 60000), title: t.notify.urgentSoonTitle, body: fill(t.notify.urgentSoonBody, { n: lead }), data: { kind: "status" } });
-        add({ id: `urgent-${key}-${i}`, date, title: t.notify.urgentTitle, body: t.notify.urgentBody, data: { kind: "urgent" } });
-      });
-    }
+    // Sub-scenarios (urgent quests) only come while you're home with the app open, so none are scheduled here.
     const end = dayEndHour(player.profile) + (d === 0 && day?.extraMin ? day.extraMin / 60 : 0);
     const endAt = at(base, 0, Math.floor(end), Math.round((end % 1) * 60));
     const hard = isHard(player, base.getTime());

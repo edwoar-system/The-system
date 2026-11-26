@@ -261,10 +261,10 @@ function ShellBody({ user, state }) {
         {trail.length > 0 && !penaltyView ? <BackPill place={trail[trail.length - 1]} onPress={goBack} /> : null}
         {/* The first-start tip, on whichever tab a new player opens. */}
         {state.player ? <Welcome user={user} player={state.player} onOpenAssess={() => goTo({ tab: "skills", assess: true })} /> : null}
+        {player && !penaltyView ? <Urgent user={user} player={player} /> : null}
         <QuestClear />
         <SystemPopup />
       </View>
-      {player && !penaltyView ? <Urgent user={user} player={player} /> : null}
       {player && penaltyView ? <PenaltyZone user={user} player={player} intro={penaltyView === "intro"} onClose={() => setPenaltyView(null)} /> : null}
       {player?.notice && !player.notice.seen && !penaltyView ? <ShieldNotice player={player} onClose={() => dismissNotice(user.uid)} /> : null}
       {inPenalty ? <PenaltyBar player={player} onOpen={() => setPenaltyView("manual")} /> : null}
