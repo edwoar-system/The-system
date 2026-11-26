@@ -14,7 +14,6 @@ import { needsProof } from "../game/proof";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
-const AMBER = "#F6B45A";
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 const mmss = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 
@@ -39,12 +38,12 @@ function Row({ k, v, tone }) {
 }
 
 function Btn({ label, onPress, disabled, strong }) {
-  const { font } = useTheme();
+  const { color, font } = useTheme();
   return (
     <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress}
-      style={({ pressed }) => ({ flex: 1, minHeight: 46, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: strong ? AMBER : "rgba(255,255,255,0.3)",
-        backgroundColor: pressed ? "rgba(246,180,90,0.2)" : strong ? "rgba(246,180,90,0.1)" : "transparent", opacity: disabled ? 0.5 : 1 })}>
-      <Text style={{ fontFamily: font.bold, fontSize: 13, letterSpacing: 2, color: strong ? AMBER : "#FFFFFF" }}>{label}</Text>
+      style={({ pressed }) => ({ flex: 1, minHeight: 46, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: strong ? color.accent : "rgba(255,255,255,0.3)",
+        backgroundColor: pressed ? "rgba(255,255,255,0.14)" : strong ? "rgba(255,255,255,0.06)" : "transparent", opacity: disabled ? 0.5 : 1 })}>
+      <Text style={{ fontFamily: font.bold, fontSize: 13, letterSpacing: 2, color: "#FFFFFF" }}>{label}</Text>
     </Pressable>
   );
 }
@@ -99,10 +98,10 @@ export default function Urgent({ user, player }) {
     return (
       <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, bottom: 10, alignItems: "center", zIndex: 40 }}>
         <View style={{ width: "92%", maxWidth: 440, flexDirection: "row", alignItems: "stretch", borderWidth: 1, borderColor: "rgba(255,255,255,0.28)", backgroundColor: "rgba(0,0,0,0.92)" }}>
-          <View style={{ width: 3, backgroundColor: AMBER }} />
+          <View style={{ width: 3, backgroundColor: color.accent }} />
           <Pressable accessibilityRole="button" accessibilityLabel={`${active ? t.urgent.running : t.urgent.arrived}. ${task.title}`} onPress={() => { tapFeel(); setOpen(true); }}
             style={{ flex: 1, minHeight: 52, justifyContent: "center", paddingHorizontal: 12, gap: 2 }}>
-            <Typed key={u.status} text={bracket(active ? t.urgent.running : t.urgent.arrived)} style={{ fontFamily: font.bold, fontSize: 13, color: AMBER }} />
+            <Typed key={u.status} text={bracket(active ? t.urgent.running : t.urgent.arrived)} style={{ fontFamily: font.bold, fontSize: 13, color: "#FFFFFF" }} />
             <Text numberOfLines={1} style={{ fontFamily: font.body, fontSize: 12, color: color.text }}>
               {task.title}<Text style={{ color: color.muted }}>{`  ·  ${mmss(left)}`}</Text>
             </Text>
@@ -124,19 +123,19 @@ export default function Urgent({ user, player }) {
     <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, bottom: 10, alignItems: "center", zIndex: 40 }}>
       <View style={{ width: "92%", maxWidth: 440, maxHeight: 460, gap: 4 }}>
         <ScrollView contentContainerStyle={{ gap: 4 }}>
-          <MsgBox text={bracket(active ? t.urgent.running : t.urgent.arrived)} tone={AMBER} strong />
-          <MsgBox tone={AMBER} delay={160} align="left" typed={false}>
+          <MsgBox text={bracket(active ? t.urgent.running : t.urgent.arrived)} tone={color.accent} strong />
+          <MsgBox tone={color.accent} delay={160} align="left" typed={false}>
             <View style={{ gap: 3 }}>
               <Text style={{ fontFamily: font.bold, fontSize: 15, color: "#FFFFFF", marginBottom: 4 }}>{fill(t.urgent.heading, { n: player.urgentToday?.count ?? 1, title: task.title })}</Text>
               <Row k={t.urgent.category} v={t.urgent.sub} />
               <Row k={t.urgent.difficulty} v={DIFF_LETTER[task.difficulty] ?? "E"} />
               <Row k={t.urgent.condition} v={`${task.title}. ${task.how}`} />
-              <Row k={t.urgent.limit} v={active ? fill(t.urgent.leftNow, { t: mmss(left) }) : fill(t.urgent.minutes, { n: task.minutes + URGENT.extraMinutes })} tone={active ? AMBER : null} />
+              <Row k={t.urgent.limit} v={active ? fill(t.urgent.leftNow, { t: mmss(left) }) : fill(t.urgent.minutes, { n: task.minutes + URGENT.extraMinutes })} tone={active ? color.accent : null} />
               <Row k={t.urgent.reward} v={fill(t.urgent.rewardText, { c: r.coins, x: r.xp })} tone={color.gold} />
               <Row k={t.urgent.failure} v={t.urgent.noFailure} />
             </View>
           </MsgBox>
-          {!active ? <MsgBox text={bracket(reasonLine)} tone={AMBER} delay={320} /> : null}
+          {!active ? <MsgBox text={bracket(reasonLine)} tone={color.accent} delay={320} /> : null}
           <View style={{ flexDirection: "row", gap: 6, marginTop: 2 }}>
             {active ? (
               <>
