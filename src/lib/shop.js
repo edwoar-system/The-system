@@ -1,7 +1,7 @@
 // Buying app time: coins go down, the session starts (or gets longer), and it's written in your quest log.
 import { collection, doc, runTransaction, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
-import { EFFECT_PRICE, MAX_SHIELDS, NAME_CHANGE_PRICE, NAME_EFFECTS, SHIELD_PRICE, SKINS, SKIN_PRICE, activeAppTime, lateExtra, priceFor, refundFor, usedToday } from "../game/shop";
+import { EFFECT_PRICE, MAX_SHIELDS, NAME_CHANGE_PRICE, NAME_EFFECTS, SHIELD_PRICE, SKINS, skinPrice, activeAppTime, lateExtra, priceFor, refundFor, usedToday } from "../game/shop";
 import { todayKey } from "../game/quests";
 
 export async function buyAppTime(uid, kind, minutes, title) {
@@ -71,7 +71,7 @@ export const buyShield = (uid, title) => purchase(uid, SHIELD_PRICE, title, (p) 
 });
 
 // Buying a skin also puts it on. Owned skins switch for free.
-export const buySkin = (uid, id, title) => purchase(uid, (p) => ((p.skins ?? []).includes(id) || id === "system" ? 0 : SKIN_PRICE), title, (p) => {
+export const buySkin = (uid, id, title) => purchase(uid, (p) => ((p.skins ?? []).includes(id) ? 0 : skinPrice(id)), title, (p) => {
   if (!SKINS[id]) throw new Error("unknown");
   return { skin: id, skins: [...new Set([...(p.skins ?? []), id])] };
 });

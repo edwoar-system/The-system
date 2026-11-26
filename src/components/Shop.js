@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { APP_KINDS, CAPPED, EFFECT_IDS, EFFECT_PRICE, LENGTHS, MAX_SHIELDS, NAME_EFFECTS, SHIELD_PRICE, SKINS, SKIN_IDS, SKIN_PRICE, activeAppTime, lateExtra, priceFor, rateAt, refundFor, usedToday } from "../game/shop";
+import { APP_KINDS, CAPPED, EFFECT_IDS, EFFECT_PRICE, LENGTHS, MAX_SHIELDS, NAME_EFFECTS, SHIELD_PRICE, RARITIES, SKINS, SKIN_IDS, SKIN_PRICES, skinPrice, activeAppTime, lateExtra, priceFor, rateAt, refundFor, usedToday } from "../game/shop";
 import { todayKey } from "../game/quests";
 import { trollQueue } from "../game/social";
 import { buyAppTime, buyEffect, buyShield, buySkin, endAppTime } from "../lib/shop";
@@ -12,7 +12,7 @@ import NameText from "./NameText";
 import Unlock from "./Unlock";
 import { doneFeel } from "../lib/haptics";
 import { Coins, Frame, Glow, Label, SysButton } from "./sys";
-import { useTheme } from "../theme";
+import { SkinProvider, useTheme } from "../theme";
 import { t } from "../i18n";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
@@ -20,6 +20,90 @@ export const leftText = (ms) => {
   const m = Math.max(0, Math.ceil(ms / 60000));
   return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m` : `${m} min`;
 };
+
+const RARITY_TONE = { common: "#93A6C8", rare: "#6FC8FF", legendary: "#F0C45C" };
+
+// A small live sample of a theme: its background, backdrop, a frame in its shape and a button.
+function ThemeSample({ id, height = 96, big = false }) {
+  const skin = id === "system" ? null : SKINS[id];
+  return (
+    <SkinProvider id={`pv-${id}`} skin={skin}>
+      <SampleBody height={height} big={big} />
+    </SkinProvider>
+  );
+}
+function SampleBody({ height, big }) {
+  const { color, font } = useTheme();
+  return (
+    <View style={{ height, overflow: "hidden", backgroundColor: color.bg, padding: big ? 14 : 8, justifyContent: "flex-end", gap: big ? 10 : 6 }}>
+      <Glow height={height} at={0.3} />
+      <Frame cut={big ? 12 : 8} kind={big ? "premium" : "plain"} contentStyle={{ paddingHorizontal: big ? 12 : 8, paddingVertical: big ? 10 : 6, gap: big ? 6 : 4 }}>
+        {big ? <Text style={{ fontFamily: font.bold, fontSize: 10, letterSpacing: 2, color: color.hi }}>{t.shop.sampleQuest}</Text> : null}
+        <View style={{ height: big ? 5 : 3, width: "70%", backgroundColor: color.accent }} />
+        <View style={{ height: big ? 5 : 3, width: "40%", backgroundColor: color.purple, opacity: 0.8 }} />
+      </Frame>
+      {big ? <SysButton label={t.shop.sampleButton} onPress={() => {}} style={{ minHeight: 40 }} /> : null}
+    </View>
+  );
+}
+
+// Themes, by rarity. Tap one to see it bigger; buy or wear it from there.
+function Themes({ player, coins, busy, onPick }) {
+  const { color, font } = useTheme();
+  const [sel, setSel] = useState(null);
+  const current = player.skin ?? "system";
+  const ownedOf = (id) => id === "system" || (player.skins ?? []).includes(id);
+  return (
+    <Frame cut={12} contentStyle={{ padding: 16, gap: 12 }}>
+      <Label tone={color.hi}>{t.shop.skinsTitle}</Label>
+      <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{t.shop.skinsSub}</Text>
+      {RARITIES.map((rar) => {
+        const ids = SKIN_IDS.filter((id) => SKINS[id].rarity === rar);
+        return (
+          <View key={rar} style={{ gap: 8 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Text style={{ fontFamily: font.bold, fontSize: 11, letterSpacing: 2, color: RARITY_TONE[rar] }}>{t.shop.rarity[rar]}</Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: color.line }} />
+              <Coins value={SKIN_PRICES[rar]} size={13} />
+            </View>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {ids.map((id) => {
+                const on = current === id;
+                const owned = ownedOf(id);
+                const wide = rar !== "common";
+                return (
+                  <Pressable key={id} accessibilityRole="button" accessibilityState={{ selected: sel === id }} onPress={() => setSel(sel === id ? null : id)}
+                    style={{ width: wide ? "48%" : "31%", flexGrow: wide ? 1 : 0, gap: 6, padding: 4, borderWidth: 1,
+                      borderColor: sel === id || on ? RARITY_TONE[rar] : "rgba(159,203,255,0.16)" }}>
+                    <ThemeSample id={id} height={wide ? 92 : 64} />
+                    <View style={{ paddingHorizontal: 4, paddingBottom: 2 }}>
+                      <Text numberOfLines={1} style={{ fontFamily: font.bold, fontSize: 12, color: "#FFFFFF" }}>{SKINS[id].name}</Text>
+                      <Text style={{ fontFamily: font.body, fontSize: 11, color: on ? color.accent : color.muted }}>{on ? t.shop.wearing : owned ? t.shop.owned : fill(t.shop.price, { n: skinPrice(id) })}</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {sel && SKINS[sel].rarity === rar ? (
+              <View style={{ gap: 10, padding: 10, borderWidth: 1, borderColor: RARITY_TONE[rar], backgroundColor: "rgba(255,255,255,0.03)" }}>
+                <ThemeSample id={sel} height={170} big />
+                <Text style={{ fontFamily: font.bold, fontSize: 15, color: "#FFFFFF" }}>{SKINS[sel].name}</Text>
+                {SKINS[sel].blurb ? <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{SKINS[sel].blurb}</Text> : null}
+                <SysButton
+                  label={current === sel ? t.shop.wearing : ownedOf(sel) ? t.shop.wear : fill(t.shop.buyFor, { n: skinPrice(sel) })}
+                  disabled={busy || current === sel || (!ownedOf(sel) && coins < skinPrice(sel))}
+                  onPress={() => onPick(sel, ownedOf(sel))} />
+                {!ownedOf(sel) && coins < skinPrice(sel) ? (
+                  <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{fill(t.shop.needMore, { n: skinPrice(sel) - coins })}</Text>
+                ) : null}
+              </View>
+            ) : null}
+          </View>
+        );
+      })}
+    </Frame>
+  );
+}
 
 export default function Shop({ user, player, onClose }) {
   const { color, font } = useTheme();
@@ -165,28 +249,8 @@ export default function Shop({ user, player, onClose }) {
                 </View>
               </Frame>
 
-              <Frame cut={12} contentStyle={{ padding: 16, gap: 10 }}>
-                <Label tone={color.hi}>{t.shop.skinsTitle}</Label>
-                <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{fill(t.shop.skinsSub, { n: SKIN_PRICE })}</Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                  {SKIN_IDS.map((id) => {
-                    const owned = id === "system" || (player.skins ?? []).includes(id);
-                    const on = (player.skin ?? "system") === id;
-                    const c = { ...color, ...SKINS[id].color };
-                    return (
-                      <Pressable key={id} accessibilityRole="button" accessibilityState={{ selected: on }} disabled={busy || on || (!owned && coins < SKIN_PRICE)}
-                        onPress={() => run(() => buySkin(user.uid, id, fill(t.shop.skinLog, { name: SKINS[id].name })), owned ? t.shop.skinOn : fill(t.shop.skinBought, { name: SKINS[id].name }))}
-                        style={{ width: "31%", minWidth: 96, padding: 10, gap: 6, borderWidth: 1, borderColor: on ? c.frame : "rgba(159,203,255,0.18)", backgroundColor: on ? "rgba(255,255,255,0.05)" : "transparent", opacity: !owned && coins < SKIN_PRICE ? 0.5 : 1 }}>
-                        <View style={{ height: 30, borderWidth: 1, borderColor: c.frame, backgroundColor: c.glow, justifyContent: "center", paddingHorizontal: 8 }}>
-                          <View style={{ height: 4, width: "60%", backgroundColor: c.accent }} />
-                        </View>
-                        <Text style={{ fontFamily: font.bold, fontSize: 12, color: "#FFFFFF" }}>{SKINS[id].name}</Text>
-                        <Text style={{ fontFamily: font.body, fontSize: 11, color: on ? c.accent : color.muted }}>{on ? t.shop.wearing : owned ? t.shop.wear : fill(t.shop.price, { n: SKIN_PRICE })}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </Frame>
+              <Themes player={player} coins={coins} busy={busy}
+                onPick={(id, owned) => run(() => buySkin(user.uid, id, fill(t.shop.skinLog, { name: SKINS[id].name })), owned ? t.shop.skinOn : fill(t.shop.skinBought, { name: SKINS[id].name }))} />
 
               <Frame cut={12} contentStyle={{ padding: 16, gap: 10 }}>
                 <Label tone={color.hi}>{t.shop.effectsTitle}</Label>

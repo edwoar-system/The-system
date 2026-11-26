@@ -24,6 +24,9 @@ export const themes = {
       dangerSoft: "#FF5A6B",
       panelTop: "#0D1A33",
       panelBottom: "#050A18",
+      btnTop: "#16294A",
+      btnBottom: "#070D1C",
+      spark: "#CFE4FF",
     },
     font: {
       display: "Oxanium_600SemiBold",
@@ -36,6 +39,8 @@ export const themes = {
     },
     radius: { control: 0, card: 0 },
     decor: { frame: "corners", glow: true, buttons: "outline" },
+    shape: "chamfer",
+    backdrop: "glow",
     space: (n) => n * 8,
   },
   minimal: {

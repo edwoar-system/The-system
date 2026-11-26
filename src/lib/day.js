@@ -434,8 +434,22 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
     const before = levelFromXp(player.xp ?? 0).level;
     const after = levelFromXp(totalXp).level;
 
+    // Feats: counters for titles (game/titles.js).
+    const f = player.feats ?? {};
+    const feats = {
+      quests: (f.quests ?? 0) + 1,
+      bestStreak: Math.max(f.bestStreak ?? 0, streak),
+      ...(morningFull ? { mornings: (f.mornings ?? 0) + 1 } : {}),
+      ...(q.difficulty === "hard" ? { hard: (f.hard ?? 0) + 1 } : {}),
+      ...(slot === "side" ? { sides: (f.sides ?? 0) + 1 } : {}),
+      ...(rough ? { rough: (f.rough ?? 0) + 1 } : {}),
+      ...(loot ? { loot: (f.loot ?? 0) + 1 } : {}),
+      ...(programDone ? { programs: (f.programs ?? 0) + 1 } : {}),
+    };
+
     tx.set(ref, {
       day,
+      feats,
       coins: (player.coins ?? 0) + coins + bonus + (loot?.coins ?? 0),
       ...(loot?.shield ? { streakShields: Math.min(MAX_SHIELDS, (player.streakShields ?? 0) + loot.shield) } : {}),
       xp: totalXp,

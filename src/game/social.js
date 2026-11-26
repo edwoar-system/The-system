@@ -7,6 +7,7 @@ import { LADDERS } from "./ladders";
 import { skillView } from "./skills";
 import { DIFF_FACTOR, MAX_PUSHUPS, RANK_FACTOR, RUN_KM, difficultyOf, nice } from "./difficulty";
 import { skillById } from "./guild";
+import { TROLL_TITLES, shownTitle } from "./titles";
 
 export const PRIVACY_KEYS = ["stats", "skills", "streak", "today", "honesty"];
 export const PRIVACY_DEFAULTS = { stats: true, skills: true, streak: true, today: true, honesty: false };
@@ -36,7 +37,7 @@ export function publicCard(player, { streak = 0, mainsDone = 0, mainsOf = 0, cod
     level: levelFromXp(player?.xp ?? 0).level,
     active: todayKey(),
     shown: p,
-    title: trollTitle(player?.trollsDone ?? 0)?.name ?? null,
+    title: shownTitle(player)?.name ?? null,
     nameEffect: player?.nameEffect && player.nameEffect !== "none" ? player.nameEffect : null,
   };
   if (p.stats) card.stats = Object.fromEntries(STATS.map((s) => [s, statValue(player?.statXp?.[s] ?? 0)]));
@@ -145,11 +146,7 @@ export const trollTitleForSender = (x) => (x?.scale ? `${x.name} (${x.hint})` : 
 export const trollNeedsProof = (x) => x?.level === "hard" && !x.legacy;
 
 // Sender titles: earned by how many of your troll quests friends finished. Each gives coins back.
-export const TROLL_TITLES = [
-  { id: "trickster", name: "Trickster", at: 10, back: 0.25 },
-  { id: "menace", name: "Menace", at: 50, back: 0.5 },
-  { id: "chaos", name: "Chaos Lord", at: 150, back: 0.75 },
-];
+export { TROLL_TITLES };
 export function trollTitle(done = 0) {
   return [...TROLL_TITLES].reverse().find((x) => done >= x.at) ?? null;
 }

@@ -1,7 +1,7 @@
 // Building blocks for the System look (design v0.1): cut-corner frames, hexagons, the coin mark.
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Platform, Pressable, Text, View } from "react-native";
-import Svg, { Defs, LinearGradient, Path, Polygon, RadialGradient, Rect, Stop } from "react-native-svg";
+import Svg, { Circle, Defs, Ellipse, G, Line, LinearGradient, Path, Polygon, RadialGradient, Rect, Stop } from "react-native-svg";
 import { useTheme } from "../theme";
 
 export const nativeDriver = Platform.OS !== "web";
@@ -11,6 +11,17 @@ const useId = (p) => useRef(`${p}${++gid}`).current;
 const chamfer = (w, h, c, i = 0) =>
   `${c + i},${i} ${w - i},${i} ${w - i},${h - c - i} ${w - c - i},${h - i} ${i},${h - i} ${i},${c + i}`;
 
+// A frame's outline in the theme's shape (see SKINS in game/shop.js). Returns the points and where the lit top edge starts.
+function outline(shape, w, h, c, i = 0) {
+  if (shape === "notch") {
+    const k = Math.max(6, Math.round(c * 0.55));
+    return { pts: `${k + i},${i} ${w - k - i},${i} ${w - i},${k + i} ${w - i},${h - k - i} ${w - k - i},${h - i} ${k + i},${h - i} ${i},${h - k - i} ${i},${k + i}`, from: k + 1 };
+  }
+  if (shape === "bracket") return { pts: `${i},${i} ${w - i},${i} ${w - i},${h - i} ${i},${h - i}`, from: 2 };
+  const cc = shape === "double" ? Math.round(c * 1.3) : c;
+  return { pts: chamfer(w, h, cc, i), from: cc + 1 };
+}
+
 export const hexPoints = (w, h, i = 0) => {
   const q = h / 4;
   return `${w / 2},${i} ${w - i},${q + i / 2} ${w - i},${h - q - i / 2} ${w / 2},${h - i} ${i},${h - q - i / 2} ${i},${q + i / 2}`;
@@ -18,11 +29,12 @@ export const hexPoints = (w, h, i = 0) => {
 
 // A cut-corner window. "premium" = the edge catches light (white into blue); "plain" = a thin light-blue edge.
 export function Frame({ children, cut = 14, kind = "plain", style, contentStyle, corners = false, tone }) {
-  const { color } = useTheme();
+  const { color, shape = "chamfer" } = useTheme();
   const [size, setSize] = useState(null);
   const fillId = useId("ff");
   const edgeId = useId("fe");
   const edge = tone ?? color.accent;
+  const line = size ? outline(shape, size.width, size.height, cut, 0.5) : null;
   return (
     <View style={style} onLayout={(e) => setSize(e.nativeEvent.layout)}>
       {size ? (
@@ -48,9 +60,15 @@ export function Frame({ children, cut = 14, kind = "plain", style, contentStyle,
               )}
             </LinearGradient>
           </Defs>
-          <Polygon points={chamfer(size.width, size.height, cut, 0.5)} fill={`url(#${fillId})`} stroke={`url(#${edgeId})`} strokeWidth={1} />
-          <Path d={`M${cut + 1} 1.5 H${size.width - 2}`} stroke="#FFFFFF" strokeOpacity={0.16} strokeWidth={1} />
-          {corners ? (
+          <Polygon points={line.pts} fill={`url(#${fillId})`} stroke={`url(#${edgeId})`} strokeWidth={1} />
+          {shape === "double" && size.width > 24 && size.height > 24 ? (
+            <Polygon points={outline("double", size.width, size.height, cut, 4).pts} fill="none" stroke={edge} strokeOpacity={0.22} strokeWidth={1} />
+          ) : null}
+          <Path d={`M${line.from} 1.5 H${size.width - 2}`} stroke="#FFFFFF" strokeOpacity={0.16} strokeWidth={1} />
+          {shape === "bracket" ? (
+            <Path d={`M1 11 V1 H11 M${size.width - 11} 1 H${size.width - 1} V11 M${size.width - 1} ${size.height - 11} V${size.height - 1} H${size.width - 11} M11 ${size.height - 1} H1 V${size.height - 11}`}
+              stroke={color.frame} strokeWidth={1.6} fill="none" />
+          ) : corners ? (
             <>
               <Path d={`M${size.width - 12} 1 H${size.width - 1} V12`} stroke={color.frame} strokeWidth={2} fill="none" />
               <Path d={`M1 ${size.height - 12} V${size.height - 1} H12`} stroke={color.frame} strokeWidth={2} fill="none" />
@@ -135,7 +153,7 @@ export function HexCheck({ done, onPress, disabled, label, size = 40 }) {
 
 // Black screen with one blue glow at the top and a small white light in its centre.
 export function Glow({ height = 520, at = 0.24 }) {
-  const { color } = useTheme();
+  const { color, backdrop = "glow" } = useTheme();
   const [w, setW] = useState(0);
   const a = useId("ga");
   const b = useId("gb");
@@ -155,9 +173,70 @@ export function Glow({ height = 520, at = 0.24 }) {
           </Defs>
           <Rect x="0" y="0" width={w} height={height} fill={`url(#${a})`} />
           <Rect x="0" y="0" width={w} height={height} fill={`url(#${b})`} />
+          <Backdrop kind={backdrop} w={w} h={height} at={at} tone={color.spark ?? color.frame} />
         </Svg>
       ) : null}
     </View>
+  );
+}
+
+// The theme's backdrop over the glow: a few quiet marks that fade out downwards. Same places every time.
+function Backdrop({ kind, w, h, at, tone }) {
+  if (!kind || kind === "glow") return null;
+  // A fixed pseudo-random number for mark k, value j.
+  const rnd = (k, j) => { const x = Math.sin(k * 12.9898 + j * 78.233 + kind.length) * 43758.5453; return x - Math.floor(x); };
+  const fade = (y) => Math.max(0, 1 - y / h);
+  const cx = w / 2;
+  const cy = h * at;
+  if (kind === "grid") {
+    const step = 28;
+    const lines = [];
+    for (let x = step / 2; x < w; x += step) lines.push(<Line key={`v${x}`} x1={x} y1={0} x2={x} y2={h * 0.8} stroke={tone} strokeOpacity={0.07} strokeWidth={1} />);
+    for (let y = step; y < h * 0.8; y += step) lines.push(<Line key={`h${y}`} x1={0} y1={y} x2={w} y2={y} stroke={tone} strokeOpacity={0.09 * fade(y)} strokeWidth={1} />);
+    return <G>{lines}</G>;
+  }
+  if (kind === "runes") {
+    const ring = (rad, n, len, o) => Array.from({ length: n }, (_, k) => {
+      const a = (k / n) * Math.PI * 2;
+      return <Line key={`${rad}-${k}`} x1={cx + Math.cos(a) * rad} y1={cy + Math.sin(a) * rad} x2={cx + Math.cos(a) * (rad + len)} y2={cy + Math.sin(a) * (rad + len)} stroke={tone} strokeOpacity={o} strokeWidth={1} />;
+    });
+    return (
+      <G>
+        <Circle cx={cx} cy={cy} r={150} fill="none" stroke={tone} strokeOpacity={0.16} strokeWidth={1} />
+        <Circle cx={cx} cy={cy} r={122} fill="none" stroke={tone} strokeOpacity={0.1} strokeWidth={1} strokeDasharray="2 6" />
+        <Circle cx={cx} cy={cy} r={60} fill="none" stroke={tone} strokeOpacity={0.12} strokeWidth={1} />
+        {ring(150, 48, 7, 0.18)}
+        {ring(60, 6, 62, 0.08)}
+        <Polygon points={Array.from({ length: 6 }, (_, k) => { const a = (k / 6) * Math.PI * 2 - Math.PI / 2; return `${cx + Math.cos(a) * 122},${cy + Math.sin(a) * 122}`; }).join(" ")}
+          fill="none" stroke={tone} strokeOpacity={0.09} strokeWidth={1} />
+      </G>
+    );
+  }
+  if (kind === "rays") {
+    return (
+      <G>
+        {Array.from({ length: 13 }, (_, k) => {
+          const a = Math.PI * (0.12 + (k / 12) * 0.76);
+          return <Line key={k} x1={cx} y1={-20} x2={cx + Math.cos(a) * h * 1.4} y2={-20 + Math.sin(a) * h * 1.4} stroke={tone} strokeOpacity={k % 2 ? 0.05 : 0.09} strokeWidth={k % 3 ? 1 : 2} />;
+        })}
+      </G>
+    );
+  }
+  // Scattered marks: sparks, stars or petals.
+  const n = kind === "stars" ? 46 : kind === "petals" ? 16 : 28;
+  return (
+    <G>
+      {Array.from({ length: n }, (_, k) => {
+        const x = rnd(k, 1) * w;
+        const y = rnd(k, 2) * h * 0.85;
+        const o = (0.15 + rnd(k, 3) * 0.45) * fade(y);
+        if (kind === "petals") {
+          return <Ellipse key={k} cx={x} cy={y} rx={4 + rnd(k, 4) * 3} ry={2 + rnd(k, 5) * 1.5} fill={tone} fillOpacity={o} transform={`rotate(${Math.round(rnd(k, 6) * 180)} ${x} ${y})`} />;
+        }
+        const size = kind === "stars" ? 0.6 + rnd(k, 4) * 1.1 : 1 + rnd(k, 4) * 1.8;
+        return <Circle key={k} cx={x} cy={y} r={size} fill={tone} fillOpacity={kind === "embers" ? o * 1.4 : o} />;
+      })}
+    </G>
   );
 }
 
@@ -169,8 +248,10 @@ export function Label({ children, style, tone }) {
 
 // The main action button: dark fill, light edge, lit top (same as Sealed's hold button).
 export function SysButton({ label, onPress, disabled, tone, style }) {
-  const { color, font } = useTheme();
+  const { color, font, shape = "chamfer" } = useTheme();
   const [size, setSize] = useState(null);
+  const btnId = useId("sb");
+  const btnLine = size ? outline(shape === "double" ? "chamfer" : shape, size.width, size.height, 10, 0.5) : null;
   const edge = tone ?? color.frame;
   return (
     <Pressable accessibilityRole="button" onPress={onPress} disabled={disabled} onLayout={(e) => setSize(e.nativeEvent.layout)}
@@ -178,13 +259,13 @@ export function SysButton({ label, onPress, disabled, tone, style }) {
       {size ? (
         <Svg pointerEvents="none" width={size.width} height={size.height} style={{ position: "absolute", left: 0, top: 0 }}>
           <Defs>
-            <LinearGradient id="sbtn" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor="#16294A" />
-              <Stop offset="1" stopColor="#070D1C" />
+            <LinearGradient id={btnId} x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={color.btnTop} />
+              <Stop offset="1" stopColor={color.btnBottom} />
             </LinearGradient>
           </Defs>
-          <Polygon points={chamfer(size.width, size.height, 10, 0.5)} fill="url(#sbtn)" stroke={edge} strokeOpacity={0.7} strokeWidth={1} />
-          <Path d={`M11 1.5 H${size.width - 2}`} stroke="#FFFFFF" strokeOpacity={0.35} strokeWidth={1} />
+          <Polygon points={btnLine.pts} fill={`url(#${btnId})`} stroke={edge} strokeOpacity={0.7} strokeWidth={1} />
+          <Path d={`M${btnLine.from} 1.5 H${size.width - 2}`} stroke="#FFFFFF" strokeOpacity={0.35} strokeWidth={1} />
         </Svg>
       ) : null}
       <Text style={{ fontFamily: font.bold, fontSize: 14, letterSpacing: 3, color: "#FFFFFF" }}>{label}</Text>

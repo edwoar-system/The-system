@@ -18,7 +18,8 @@ import StatInfo from "./StatInfo";
 import { HabitsCard } from "./Habits";
 import Shop from "./Shop";
 import NameText from "./NameText";
-import { trollTitle } from "../game/social";
+import { shownTitle } from "../game/titles";
+import { TitlesSheet } from "./Titles";
 import { FeedbackButton } from "./Feedback";
 import { quoteOfDay } from "../game/quotes";
 import { PARTS, partsDone } from "../game/profile";
@@ -132,6 +133,7 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
   const insets = useSafeAreaInsets();
   const [nameDraft, setNameDraft] = useState("");
   const [locking, setLocking] = useState(false);
+  const [titlesOpen, setTitlesOpen] = useState(false);
   const [quoteShift, setQuoteShift] = useState(0);
   const [library, setLibrary] = useState(false);
   const [info, setInfo] = useState(null); // a stat to explain
@@ -198,9 +200,13 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
         <NameText effect={player.nameEffect} style={{ fontFamily: font.displayHeavy, fontSize: 32, letterSpacing: 3, color: color.hi }}>
           {(player.name || t.home.defaultName).toUpperCase()}
         </NameText>
-        {trollTitle(player.trollsDone ?? 0) ? (
-          <Text style={{ fontFamily: font.bold, fontSize: 13, letterSpacing: 2, color: color.gold }}>{trollTitle(player.trollsDone ?? 0).name.toUpperCase()}</Text>
-        ) : null}
+        {/* Your title (tap to pick another or see how to earn the rest). */}
+        <Pressable accessibilityRole="button" onPress={() => setTitlesOpen(true)} hitSlop={8} style={{ minHeight: 32, justifyContent: "center", paddingHorizontal: 10 }}>
+          <Text style={{ fontFamily: font.bold, fontSize: 13, letterSpacing: 2, color: shownTitle(player) ? color.gold : color.muted }}>
+            {shownTitle(player) ? `「${shownTitle(player).name.toUpperCase()}」` : t.titles.pick}
+          </Text>
+        </Pressable>
+        {titlesOpen ? <TitlesSheet user={user} player={player} onClose={() => setTitlesOpen(false)} /> : null}
       </View>
 
       <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginTop: 18, paddingHorizontal: 18 }}>

@@ -53,6 +53,7 @@ Docs: https://docs.expo.dev/eas/index.md
 - Courses (Learn tab): content and rules in `src/game/courses.js` (sets → learn, write, quiz, test; Leitner reviews), progress in `players/{uid}/courses/{courseId}` via `src/lib/courses.js`. Passing a set trains the skill and finishes an open tier-I quest of it. To add a course, add it to `COURSES`; every set needs a `stage` listed in the course's `stages`.
 - App Store Connect app: "The system: quest", Apple ID 6839325471 (in eas.json). The first TestFlight build is 1.6.0.
 - TestFlight: `.github/workflows/testflight.yml` builds the `production` profile and submits it. It needs the GitHub secrets ASC_API_KEY (the .p8 contents), ASC_KEY_ID, ASC_ISSUER_ID and APPLE_TEAM_ID, and the App Store Connect app id in eas.json. TestFlight builds use the `preview` update channel too, so one over-the-air update reaches both.
+- Shop themes live in `SKINS` (`src/game/shop.js`): common = colours only; rare/legendary also set `shape` (frame outline in `sys.js`) and `backdrop` (drawn by `Glow`). Price comes from rarity (`SKIN_PRICES`). Titles are earned, never bought: `src/game/titles.js` (counters in `players.feats`, written in `completeQuest`). Test accounts: `tester: true` on the player doc (set by hand in the Firebase console) shows Tester tools in Settings and gives every title.
 - Design v0.1 (see the rules doc): black and blue base, purple only for progress, gold for coins and titles, red only for the penalty. Shared pieces live in `src/components/sys.js`.
 
 ## Test version first

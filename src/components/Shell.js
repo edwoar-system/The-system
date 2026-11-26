@@ -35,6 +35,7 @@ import Welcome from "./Welcome";
 import ErrorCatcher from "./ErrorCatcher";
 import { useReminderAlerts } from "../lib/reminders";
 import { useLevelRewards } from "../lib/level";
+import { useTitleAlerts } from "../lib/titles";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
@@ -130,7 +131,7 @@ export default function Shell({ user }) {
   const state = usePlayer(user.uid);
   const skin = state.player?.skin;
   return (
-    <SkinProvider id={skin} colors={skin && skin !== "system" ? SKINS[skin]?.color : null}>
+    <SkinProvider id={skin} skin={skin && skin !== "system" ? SKINS[skin] : null}>
       <ShellBody user={user} state={state} />
     </SkinProvider>
   );
@@ -155,6 +156,7 @@ function ShellBody({ user, state }) {
   useAgendaSync(user.uid, player);
   useReminderAlerts(player);
   useLevelRewards(user.uid, player);
+  useTitleAlerts(user.uid, player);
   // Website: the page behind the app and Safari's own bars take your skin's background, so no white edges.
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") return;
