@@ -43,7 +43,7 @@ export default function StatusEffects({ user, player, onOpenHabits, bare = false
   }
 
   const Wrap = bare ? View : Frame;
-  const wrapProps = bare ? { style: { gap: 18 } } : { cut: 14, contentStyle: { padding: 16, gap: 14 } };
+  const wrapProps = bare ? { style: { gap: 12 } } : { cut: 14, contentStyle: { padding: 16, gap: 14 } };
   return (
     <Wrap {...wrapProps}>
       <View style={{ flexDirection: "row", justifyContent: bare ? "center" : "space-between", alignItems: "baseline" }}>

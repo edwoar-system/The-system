@@ -1,14 +1,11 @@
-// The bar at the top of the quest screen, like a game HUD: level and EXP, coins, the streak and today's
-// buffs and debuffs. Everything you earned is visible where you play. Tap the effects to see why and fix them.
-import { useEffect, useRef, useState } from "react";
+// The bar at the top of the quest screen, like a game HUD: level and EXP, coins and the streak.
+// Buffs, debuffs, water and sleep live with your body on the Status tab.
+import { useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { EFFECT_CAP, statusEffects } from "../game/effects";
 import { levelFromXp } from "../game/economy";
 import { liveStreak, missedYesterday, streakOnTheLine } from "../game/streak";
 import { isHard } from "../game/hard";
-import StatusEffects from "./StatusEffects";
-import { HabitsScreen } from "./Habits";
 import { Coins } from "./sys";
 import { HelpDot } from "./Explain";
 import { useTheme } from "../theme";
@@ -30,13 +27,8 @@ function Chip({ text, tone, filled, onPress, label }) {
 export default function Hud({ user, player }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
-  const [open, setOpen] = useState(null); // "effects" | "streak" | null
-  const [sleep, setSleep] = useState(false);
-  const sleepTimer = useRef(null);
-  useEffect(() => () => clearTimeout(sleepTimer.current), []);
+  const [open, setOpen] = useState(null); // "streak" | null
   const { level, xpIntoLevel, xpForLevel } = levelFromXp(player.xp ?? 0);
-  const { effects } = statusEffects(player);
-  const sum = Math.max(-EFFECT_CAP, Math.min(EFFECT_CAP, effects.reduce((a, e) => a + e.pct, 0)));
   const streak = liveStreak(player);
   const onLine = streakOnTheLine(player);
   const missed = missedYesterday(player);
@@ -62,12 +54,6 @@ export default function Hud({ user, player }) {
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         <Chip text={streakText} tone={streakTone} filled={!!streak} onPress={() => setOpen("streak")} />
-        {effects.filter((e) => e.kind !== "info").map((e) => (
-          <Chip key={e.id} tone={e.kind === "buff" ? color.accent : "#F6B45A"} filled={e.kind === "buff"} onPress={() => setOpen("effects")}
-            text={`${e.kind === "buff" ? "▲" : "▼"} ${t.effects.names[e.id]}${e.pct ? ` ${e.pct > 0 ? "+" : "−"}${Math.abs(e.pct)}%` : ""}`} />
-        ))}
-        {!effects.some((e) => e.kind !== "info") ? <Chip text={t.hud.noEffects} tone={color.muted} onPress={() => setOpen("effects")} /> : null}
-        {sum ? <Text style={{ alignSelf: "center", fontFamily: font.bodyBold, fontSize: 11, color: sum > 0 ? color.accent : "#F6B45A" }}>{fill(t.hud.total, { sign: sum > 0 ? "+" : "−", n: Math.abs(sum) })}</Text> : null}
       </View>
 
       {open ? (
@@ -75,9 +61,6 @@ export default function Hud({ user, player }) {
           <Pressable onPress={() => setOpen(null)} style={{ flex: 1, backgroundColor: "rgba(1,4,10,0.7)", justifyContent: "center", padding: 16, paddingTop: insets.top + 16 }}>
             <Pressable onPress={() => {}} style={{ maxWidth: 480, width: "100%", alignSelf: "center" }}>
               <ScrollView style={{ maxHeight: 560 }} contentContainerStyle={{ gap: 10 }}>
-                {open === "effects" ? (
-                  <StatusEffects user={user} player={player} onOpenHabits={() => { setOpen(null); sleepTimer.current = setTimeout(() => setSleep(true), 450); }} />
-                ) : (
                   <View style={{ borderWidth: 1, borderColor: color.frame, backgroundColor: "rgba(4,10,24,0.97)", padding: 16, gap: 10 }}>
                     <Text style={{ fontFamily: font.bold, fontSize: 12, letterSpacing: 3, color: color.hi }}>{t.hud.streakTitle}</Text>
                     <Text style={{ fontFamily: font.num, fontSize: 34, color: streak ? color.purple : color.muted }}>{fill(t.hud.days, { n: streak })}</Text>
@@ -90,14 +73,12 @@ export default function Hud({ user, player }) {
                       <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{t.hud.more}</Text>
                     </View>
                   </View>
-                )}
                 <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted, textAlign: "center" }}>{t.hud.close}</Text>
               </ScrollView>
             </Pressable>
           </Pressable>
         </Modal>
       ) : null}
-      {sleep ? <HabitsScreen user={user} player={player} start="sleep" onClose={() => setSleep(false)} /> : null}
     </View>
   );
 }

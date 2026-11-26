@@ -29,7 +29,16 @@ export const INTERESTS = [
   { id: "mind", name: "Mind and philosophy", skills: ["meditation", "breath", "philosophy", "journal", "gratitude", "silent", "nophone", "hardfirst", "craving"] },
   { id: "social", name: "People", skills: ["reachout", "kindness", "conversation", "compliment", "thanks", "speaking", "plan", "listen", "helphome"] },
 ];
-export const interestSkills = (profile) => new Set((profile?.interests ?? []).flatMap((id) => INTERESTS.find((i) => i.id === id)?.skills ?? []));
+// Groups where you'd never want all of them (nobody learns ten languages): only the ones you tick count.
+const PICK_ONLY = new Set(["languages", "sport"]);
+// The skills you chose. Only these give you quests: a skill you never ticked never shows up.
+// Older profiles picked whole groups; there every skill counts except the pick-only groups.
+export const interestSkills = (profile) => {
+  if (Array.isArray(profile?.picked)) return new Set(profile.picked);
+  return new Set((profile?.interests ?? []).filter((id) => !PICK_ONLY.has(id)).flatMap((id) => INTERESTS.find((i) => i.id === id)?.skills ?? []));
+};
+// The groups that hold at least one skill you picked (for your level per group).
+export const pickedGroups = (picked) => INTERESTS.filter((i) => i.skills.some((s) => picked.includes(s))).map((i) => i.id);
 
 // Mountains: how hard each area is for you. Your own mountain pays more.
 export const MOUNTAINS = [
@@ -122,7 +131,7 @@ export function partsDone(profile) {
   return {
     about: p.age != null || p.sex != null || p.weight != null,
     day: !!p.wake || !!p.bed,
-    interests: (p.interests ?? []).length > 0,
+    interests: (p.picked ?? p.interests ?? []).length > 0,
     mountains: Object.keys(p.mountains ?? {}).length > 0,
     mind: (p.schools ?? []).length > 0,
     duties: Array.isArray(p.duties) && p.duties.length > 0,

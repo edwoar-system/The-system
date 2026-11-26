@@ -52,7 +52,7 @@ const rankXp = (from, to) => {
 // Muscles that are still tired steer the picks; on a gym day the split's day takes the STR slot (or the last one).
 // Program sessions due today come first; the rest comes from your focus (your interests), widening with your streak.
 // What today's board was built from: when your Tune answers or difficulty change, the board offers to update.
-export const boardSource = (player) => JSON.stringify([player?.profile?.interests ?? [], player?.profile?.levels ?? {}, difficultyOf(player), player?.mainSlots ?? 3]);
+export const boardSource = (player) => JSON.stringify([player?.profile?.picked ?? player?.profile?.interests ?? [], player?.profile?.levels ?? {}, difficultyOf(player), player?.mainSlots ?? 3]);
 
 export function newDay(player, uid) {
   const date = todayKey();

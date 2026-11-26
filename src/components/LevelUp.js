@@ -77,14 +77,13 @@ export default function LevelUp({ data, onClose }) {
           {t.levelUp.sub}
         </Animated.Text>
 
-        {/* What this level gives: stat points to spend, coins, and a shield every fifth level. */}
+        {/* What this level gives: coins, and a shield every fifth level. Stats only grow from quests. */}
         <Animated.View style={{ width: "100%", maxWidth: 360, marginTop: 22, opacity: at(0.5, 0.62) }}>
           <Frame kind="premium" contentStyle={{ paddingHorizontal: 16, paddingVertical: 12, gap: 6 }}>
             <Label tone={color.reward}>{t.levelUp.rewards}</Label>
-            <Text style={{ fontFamily: font.num, fontSize: 20, color: color.purple }}>{fill(t.levelUp.points, { n: gift.points })}</Text>
             <Text style={{ fontFamily: font.num, fontSize: 20, color: color.reward }}>{fill(t.levelUp.coins, { n: gift.coins })}</Text>
             {gift.shields ? <Text style={{ fontFamily: font.num, fontSize: 18, color: color.accent }}>{t.levelUp.shield}</Text> : null}
-            <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{t.levelUp.spendHint}</Text>
+            <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{t.levelUp.statsHint}</Text>
           </Frame>
         </Animated.View>
 

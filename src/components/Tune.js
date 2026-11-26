@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { patchProfile } from "../lib/player";
-import { DRIVES, DUTIES, ENERGY, INTERESTS, LEVELS, MOUNTAINS, MOUNTAIN_LEVELS, PARTS, dayTimes, dutyById, dutyDay, partsDone } from "../game/profile";
+import { DRIVES, DUTIES, ENERGY, INTERESTS, LEVELS, MOUNTAINS, MOUNTAIN_LEVELS, PARTS, dayTimes, dutyById, dutyDay, interestSkills, partsDone, pickedGroups } from "../game/profile";
 import { SCHOOL_NAMES } from "../game/quotes";
+import { skillById } from "../game/guild";
 import { useTrack } from "./saved";
 import { HelpDot } from "./Explain";
 import { isHard } from "../game/hard";
@@ -55,6 +56,52 @@ function NumberInput({ label, value, onChangeText, keyboardType, width }) {
   );
 }
 
+// Interests: pick the exact skills you want (only those give you quests). Groups fold open one at a time.
+function InterestsForm({ draft, set }) {
+  const { color, font } = useTheme();
+  const [openId, setOpenId] = useState(null);
+  // Older profiles picked whole groups: start from what those meant.
+  const picked = draft.picked ?? [...interestSkills(draft)];
+  const levels = draft.levels ?? {};
+  const groups = pickedGroups(picked);
+  const row = { flexDirection: "row", flexWrap: "wrap", gap: 6 };
+  return (
+    <View style={{ gap: 12 }}>
+      {INTERESTS.map((g) => {
+        const n = g.skills.filter((s) => picked.includes(s)).length;
+        const open = openId === g.id;
+        return (
+          <View key={g.id} style={{ gap: 8 }}>
+            <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpenId(open ? null : g.id)}
+              style={{ minHeight: 44, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: n ? color.frame : "rgba(159,203,255,0.22)", backgroundColor: n ? "rgba(159,203,255,0.1)" : "transparent" }}>
+              <Text style={{ flex: 1, fontFamily: font.bold, fontSize: 14, color: n ? "#FFFFFF" : color.text }}>{g.name}</Text>
+              {n ? <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: color.accent }}>{fill(t.tune.pickedCount, { n })}</Text> : null}
+              <Text style={{ fontFamily: font.bold, fontSize: 14, color: color.muted }}>{open ? "−" : "+"}</Text>
+            </Pressable>
+            {open ? (
+              <View style={row}>
+                {g.skills.filter((id) => skillById[id]).map((id) => (
+                  <Chip key={id} label={skillById[id].name} on={picked.includes(id)} onPress={() => set({ picked: toggle(picked, id) })} />
+                ))}
+              </View>
+            ) : null}
+          </View>
+        );
+      })}
+      {/* A follow-up for each group you picked from: how good you are already. */}
+      {groups.length ? <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted, marginTop: 4 }}>{t.tune.levelAsk}</Text> : null}
+      {groups.map((id) => (
+        <View key={id} style={{ gap: 6 }}>
+          <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{INTERESTS.find((i) => i.id === id)?.name}</Text>
+          <View style={{ flexDirection: "row", gap: 6 }}>
+            {LEVELS.map((lv) => <Chip key={lv} flex label={t.tune.levelNames[lv]} on={levels[id] === lv} onPress={() => set({ levels: { ...levels, [id]: lv } })} />)}
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 // One part's questions. draft holds the answers until you save.
 function PartForm({ part, draft, set }) {
   const { color, font } = useTheme();
@@ -68,25 +115,7 @@ function PartForm({ part, draft, set }) {
       </View>
     );
   }
-  if (part === "interests") {
-    const list = draft.interests ?? [];
-    const levels = draft.levels ?? {};
-    return (
-      <View style={{ gap: 14 }}>
-        <View style={row}>{INTERESTS.map((i) => <Chip key={i.id} label={i.name} on={list.includes(i.id)} onPress={() => set({ interests: toggle(list, i.id) })} />)}</View>
-        {/* A follow-up for each one you pick: how good you are already. */}
-        {list.length ? <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{t.tune.levelAsk}</Text> : null}
-        {list.map((id) => (
-          <View key={id} style={{ gap: 6 }}>
-            <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{INTERESTS.find((i) => i.id === id)?.name}</Text>
-            <View style={{ flexDirection: "row", gap: 6 }}>
-              {LEVELS.map((lv) => <Chip key={lv} flex label={t.tune.levelNames[lv]} on={levels[id] === lv} onPress={() => set({ levels: { ...levels, [id]: lv } })} />)}
-            </View>
-          </View>
-        ))}
-      </View>
-    );
-  }
+  if (part === "interests") return <InterestsForm draft={draft} set={set} />;
   if (part === "drive") {
     return <View style={row}>{DRIVES.map((d) => <Chip key={d} label={t.tune.drives[d]} on={draft.drive === d} onPress={() => set({ drive: draft.drive === d ? null : d })} />)}</View>;
   }
@@ -165,7 +194,7 @@ function PartForm({ part, draft, set }) {
 function patchFor(part, d) {
   const num = (v) => { const n = Number(String(v ?? "").replace(",", ".")); return String(v ?? "").trim() && Number.isFinite(n) && n > 0 ? n : null; };
   if (part === "day") { const { wake, bed } = dayTimes(d); return { wake: hhmm(wake), bed: hhmm(bed) }; }
-  if (part === "interests") return { interests: d.interests ?? [], levels: d.levels ?? {} };
+  if (part === "interests") { const picked = d.picked ?? []; return { picked, interests: pickedGroups(picked), levels: d.levels ?? {} }; }
   if (part === "drive") return { drive: d.drive ?? null };
   if (part === "energy") return { energy: d.energy ?? null };
   if (part === "mountains") return { mountains: d.mountains ?? {} };

@@ -1,11 +1,11 @@
 // Level-up rewards: claimed once per level, whatever gave the EXP (quests, courses, pages, challenges).
-// Players from before this get the stat points for the levels they already have (no coins for those).
+// Players from before this start counting from the level they have (no back pay).
 import { useEffect, useRef } from "react";
-import { doc, runTransaction, serverTimestamp } from "firebase/firestore";
+import { deleteField, doc, runTransaction, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
 import { showSystem } from "./popup";
-import { levelFromXp, statValue } from "../game/economy";
-import { levelRewards, xpForStatValue } from "../game/levelRewards";
+import { levelFromXp } from "../game/economy";
+import { levelRewards } from "../game/levelRewards";
 import { MAX_SHIELDS } from "../game/shop";
 import { t } from "../i18n";
 
@@ -24,23 +24,12 @@ export async function claimLevel(uid) {
     const shields = first ? 0 : r.shields;
     tx.set(ref(uid), {
       levelPaid: level,
-      statPoints: (p.statPoints ?? 0) + r.points,
+      ...(p.statPoints != null ? { statPoints: deleteField() } : {}),
       coins: (p.coins ?? 0) + coins,
       ...(shields ? { streakShields: Math.min(MAX_SHIELDS, (p.streakShields ?? 0) + shields) } : {}),
       updatedAt: serverTimestamp(),
     }, { merge: true });
-    return { level, points: r.points, coins, shields, first };
-  });
-}
-
-// Spend one stat point: the stat goes up by one.
-export async function spendStatPoint(uid, stat) {
-  return runTransaction(db, async (tx) => {
-    const p = (await tx.get(ref(uid))).data() ?? {};
-    if ((p.statPoints ?? 0) <= 0) throw new Error("no-points");
-    const xp = p.statXp?.[stat] ?? 0;
-    const next = xpForStatValue(statValue(xp) + 1);
-    tx.set(ref(uid), { statPoints: p.statPoints - 1, statXp: { ...(p.statXp ?? {}), [stat]: Math.max(xp, next) }, updatedAt: serverTimestamp() }, { merge: true });
+    return { level, coins, shields, first };
   });
 }
 
@@ -53,14 +42,12 @@ export function useLevelRewards(uid, player) {
     if (!player || busy.current || (paid != null && level <= paid)) return;
     busy.current = true;
     claimLevel(uid).then((r) => {
-      if (!r || !r.points) return;
+      if (!r || (!r.coins && !r.shields)) return;
       showSystem({
-        title: r.first ? t.levelUp.pointsFirst : fill(t.levelUp.rewardTitle, { n: r.level }),
+        title: fill(t.levelUp.rewardTitle, { n: r.level }),
         lines: [
-          fill(t.levelUp.rewardPoints, { n: r.points }),
           ...(r.coins ? [fill(t.levelUp.rewardCoins, { n: r.coins })] : []),
           ...(r.shields ? [t.levelUp.rewardShield] : []),
-          t.levelUp.spendHint,
         ],
         tone: "buff",
       });

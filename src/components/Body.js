@@ -52,14 +52,15 @@ function Percent({ value, size = 44 }) {
 export function BodyCard({ user, player }) {
   const { color, font } = useTheme();
   const [open, setOpen] = useState(false);
+  const [sleepOpen, setSleepOpen] = useState(false);
   const { load, lastWeek } = weekLoad(player.muscleLoad, weekNum(dayNum()));
   const pct = coverage(load);
   const tired = Object.entries(fatigueNow(player.fatigue)).filter(([, v]) => recoveryState(v) === "tired").map(([m]) => muscleById[m]?.name).filter(Boolean);
   return (
     <>
-      <Pressable accessibilityRole="button" accessibilityLabel={`${t.body.title} ${pct}%. ${t.body.open}`} onPress={() => setOpen(true)}
-        style={({ pressed }) => ({ marginTop: 12, marginHorizontal: 14, transform: [{ scale: pressed ? 0.99 : 1 }] })}>
-        <Frame cut={16} contentStyle={{ padding: 16, gap: 10 }}>
+      <Frame cut={16} style={{ marginTop: 12, marginHorizontal: 14 }} contentStyle={{ padding: 16, gap: 10 }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${t.body.title} ${pct}%. ${t.body.open}`} onPress={() => setOpen(true)}
+          style={({ pressed }) => ({ gap: 10, opacity: pressed ? 0.85 : 1 })}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
             <View style={{ gap: 4 }}>
               <Label tone={color.hi}>{t.body.title}</Label>
@@ -75,9 +76,14 @@ export function BodyCard({ user, player }) {
           {tired.length ? (
             <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: REST_COLORS.tired }}>{fill(t.body.tiredLine, { list: tired.slice(0, 4).join(", ") })}</Text>
           ) : null}
-        </Frame>
-      </Pressable>
+        </Pressable>
+        {/* Your status today, right with your body: water, sleep and the buffs and debuffs they give. */}
+        <View style={{ height: 1, backgroundColor: "rgba(159,203,255,0.16)", marginVertical: 2 }} />
+        <Label tone={color.hi}>{t.effects.title}</Label>
+        <StatusEffects user={user} player={player} bare onOpenHabits={() => setSleepOpen(true)} />
+      </Frame>
       {open ? <BodyScreen user={user} player={player} onClose={() => setOpen(false)} /> : null}
+      {sleepOpen ? <HabitsScreen user={user} player={player} start="sleep" onClose={() => setSleepOpen(false)} /> : null}
     </>
   );
 }

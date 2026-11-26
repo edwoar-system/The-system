@@ -24,8 +24,6 @@ import { quoteOfDay } from "../game/quotes";
 import { PARTS, partsDone } from "../game/profile";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
-import { spendStatPoint } from "../lib/level";
-import { tapFeel } from "../lib/haptics";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
@@ -193,22 +191,6 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
         <Setup user={user} player={player} onLocking={() => setLocking(true)} onDone={() => setLocking(false)} />
       ) : null}
       <StatShape values={stats} onStat={setInfo} />
-      {(player.statPoints ?? 0) > 0 ? (
-        <Frame kind="premium" cut={14} style={{ marginTop: 12, marginHorizontal: 14 }} contentStyle={{ padding: 14, gap: 10 }}>
-          <Label tone={color.purple}>{fill(t.levelUp.spendTitle, { n: player.statPoints })}</Label>
-          <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.levelUp.spendSub}</Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {STATS.map((st) => (
-              <Pressable key={st} accessibilityRole="button" accessibilityLabel={`+1 ${t.stats[st]}`} onPress={() => { tapFeel(); spendStatPoint(user.uid, st).catch(() => {}); }}
-                style={({ pressed }) => ({ minWidth: 96, flexGrow: 1, minHeight: 46, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, borderWidth: 1,
-                  borderColor: color.purple, backgroundColor: pressed ? "rgba(168,126,255,0.28)" : "rgba(168,126,255,0.08)" })}>
-                <Text style={{ fontFamily: font.bold, fontSize: 13, color: "#FFFFFF" }}>{`${st} ${stats[st]}`}</Text>
-                <Text style={{ fontFamily: font.bold, fontSize: 18, color: color.purple }}>+</Text>
-              </Pressable>
-            ))}
-          </View>
-        </Frame>
-      ) : null}
       <StatInfo stat={info} value={info ? stats[info] : null} onClose={() => setInfo(null)} />
 
       <View style={{ alignItems: "center", gap: 2, marginTop: 10 }}>

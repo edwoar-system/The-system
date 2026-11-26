@@ -9,6 +9,7 @@ import { setDifficulty, setFeelSetting, setMorning, setNotify, setPrivacy, setPr
 import { difficultyOf } from "../game/difficulty";
 import { hhmm } from "../game/schedule";
 import { changeName } from "../lib/shop";
+import { isTester, testerFill, testerReset } from "../lib/tester";
 import { NAME_CHANGE_PRICE } from "../game/shop";
 import { setFeel, doneFeel } from "../lib/haptics";
 import { SavedStamp, useSavedStamp, useTrack } from "./saved";
@@ -437,6 +438,27 @@ function DeleteAccount() {
   );
 }
 
+// Tester tools: only on accounts marked tester in the Firebase console.
+function Tester({ user, player }) {
+  const { color, font } = useTheme();
+  const [busy, setBusy] = useState(false);
+  const [sure, setSure] = useState(false);
+  const [msg, setMsg] = useState(null);
+  async function run(fn, done) {
+    setBusy(true);
+    setMsg(null);
+    try { await fn(); setMsg(done); } catch { setMsg(t.tester.failed); } finally { setBusy(false); setSure(false); }
+  }
+  return (
+    <View style={{ gap: 10 }}>
+      <Button label={t.tester.fill} disabled={busy} onPress={() => run(() => testerFill(user.uid), t.tester.filled)} />
+      <Button kind={sure ? undefined : "text"} label={sure ? t.tester.resetSure : t.tester.reset} disabled={busy}
+        onPress={() => (sure ? run(() => testerReset(user.uid, player), t.tester.resetDone) : setSure(true))} />
+      {msg ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: color.muted }}>{msg}</Text> : null}
+    </View>
+  );
+}
+
 function Feel({ user, player }) {
   const { color, font } = useTheme();
   const track = useTrack();
@@ -678,6 +700,11 @@ export default function Settings({ user, player, synced }) {
         <Button kind="text" label={t.home.logout} onPress={() => signOut(auth)} style={{ alignSelf: "flex-start", paddingHorizontal: 0 }} />
         <DeleteAccount />
       </Section>
+      {isTester(player) ? (
+        <Section title={t.tester.title} sub={t.tester.sub}>
+          <Tester user={user} player={player} />
+        </Section>
+      ) : null}
     </ScrollView>
     <SavedStamp stamp={stamp} />
     </View>
