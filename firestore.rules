@@ -71,6 +71,8 @@ service cloud.firestore {
           && exists(/databases/$(database)/documents/public/$(uid)/friends/$(request.auth.uid));
         allow read: if signedIn() && (request.auth.uid == uid || resource == null || resource.data.from == request.auth.uid);
         allow update: if signedIn() && request.auth.uid == uid && request.resource.data.status == "done";
+        // Deleting your account clears the troll quests sent to you.
+        allow delete: if signedIn() && request.auth.uid == uid;
       }
 
       // {fid} is a friend of {uid}. Written when {uid} or {fid} accepts the other's request.

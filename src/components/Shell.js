@@ -31,6 +31,7 @@ import { useWeather } from "../lib/weather";
 import { useAgendaSync } from "../lib/calendar";
 import SystemPopup from "./SystemPopup";
 import QuestClear from "./QuestClear";
+import Welcome from "./Welcome";
 import ErrorCatcher from "./ErrorCatcher";
 import { useReminderAlerts } from "../lib/reminders";
 import { useLevelRewards } from "../lib/level";
@@ -256,6 +257,8 @@ function ShellBody({ user, state }) {
         {!trollQ.active.length && activeAppTime(player) && !penaltyView ? <AppTimeBanner appTime={player.appTime} /> : null}
         {trollQ.active.length && tab !== "quests" && !penaltyView ? <TrollBanner troll={trollQ.active[0]} player={player} more={trollQ.active.length + trollQ.waiting.length - 1} onPress={() => goTo({ tab: "quests" })} /> : null}
         {trail.length > 0 && !penaltyView ? <BackPill place={trail[trail.length - 1]} onPress={goBack} /> : null}
+        {/* The first-start tip, on whichever tab a new player opens. */}
+        {state.player ? <Welcome user={user} player={state.player} onOpenAssess={() => goTo({ tab: "skills", assess: true })} /> : null}
         <QuestClear />
         <SystemPopup />
       </View>

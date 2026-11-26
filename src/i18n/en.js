@@ -476,6 +476,17 @@ export default {
     cameraDenied: "The camera isn't allowed. Turn it on in iPhone Settings, or pick a screenshot.",
     proofFailed: "That didn't save. Try again, or skip.",
   },
+  deleteAccount: {
+    open: "Delete account",
+    title: "DELETE YOUR ACCOUNT",
+    warning: "This deletes your account and everything in it for good: level, coins, skills, quest history, friends and your login. It can't be undone.",
+    password: "Your password",
+    confirm: "DELETE FOREVER",
+    busy: "DELETING…",
+    cancel: "Cancel",
+    wrongPassword: "That password isn't right.",
+    failed: "Couldn't delete the account. Check your connection and try again.",
+  },
   weekPlan: {
     title: "PLAN IT ON FIXED DAYS",
     none: "Not planned. Tap to pick days and a time (for example golf before school).",
@@ -565,6 +576,7 @@ export default {
     s3: "Clear today's quests",
     s3Text: "Start with the NOW quest at the top. Every quest is a vote for who you're becoming.",
     tuneGo: "TUNE IN",
+    namePh: "Your player name",
     later: "LATER",
     tuneTitle: "Tune the System",
     tuneSub: "Open each part and answer what you like; it saves by itself. The skills part matters most.",
@@ -1145,7 +1157,7 @@ export default {
   crash: {
     kicker: "[ SYSTEM ERROR ]",
     title: "This screen broke",
-    body: "Your progress is safe. The error below was sent to Edward. Try again, or switch tabs.",
+    body: "Your progress is safe. The error below was sent to the developer. Try again, or switch tabs.",
     retry: "TRY AGAIN",
   },
   popup: {

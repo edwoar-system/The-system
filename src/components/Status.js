@@ -180,6 +180,18 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
         </View>
       </View>
 
+      {/* New players: name and System setup come first, before anything else. */}
+      {!player.name ? (
+        <Frame style={{ marginTop: 12, marginHorizontal: 14 }} contentStyle={{ padding: 16, gap: 12 }}>
+          <Label tone={color.hi}>{t.home.setName}</Label>
+          <Field label={t.login.name} value={nameDraft} onChangeText={setNameDraft} autoCapitalize="words" />
+          <Button label={t.home.saveName} disabled={!nameDraft.trim()} onPress={() => setPlayerName(user.uid, nameDraft.trim())} />
+        </Frame>
+      ) : null}
+
+      {!player.setupLocked || locking ? (
+        <Setup user={user} player={player} onLocking={() => setLocking(true)} onDone={() => setLocking(false)} />
+      ) : null}
       <StatShape values={stats} onStat={setInfo} />
       {(player.statPoints ?? 0) > 0 ? (
         <Frame kind="premium" cut={14} style={{ marginTop: 12, marginHorizontal: 14 }} contentStyle={{ padding: 14, gap: 10 }}>
@@ -266,17 +278,6 @@ export default function Status({ user, player, error, onOpenQuests, onOpenSettin
 
       {player.setupLocked && onOpenSettings ? <TunePrompt profile={player.profile} onPress={onOpenSettings} /> : null}
 
-      {!player.name ? (
-        <Frame style={{ marginTop: 12, marginHorizontal: 14 }} contentStyle={{ padding: 16, gap: 12 }}>
-          <Label tone={color.hi}>{t.home.setName}</Label>
-          <Field label={t.login.name} value={nameDraft} onChangeText={setNameDraft} autoCapitalize="words" />
-          <Button label={t.home.saveName} disabled={!nameDraft.trim()} onPress={() => setPlayerName(user.uid, nameDraft.trim())} />
-        </Frame>
-      ) : null}
-
-      {!player.setupLocked || locking ? (
-        <Setup user={user} player={player} onLocking={() => setLocking(true)} onDone={() => setLocking(false)} />
-      ) : null}
     </ScrollView>
   );
 }

@@ -41,6 +41,7 @@ import { TEMPLATES } from "../game/gym";
 import { parseTime } from "../game/reminders";
 import { askWebNotifications } from "../lib/reminders";
 import { FULL_MORNING, FULL_MORNING_COINS, FULL_MORNING_XP, MORNING_DEFAULT, MORNING_ITEMS, MORNING_MAX, hasFullMorning } from "../game/morning";
+import { deleteAccount } from "../lib/account";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
@@ -399,6 +400,43 @@ function Morning({ user, player }) {
   );
 }
 
+// Delete your account: a warning, your password, and everything goes (Apple requires this in the app).
+function DeleteAccount() {
+  const { color, font } = useTheme();
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  async function go() {
+    setBusy(true);
+    setError(null);
+    try {
+      await deleteAccount(password);
+    } catch (e) {
+      const code = String(e?.code ?? "");
+      setError(code.includes("wrong-password") || code.includes("invalid-credential") ? t.deleteAccount.wrongPassword : t.deleteAccount.failed);
+      setBusy(false);
+    }
+  }
+  if (!open) return <Button kind="text" label={t.deleteAccount.open} onPress={() => setOpen(true)} style={{ alignSelf: "flex-start", paddingHorizontal: 0 }} />;
+  return (
+    <View style={{ gap: 10, padding: 12, borderWidth: 1, borderColor: color.danger }}>
+      <Text style={{ fontFamily: font.bold, fontSize: 13, letterSpacing: 2, color: color.dangerSoft }}>{t.deleteAccount.title}</Text>
+      <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.text }}>{t.deleteAccount.warning}</Text>
+      <TextInput value={password} onChangeText={(v) => { setPassword(v); setError(null); }} secureTextEntry placeholder={t.deleteAccount.password} placeholderTextColor="#4A5A7A"
+        autoCapitalize="none" accessibilityLabel={t.deleteAccount.password}
+        style={{ minHeight: 44, paddingHorizontal: 12, fontFamily: font.body, fontSize: 15, color: "#FFFFFF", borderWidth: 1, borderColor: "rgba(159,203,255,0.3)", backgroundColor: "rgba(5,10,24,0.7)" }} />
+      {error ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: color.dangerSoft }}>{error}</Text> : null}
+      <Pressable accessibilityRole="button" disabled={busy || !password} onPress={go}
+        style={({ pressed }) => ({ minHeight: 46, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: color.danger, opacity: !password ? 0.5 : 1,
+          backgroundColor: pressed ? "rgba(255,80,80,0.25)" : "rgba(255,80,80,0.1)" })}>
+        <Text style={{ fontFamily: font.bold, fontSize: 13, letterSpacing: 2, color: "#FFFFFF" }}>{busy ? t.deleteAccount.busy : t.deleteAccount.confirm}</Text>
+      </Pressable>
+      <Button kind="text" label={t.deleteAccount.cancel} onPress={() => { setOpen(false); setPassword(""); setError(null); }} style={{ alignSelf: "flex-start", paddingHorizontal: 0 }} />
+    </View>
+  );
+}
+
 function Feel({ user, player }) {
   const { color, font } = useTheme();
   const track = useTrack();
@@ -638,6 +676,7 @@ export default function Settings({ user, player, synced }) {
           <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{Updates.isEmbeddedLaunch ? t.home.builtIn : t.home.overTheAir}</Text>
         ) : null}
         <Button kind="text" label={t.home.logout} onPress={() => signOut(auth)} style={{ alignSelf: "flex-start", paddingHorizontal: 0 }} />
+        <DeleteAccount />
       </Section>
     </ScrollView>
     <SavedStamp stamp={stamp} />

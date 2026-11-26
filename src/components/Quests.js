@@ -28,7 +28,7 @@ import { busyBlocks, hhmm, suggestTimes } from "../game/schedule";
 import QuickLog from "./QuickLog";
 import Hud from "./Hud";
 import { courseForSkill } from "../game/courses";
-import Welcome, { needsWelcome } from "./Welcome";
+import { needsWelcome } from "./Welcome";
 import MorningCheckin from "./MorningCheckin";
 import { CHALLENGE_COINS, FULL_MORNING_XP, challengeOf, morningById, morningToday, wantsCheckin } from "../game/morning";
 import { minutesOf, reminderDone, remindersOn } from "../game/reminders";
@@ -784,7 +784,6 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
       <CheckIn uid={user.uid} data={check} onClose={() => setCheck(null)} />
       <BodyReport data={check ? null : body} onClose={() => setBody(null)} onOpenSkill={onOpenSkill} />
       <RankUp data={check || body ? null : rankUp} onClose={() => setRankUp(null)} />
-      {!sheet && !check && !body && !levelUp && !rankUp ? <Welcome user={user} player={player} onOpenAssess={onOpenAssess} /> : null}
       {!sheet && !check && !body && !levelUp && !rankUp && !needsWelcome(player) && wantsCheckin(player, day, nowD) ? <MorningCheckin user={user} player={player} /> : null}
       <LevelUp data={check || body || rankUp ? null : levelUp} onClose={() => setLevelUp(null)} />
     </View>

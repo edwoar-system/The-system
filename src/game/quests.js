@@ -38,7 +38,8 @@ export const QUESTS = [
   // Chosen the evening before (it starts the moment you wake), never handed out at random.
   { id: "nophone", skill: "nophone", type: "mind", title: "Phone-free first hour after waking", stat: "WIL", minutes: 15, difficulty: "hard", planned: true,
     why: "Whoever gets your first hour shapes your whole day. Start it with your own thoughts, not everyone else's.", tiny: "No phone until you're dressed" },
-  { id: "japanese", skill: "japanese", type: "language", title: "Japanese: 15 minutes (next set in Learn)", stat: "INT", minutes: 15, difficulty: "normal",
+  // Only for players who are into Japanese (Tune the System); everyone else gets their own language from the Guild.
+  { id: "japanese", skill: "japanese", type: "language", title: "Japanese: 15 minutes (next set in Learn)", stat: "INT", minutes: 15, difficulty: "normal", onlyIf: "japanese",
     why: "A language is built from small daily reps. Fifteen minutes every day beats two hours once a week.", tiny: "Review 5 cards" },
   { id: "kindness", skill: "kindness", type: "social", title: "Do something kind nobody asked for, or give 3 real compliments", stat: "CHA", minutes: 10, difficulty: "normal",
     why: "Kindness makes the other person's day and, measurably, yours too. It's also how people learn they can count on you.", tiny: "Send someone a nice message" },
@@ -75,7 +76,7 @@ function seeded(seedText) {
 // extra: more quests for the focus pool (guild quests for every skill you're into), so focus never runs dry.
 export function pickMainQuests({ date, lastDoneByStat = {}, mainSlots = 3, uid = "", liked = null, tired = null, outside = null, avoid = [], extra = [] }) {
   const rand = seeded(`${uid}:${date}`);
-  const usable = (q) => !q.side && !q.kind && !q.planned && !avoid.includes(q.id);
+  const usable = (q) => !q.side && !q.kind && !q.planned && !(q.onlyIf && !liked?.has(q.onlyIf)) && !avoid.includes(q.id);
   const rest = (list) => { const r = tired?.size ? list.filter((q) => !hitsTired(q, tired)) : list; return r.length ? r : list; };
   const pick = (list) => list[Math.floor(rand() * list.length)];
 
@@ -131,7 +132,7 @@ export const widenBy = (streak) => (streak >= 30 ? 2 : streak >= 7 ? 1 : 0);
 export const SIDE_BONUS = 0.25;
 export function pickSideQuest({ date, uid = "", liked = null, tired = null, avoid = [] }) {
   const rand = seeded(`${uid}:${date}:side`);
-  const all = QUESTS.filter((q) => !q.side && !q.kind && !q.planned && !avoid.includes(q.id) && !(liked?.has(q.skill)));
+  const all = QUESTS.filter((q) => !q.side && !q.kind && !q.planned && !q.onlyIf && !avoid.includes(q.id) && !(liked?.has(q.skill)));
   const r = tired?.size ? all.filter((q) => !hitsTired(q, tired)) : all;
   const from = r.length ? r : all;
   return from.length ? from[Math.floor(rand() * from.length)].id : null;

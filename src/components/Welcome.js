@@ -2,11 +2,12 @@
 // tune in (what you train, when you're free) and your current maxes (so you don't start every skill at F).
 // One window that changes its content step by step (no window on top of a window: the iPhone doesn't like that).
 import { useState } from "react";
-import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import Tune from "./Tune";
+import { setPlayerName } from "../lib/player";
 import { Label } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
@@ -44,6 +45,7 @@ export default function Welcome({ user, player, onOpenAssess }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState("hello"); // hello | tune | maxes
+  const [name, setName] = useState(player?.name ?? "");
   const [gone, setGone] = useState(false);
   if (gone || !needsWelcome(player)) return null;
   const seen = () => updateDoc(doc(db, "players", user.uid), { "tips.welcome": true, updatedAt: serverTimestamp() }).catch(() => {});
@@ -75,7 +77,11 @@ export default function Welcome({ user, player, onOpenAssess }) {
               <Step n="2" title={t.welcome.s2} text={t.welcome.s2Text} />
               <Step n="3" title={t.welcome.s3} text={t.welcome.s3Text} />
             </View>
-            {step === "hello" ? <Btn main label={t.welcome.tuneGo} onPress={() => setStep("tune")} /> : <Btn main label={t.welcome.maxesGo} onPress={toMaxes} />}
+            {step === "hello" && !player.name ? (
+              <TextInput value={name} onChangeText={setName} placeholder={t.welcome.namePh} placeholderTextColor="#4A5A7A" maxLength={24} autoCapitalize="words" accessibilityLabel={t.welcome.namePh}
+                style={{ minHeight: 46, paddingHorizontal: 12, fontFamily: font.bodyBold, fontSize: 16, color: "#FFFFFF", textAlign: "center", borderWidth: 1, borderColor: "rgba(159,203,255,0.35)", backgroundColor: "rgba(5,10,24,0.7)" }} />
+            ) : null}
+            {step === "hello" ? <Btn main label={t.welcome.tuneGo} onPress={() => { if (!player.name && name.trim()) setPlayerName(user.uid, name.trim()).catch(() => {}); setStep("tune"); }} /> : <Btn main label={t.welcome.maxesGo} onPress={toMaxes} />}
             <Btn label={step === "hello" ? t.welcome.later : t.welcome.skipMaxes} onPress={close} />
           </View>
         </View>
