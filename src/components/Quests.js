@@ -29,6 +29,8 @@ import QuickLog from "./QuickLog";
 import Hud from "./Hud";
 import { courseForSkill } from "../game/courses";
 import { needsWelcome } from "./Welcome";
+import FirstQuests from "./FirstQuests";
+import { needsFirst } from "../game/firstQuests";
 import MorningCheckin from "./MorningCheckin";
 import { CHALLENGE_COINS, FULL_MORNING_XP, challengeOf, morningById, morningToday, wantsCheckin } from "../game/morning";
 import { minutesOf, reminderDone, remindersOn } from "../game/reminders";
@@ -426,6 +428,19 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
         })}
         <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted, paddingHorizontal: 14, paddingBottom: 10 }}>{hint}</Text>
       </Frame>
+    );
+  }
+
+  // New players: first quests until the System knows them (game/firstQuests.js).
+  if (needsFirst(player)) {
+    return (
+      <View style={{ flex: 1, backgroundColor: color.bg }}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: insets.top + 14, paddingBottom: 96, maxWidth: 520, width: "100%", alignSelf: "center" }}>
+          <Glow height={440} at={0.26} />
+          <Hud user={user} player={player} />
+          <FirstQuests user={user} player={player} onOpenAssess={onOpenAssess} />
+        </ScrollView>
+      </View>
     );
   }
 

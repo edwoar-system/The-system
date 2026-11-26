@@ -1,6 +1,7 @@
 // Penalty Zone rules (see the rules doc): a missed main quest at the deadline sends you in, unless a shield is used.
 // Inside: apps sealed (with app blocking), no EXP loss, shop open. Out: a redemption quest, or wait until the morning.
 
+import { needsFirst } from "./firstQuests";
 import { dayTimes } from "./profile";
 
 export const PENALTY = {
@@ -54,7 +55,7 @@ export function penaltyUntil(dateKey, severity = PENALTY.defaultSeverity) {
 
 // Does this day's board earn a penalty right now? Returns "penalty", "shield" or null.
 export function penaltyDue(day, player, now = Date.now()) {
-  if (!day?.date || day.penaltyChecked) return null;
+  if (!day?.date || day.penaltyChecked || day.first || needsFirst(player)) return null;
   if (!Array.isArray(day.mains) || day.mains.every((m) => m.done)) return null;
   if (now < deadlineOf(day.date, player?.profile, day.extraMin ?? 0)) return null;
   if (now >= penaltyUntil(day.date, severityFor(player, day.date))) return null; // already over (app wasn't opened)

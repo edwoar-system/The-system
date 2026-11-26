@@ -13,6 +13,7 @@ import { MAX_SHIELDS, swapPrice } from "../game/shop";
 import { rollLoot } from "../game/loot";
 import { gymToday, splitQuest } from "../game/gym";
 import { EXTRA_STEP, deadlineOf, extraPrice, penaltyDue } from "../game/penalty";
+import { needsFirst } from "../game/firstQuests";
 import { isHard } from "../game/hard";
 import { liveStreak, nextStreak, shieldCover } from "../game/streak";
 import { fitsSituation, isOutdoor } from "../game/effort";
@@ -56,6 +57,10 @@ export const boardSource = (player) => JSON.stringify([player?.profile?.picked ?
 
 export function newDay(player, uid) {
   const date = todayKey();
+  // New players clear their first quests first (game/firstQuests.js): no real quests until the System knows them.
+  if (needsFirst(player)) {
+    return { date, start: { id: "start", done: true }, end: { id: "end", done: true }, mains: [], guild: [], programs: [], typeCounts: {}, mainCoins: 0, bonusPaid: false, first: true, source: boardSource(player) };
+  }
   const tired = tiredSet(player?.fatigue);
   const slots = player?.mainSlots ?? 3;
   const liked = interestSkills(player?.profile);

@@ -4,6 +4,7 @@ import { questCoins, questXp } from "./economy";
 import { busyBlocks, isBusy } from "./schedule";
 import { interestSkills } from "./profile";
 import { skillById } from "./guild";
+import { needsFirst } from "./firstQuests";
 
 export const URGENT = {
   acceptMinutes: 15, // the notice disappears after this
@@ -87,7 +88,7 @@ export const DIFF_LETTER = { easy: "F", normal: "E", hard: "D" };
 // Should the System offer one right now? Returns "idle", "random", "checked" or null.
 // Only while you're home (situation from game/situation.js), awake, not busy, and only if you picked a skill that has one.
 export function urgentReason(player, now = Date.now(), todayKey, situation = null, rand = Math.random) {
-  if (situation !== "home") return null;
+  if (situation !== "home" || needsFirst(player)) return null;
   if (!urgentTasks(player).length) return null;
   const u = player?.urgent;
   if (u && ["offered", "active"].includes(u.status)) return null;

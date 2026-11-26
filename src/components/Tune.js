@@ -205,10 +205,14 @@ function patchFor(part, d) {
 
 const startDraft = (p = {}) => ({ ...p, ageText: p.age ? String(p.age) : "", weightText: p.weight ? String(p.weight) : "" });
 
-export default function Tune({ user, player }) {
+// Keeps the shown wake and bed times when someone is happy with them and never touched them.
+export const saveDayDefaults = (uid, profile) => patchProfile(uid, patchFor("day", startDraft(profile ?? {})));
+
+// only: show just that one part, already open (the first quests use this).
+export default function Tune({ user, player, only = null }) {
   const { color, font } = useTheme();
   const track = useTrack();
-  const [open, setOpen] = useState(null);
+  const [open, setOpen] = useState(only);
   const [draft, setDraft] = useState(() => startDraft(player.profile));
   const done = partsDone(player.profile);
   const count = PARTS.filter((p) => done[p]).length;
@@ -237,9 +241,9 @@ export default function Tune({ user, player }) {
   const locked = isHard(player);
   return (
     <View pointerEvents={locked ? "box-none" : "auto"}>
-      <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: color.muted }}>{fill(t.tune.progress, { n: count, of: PARTS.length })}</Text>
+      {only ? null : <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: color.muted }}>{fill(t.tune.progress, { n: count, of: PARTS.length })}</Text>}
       {locked ? <Text style={{ marginTop: 6, fontFamily: font.bodyBold, fontSize: 13, lineHeight: 18, color: color.accent }}>{t.hard.tuneLocked}</Text> : null}
-      {PARTS.map((part) => {
+      {(only ? [only] : PARTS).map((part) => {
         const isOpen = open === part;
         return (
           <View key={part} style={{ borderTopWidth: 1, borderTopColor: color.line, marginTop: 10 }}>

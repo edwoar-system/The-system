@@ -262,7 +262,7 @@ function ShellBody({ user, state }) {
         {trollQ.active.length && tab !== "quests" && !penaltyView ? <TrollBanner troll={trollQ.active[0]} player={player} more={trollQ.active.length + trollQ.waiting.length - 1} onPress={() => goTo({ tab: "quests" })} /> : null}
         {trail.length > 0 && !penaltyView ? <BackPill place={trail[trail.length - 1]} onPress={goBack} /> : null}
         {/* The first-start tip, on whichever tab a new player opens. */}
-        {state.player ? <Welcome user={user} player={state.player} onOpenAssess={() => goTo({ tab: "skills", assess: true })} /> : null}
+        {state.player ? <Welcome user={user} player={state.player} /> : null}
         {player && !penaltyView ? <Urgent user={user} player={player} /> : null}
         <QuestClear />
         <SystemPopup />
