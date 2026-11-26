@@ -25,7 +25,7 @@ import { calendarPermission, listCalendars, setCalendarOn } from "../lib/calenda
 import { setUrgentPerDay } from "../lib/urgent";
 import { scheduleSeverity } from "../lib/penalty";
 import { useHistory } from "../lib/history";
-import { URGENT } from "../game/urgent";
+import { urgentPerDayOf } from "../game/urgent";
 import { severityFor } from "../game/penalty";
 import { todayKey } from "../game/quests";
 import { Coins, Frame, Glow, Label, SysButton } from "./sys";
@@ -632,7 +632,8 @@ export default function Settings({ user, player, synced }) {
         </View>
         <View style={{ gap: 8 }}>
           <Label>{t.settings.urgent.toUpperCase()}</Label>
-          <UrgentChips value={player.urgentPerDay ?? URGENT.defaultPerDay} onChange={(n) => { if (!isHard(player)) track(setUrgentPerDay(user.uid, n)).catch(() => {}); }} />
+          <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.settings.urgentSub}</Text>
+          <UrgentChips value={urgentPerDayOf(player)} onChange={(n) => { if (!isHard(player)) track(setUrgentPerDay(user.uid, n)).catch(() => {}); }} />
         </View>
         <View style={{ gap: 8 }}>
           <Label>{t.settings.severity.toUpperCase()}</Label>

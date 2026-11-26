@@ -1,7 +1,7 @@
 // Which notifications the phone should have scheduled, worked out from the player. Pure: no native calls.
 // Everything is local (scheduled on the phone), so nothing needs a server.
 import { questById, todayKey } from "./quests";
-import { URGENT } from "./urgent";
+import { URGENT, urgentPerDayOf } from "./urgent";
 import { dayEndHour, isInPenalty } from "./penalty";
 import { ladderById, RANKS } from "./ladders";
 import { guildQuest, skillById } from "./guild";
@@ -111,7 +111,7 @@ export function notificationPlan(player, uid, now = new Date()) {
     const mainsOpen = d === 0 ? openMains : 3;
 
     if (s.urgent) {
-      const perDay = player.urgentPerDay ?? URGENT.defaultPerDay;
+      const perDay = urgentPerDayOf(player);
       const done = d === 0 && player.urgentToday?.date === key ? player.urgentToday.count : 0;
       urgentTimes(uid, key, perDay, base, player.profile, busyBlocks(player, key)).slice(done).forEach((date, i) => {
         // A heads-up 5 to 10 minutes before, so it doesn't catch you in the middle of something.

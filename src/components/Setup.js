@@ -1,15 +1,14 @@
-// First-time System setup on the Status screen: urgent quests per day and the penalty severity,
+// First-time System setup on the Status screen: the penalty severity,
 // confirmed with a lock-in moment. Afterwards the settings live in the Settings tab.
 import { useRef, useState } from "react";
 import { Animated, Easing, Text, View } from "react-native";
 import Svg, { Path, Polygon } from "react-native-svg";
 import { lockSetup } from "../lib/player";
 import { askNotifyPermission } from "../lib/notify";
-import { URGENT } from "../game/urgent";
 import { severityFor } from "../game/penalty";
 import { todayKey } from "../game/quests";
 import { Frame, Label, SysButton, hexPoints, nativeDriver } from "./sys";
-import { SeverityChips, UrgentChips } from "./systemChoices";
+import { SeverityChips } from "./systemChoices";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 import { lockFeel } from "../lib/haptics";
@@ -34,7 +33,6 @@ function LockMark({ shackle }) {
 
 export default function Setup({ user, player, onLocking, onDone }) {
   const { color, font } = useTheme();
-  const [perDay, setPerDay] = useState(player.urgentPerDay ?? URGENT.defaultPerDay);
   const [severity, setSeverity] = useState(severityFor(player, todayKey()));
   const [locking, setLocking] = useState(false);
   const [error, setError] = useState(false);
@@ -53,7 +51,7 @@ export default function Setup({ user, player, onLocking, onDone }) {
       askNotifyPermission().catch(() => {});
     });
     try {
-      await lockSetup(user.uid, { urgentPerDay: perDay, penaltySeverity: severity });
+      await lockSetup(user.uid, { penaltySeverity: severity });
     } catch {
       a.stopAnimation();
       setLocking(false);
@@ -74,10 +72,6 @@ export default function Setup({ user, player, onLocking, onDone }) {
           <View style={{ gap: 4 }}>
             <Label tone={color.hi}>{t.setup.title}</Label>
             <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{t.setup.sub}</Text>
-          </View>
-          <View style={{ gap: 8 }}>
-            <Label>{t.urgent.perDay.toUpperCase()}</Label>
-            <UrgentChips value={perDay} onChange={setPerDay} disabled={locking} />
           </View>
           <View style={{ gap: 8 }}>
             <Label>{t.penalty.severity.toUpperCase()}</Label>

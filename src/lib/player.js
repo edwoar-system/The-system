@@ -53,8 +53,8 @@ export function setPlayerName(uid, name) {
 }
 
 // First-time setup: urgent quests per day and the penalty severity, locked in together.
-export function lockSetup(uid, { urgentPerDay, penaltySeverity }) {
-  return updateDoc(doc(db, "players", uid), { urgentPerDay, penaltySeverity, setupLocked: true, setupLockedAt: serverTimestamp(), updatedAt: serverTimestamp() });
+export function lockSetup(uid, { penaltySeverity }) {
+  return updateDoc(doc(db, "players", uid), { penaltySeverity, setupLocked: true, setupLockedAt: serverTimestamp(), updatedAt: serverTimestamp() });
 }
 
 // Profile info for fair rank norms: age, sex and bodyweight (all optional).

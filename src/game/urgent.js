@@ -14,8 +14,12 @@ export const URGENT = {
   urgencyBonus: 2, // flat coins on top of the task, so a 5-minute task is still worth accepting
   dayStartHour: 8,
   dayEndHour: 22,
-  defaultPerDay: 2,
+  defaultPerDay: 0,
 };
+
+// Urgent quests are opt-in: off until you choose a number in Settings (urgentOptIn). The old
+// urgentPerDay setting is ignored, so everyone starts with them off.
+export const urgentPerDayOf = (player) => player?.urgentOptIn ?? URGENT.defaultPerDay;
 
 export const REST_OPTIONS = [
   { id: "nap", title: "Power nap, 20 min", how: "Phone face down, lie down, the timer runs.", minutes: 20 },
@@ -79,7 +83,7 @@ export function urgentReason(player, now = Date.now(), todayKey, rand = Math.ran
   // Not during your busy blocks (school, training...).
   const d = new Date(now);
   if (todayKey && isBusy(busyBlocks(player, todayKey), d.getHours() + d.getMinutes() / 60)) return null;
-  const perDay = player?.urgentPerDay ?? URGENT.defaultPerDay;
+  const perDay = urgentPerDayOf(player);
   const count = player?.urgentToday?.date === todayKey ? player.urgentToday.count : 0;
   if (count >= perDay) return null;
   if (u?.offeredAt && now - u.offeredAt < URGENT.minGapMinutes * 60000) return null;

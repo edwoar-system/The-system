@@ -355,6 +355,7 @@ export default {
     weight: "Bodyweight (kg)",
     system: "SYSTEM",
     urgent: "Urgent quests per day",
+    urgentSub: "Off unless you turn them on: a pop-up at a random moment with a quick task or a rest, for extra coins.",
     severity: "Penalty Zone",
     severityNext: "Changes to {sev} from tomorrow.",
     history: "QUEST LOG",

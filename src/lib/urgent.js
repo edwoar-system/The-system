@@ -5,7 +5,7 @@ import { levelFromXp } from "../game/economy";
 import { todayKey } from "../game/quests";
 import { currentSituation } from "./location";
 import {
-  FOLLOW_FAIL_COST, URGENT, failCost, followById, followReward, pickOptions, restById, restReward, skipCost, taskById, taskReward, urgentReason,
+  FOLLOW_FAIL_COST, URGENT, urgentPerDayOf, failCost, followById, followReward, pickOptions, restById, restReward, skipCost, taskById, taskReward, urgentReason,
 } from "../game/urgent";
 
 const ref = (uid) => doc(db, "players", uid);
@@ -85,7 +85,7 @@ export async function offerNotifiedUrgent(uid) {
     const player = snap.data() ?? {};
     if (player.urgent && ["offered", "active", "followup"].includes(player.urgent.status)) return null;
     const count = player.urgentToday?.date === todayKey() ? player.urgentToday.count : 0;
-    if (count >= (player.urgentPerDay ?? URGENT.defaultPerDay)) return null;
+    if (count >= urgentPerDayOf(player)) return null;
     tx.set(ref(uid), { urgent: newOffer("notified"), urgentToday: countToday(player), lastUrgentCheckAt: Date.now() }, { merge: true });
     return "offered";
   });
@@ -158,4 +158,4 @@ export const finishFollowUp = (uid) => update(uid, (p, u) => {
 // Closes a result screen (failed) so it doesn't show again.
 export const dismissUrgent = (uid) => update(uid, (p, u) => ({ write: { urgent: { ...u, seen: true } } }));
 
-export const setUrgentPerDay = (uid, n) => update(uid, () => ({ write: { urgentPerDay: n } }));
+export const setUrgentPerDay = (uid, n) => update(uid, () => ({ write: { urgentOptIn: n } }));
