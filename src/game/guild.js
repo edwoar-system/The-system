@@ -7,24 +7,24 @@ import { GYM_TIER_BANDS, TIERS } from "./tiers";
 const RAW = {
   STR: [
     ["gym", "Gym", "Pick a session and how long", "", 60, "hard", "gym", "gym"],
-    ["pushups", "Push-ups", "5 sets of 50% of your max", "Full range, chest to a fist from the floor. 90 s rest between sets.", 20, "hard", "workout"],
-    ["pullups", "Pull-ups", "5 sets, band-assisted or negatives", "Chin over the bar, arms straight at the bottom.", 20, "hard", "workout"],
-    ["boulder", "Bouldering", "60 min: warm-up plus 3 problems at your limit", "Time on the wall, not time at the gym.", 60, "hard", "climb"],
+    ["pushups", "Push-ups", "3 sets of 50% of your max", "Full range, chest to a fist from the floor. 90 s rest between sets.", 20, "hard", "workout"],
+    ["pullups", "Pull-ups", "3 sets, band-assisted or negatives", "Chin over the bar, arms straight at the bottom.", 20, "hard", "workout"],
+    ["boulder", "Bouldering", "Climbing session, about 2 hours", "Warm up 15 min on easy problems first. Rest 3 min between hard tries. Fall feet first and roll back onto the mat. Stop the moment a finger or shoulder hurts.", 120, "hard", "climb"],
     ["fingers", "Finger strength", "6 hangs of 10 s on a big edge", "Straight arms, no jumping on. 2 min rest.", 15, "hard", "climb"],
     ["toes", "Toe and foot strength", "10 min towel curls and toe raises", "Barefoot, slow and controlled.", 10, "easy", "mobility"],
-    ["pistol", "Pistol squats", "5 sets of assisted pistols per leg", "Hold a door frame or sit down to a box.", 15, "hard", "workout"],
+    ["pistol", "Pistol squats", "3 sets of assisted pistols per leg", "Hold a door frame or sit down to a box.", 15, "hard", "workout"],
     ["iso", "Isometrics", "Wall sit, plank, dead hang: 3 rounds", "30–60 s per hold, no shaking out early.", 15, "normal", "workout"],
     ["core", "Core and abs", "15 min hollow hold, leg raises, side plank", "Slow reps, lower back on the floor.", 15, "normal", "workout"],
     ["grip", "Grip", "5 farmer carries or dead hangs", "Hold until your grip fails.", 10, "normal", "workout"],
-    ["dips", "Dips", "5 sets of 50% of your max", "Shoulders below elbows at the bottom.", 15, "hard", "workout"],
+    ["dips", "Dips", "3 sets of 50% of your max", "Shoulders below elbows at the bottom.", 15, "hard", "workout"],
     ["handstand", "Handstand", "10 min wall practice, 5 holds", "Stomach to the wall, body in a straight line.", 10, "normal", "skill"],
-    ["kettlebell", "Kettlebell", "15 min swings and goblet squats", "The hips drive the swing, not the arms.", 15, "normal", "workout"],
+    ["kettlebell", "Kettlebell", "15 min swings and goblet squats", "The hips drive the swing, not the arms. No kettlebell? A backpack filled with books works for both.", 15, "normal", "workout"],
   ],
   AGI: [
     ["running", "Running", "20–30 min easy, or 6 × 1 min fast", "Easy means you could still talk; fast means all-out. A tracking app is your proof.", 30, "normal", "cardio"],
     ["stretch", "Stretching", "15 min full-body routine", "Hold each stretch 30 s, both sides.", 15, "easy", "mobility"],
     ["skate", "Skateboarding", "30 min: practise one basic", "On the board, one basic at a time.", 30, "normal", "sport"],
-    ["golf", "Golf", "30 min range, one club", "One club, one target, every shot on purpose.", 30, "normal", "sport"],
+    ["golf", "Golf", "Range session or 9 holes, at least an hour", "Travel time included. At the range: one club, one target, every shot on purpose.", 90, "normal", "sport"],
     ["rope", "Jump rope", "10 rounds of 1 min on, 30 s off", "Count rounds, not trips.", 15, "normal", "cardio"],
     ["balance", "Balance", "10 min single-leg and eyes-closed", "Both legs, equal time.", 10, "easy", "mobility"],
     ["sprints", "Sprints and jumps", "6 × 60 m sprints, full rest", "All-out effort, walk back.", 20, "hard", "cardio"],
@@ -93,7 +93,7 @@ const RAW = {
   ],
   CHA: [
     ["reachout", "Reach out", "Call or meet someone, 20 min+", "A real conversation, not texting.", 20, "normal", "social"],
-    ["kindness", "Kindness", "Something kind, unasked", "For someone else, without being asked.", 10, "normal", "social"],
+    ["kindness", "Kindness", "Something kind, unasked, or 3 real compliments", "For someone else, without being asked. Compliments: specific and said out loud.", 10, "normal", "social"],
     ["conversation", "Conversation", "Start a conversation with someone new", "At least a few minutes, face to face.", 10, "hard", "social"],
     ["compliment", "Compliment", "One honest, specific compliment", "Something real, said out loud.", 5, "easy", "social"],
     ["helphome", "Help at home", "A chore nobody asked for", "Done before anyone asks.", 15, "easy", "chores"],
@@ -103,6 +103,10 @@ const RAW = {
     ["listen", "Listen", "A conversation where you mostly listen", "Ask, don't steer.", 15, "normal", "social"],
   ],
 };
+
+// Skills you have to go somewhere for (or need gear for): never handed out on their own as a daily quest.
+// You request them, or plan them on fixed days (weekly plan).
+export const OUTING = new Set(["gym", "boulder", "golf", "swim", "ski", "snowboard", "surf", "windsurf", "tennis", "kettlebell"]);
 
 export const GUILD = Object.fromEntries(
   Object.entries(RAW).map(([stat, list]) => [

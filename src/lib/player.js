@@ -106,6 +106,11 @@ export function setMorning(uid, morning) {
   return updateDoc(doc(db, "players", uid), { morning, updatedAt: serverTimestamp() });
 }
 
+// Plan a skill on fixed weekdays at a time (game/weekplan.js); null removes the plan.
+export function setWeekPlan(uid, skill, plan) {
+  return updateDoc(doc(db, "players", uid), { [`weekPlan.${skill}`]: plan ?? deleteField(), updatedAt: serverTimestamp() });
+}
+
 // The quick-log buttons you pinned (ids from game/quick.js).
 export function setQuickPins(uid, pins) {
   return updateDoc(doc(db, "players", uid), { quickPins: pins, updatedAt: serverTimestamp() });

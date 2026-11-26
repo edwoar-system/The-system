@@ -40,7 +40,7 @@ import Schedule from "./Schedule";
 import { TEMPLATES } from "../game/gym";
 import { parseTime } from "../game/reminders";
 import { askWebNotifications } from "../lib/reminders";
-import { MORNING_DEFAULT, MORNING_ITEMS, MORNING_MAX } from "../game/morning";
+import { FULL_MORNING, FULL_MORNING_COINS, FULL_MORNING_XP, MORNING_DEFAULT, MORNING_ITEMS, MORNING_MAX, hasFullMorning } from "../game/morning";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
@@ -364,7 +364,16 @@ function Morning({ user, player }) {
   };
   return (
     <View style={{ gap: 8 }}>
-      <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{fill(t.morning.pickSub, { n: MORNING_MAX })}</Text>
+      <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{t.morning.pickSub}</Text>
+      <View style={{ padding: 12, gap: 6, borderWidth: 1, borderColor: hasFullMorning(player) ? color.purple : "rgba(168,126,255,0.35)", backgroundColor: "rgba(168,126,255,0.06)" }}>
+        <Text style={{ fontFamily: font.bold, fontSize: 12, letterSpacing: 2, color: color.purple }}>{t.morning.fullLabel}</Text>
+        <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.text }}>{fill(t.morning.fullSub, { c: FULL_MORNING_COINS, x: FULL_MORNING_XP })}</Text>
+        {hasFullMorning(player) ? <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: color.purple }}>{t.morning.fullOn}</Text> : (
+          <Pressable accessibilityRole="button" onPress={() => save({ items: [...new Set([...items, ...FULL_MORNING])] })} style={{ minHeight: 40, justifyContent: "center" }}>
+            <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.accent }}>{t.morning.fullPick}</Text>
+          </Pressable>
+        )}
+      </View>
       {MORNING_ITEMS.map((it) => {
         const on = items.includes(it.id);
         return (

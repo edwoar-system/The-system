@@ -4,7 +4,7 @@
 export const DIFFICULTIES = ["easy", "normal", "hard", "extreme"];
 export const DIFF_FACTOR = { easy: 0.7, normal: 1, hard: 1.3, extreme: 1.6 };
 export const DIFF_TIER = { easy: -1, normal: 0, hard: 1, extreme: 1 }; // harder quest tiers for skills
-export const DIFF_SETS = { easy: 4, normal: 5, hard: 6, extreme: 7 }; // sets in a set-based quest
+export const DIFF_SETS = { easy: 2, normal: 3, hard: 4, extreme: 5 }; // sets in a set-based quest
 export const difficultyOf = (player) => (DIFFICULTIES.includes(player?.difficulty) ? player.difficulty : "normal");
 
 // What a person at each rank (F … S+) can do, as a rough middle of the rank.

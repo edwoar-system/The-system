@@ -87,7 +87,7 @@ export default function QuestClear() {
   const xp = msg.xp ?? 0;
   const loot = msg.loot;
   const tone = loot && lootOn ? RARITY[loot.rarity] : color.accent;
-  const header = msg.allClear ? t.clear.allHeader : t.clear.header;
+  const header = msg.morningFull ? t.clear.morningHeader : msg.allClear ? t.clear.allHeader : t.clear.header;
   return (
     <Animated.View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 60, opacity: dim }}>
       <Pressable accessibilityRole="button" accessibilityLabel={`${header}. ${msg.title ?? ""}. ${t.clear.tap}`} onPress={close}

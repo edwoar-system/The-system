@@ -1,9 +1,9 @@
-import { collection, deleteField, doc, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
+import { collection, deleteField, doc, runTransaction, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import { allMainsBonus, levelFromXp, questCoins, questXp } from "../game/economy";
 import { QUESTS, SIDE_BONUS, pickMainQuests, pickSideQuest, questById, todayKey, widenBy } from "../game/quests";
 import { PROGRAM_DONE_BONUS, dueSessions, programById, programQuest, weekKey } from "../game/programs";
-import { guildQuest } from "../game/guild";
+import { OUTING, guildQuest } from "../game/guild";
 import { ladderById } from "../game/ladders";
 import { dayNum, habitRank, isHabit, passTrial, recordTraining, skillView, SKILL_RULES, trialQuest, trialState, weekNum } from "../game/skills";
 import { tierForRank } from "../game/tiers";
@@ -21,7 +21,8 @@ import { effectFactor } from "../game/effects";
 import { weatherNow } from "./weather";
 import { DIFF_TIER, difficultyOf } from "../game/difficulty";
 import { trainMuscles } from "./muscles";
-import { CHALLENGE_COINS, CHALLENGE_XP } from "../game/morning";
+import { CHALLENGE_COINS, CHALLENGE_XP, FULL_MORNING_COINS, FULL_MORNING_XP, isFullMorning } from "../game/morning";
+import { plannedOn } from "../game/weekplan";
 
 export const MAX_GUILD_QUESTS = 6;
 
@@ -63,7 +64,7 @@ export function newDay(player, uid) {
   const outside = Math.min(slots, widenBy(currentStreak(player)));
   // Every skill you're into has a guild quest, at the tier your rank in it unlocks.
   const programSkills = new Set(programs.map((id) => programQuest(id, player)?.skill).filter(Boolean));
-  const extra = [...liked].filter((id) => !programSkills.has(id)).map((id) => {
+  const extra = [...liked].filter((id) => !programSkills.has(id) && !OUTING.has(id) && id !== "nophone").map((id) => {
     // Your answer to "how good are you at it?": new keeps it at tier 0, experienced starts a tier higher.
     const level = player?.profile?.levels?.[interestOfSkill(id)];
     const byRank = tierForRank(skillView(id, player?.skills?.[id]).rank);
@@ -81,6 +82,8 @@ export function newDay(player, uid) {
     const i = at >= 0 ? at : free;
     if (i >= 0) mains[i] = `gs:${gym.index}`;
   }
+  // Committed last night: phone-free first hour (chosen the day before, never at random).
+  if (player?.commit?.date === date && player.commit.nophone && !mains.includes("nophone")) mains.push("nophone");
   // Weekly duties on (or past) their day become real main quests, on top of the usual ones.
   dutiesDue(player, date, weekNum(dayNum(date))).forEach((id) => mains.push(`d:${id}`));
   // The side quest: optional, outside your focus, a bonus for stepping out of your comfort zone.
@@ -92,7 +95,13 @@ export function newDay(player, uid) {
     mains: mains.map((id) => ({ id, done: false })),
     ...(side ? { side: { id: side, done: false } } : {}),
     ...(gym ? { gym: { planned: gym.planned, index: gym.index, swapped: gym.swapped, allTired: !!gym.allTired } } : {}),
-    guild: [],
+    // Skills you planned for this weekday (weekly plan) are on the board already, like a quest you asked for.
+    guild: plannedOn(player, new Date()).map(({ skill }) => {
+      const byRank = tierForRank(skillView(skill, player?.skills?.[skill]).rank);
+      const tier = Math.max(0, Math.min(2, byRank));
+      const id = tier && guildQuest(`g:${skill}:${tier}`) ? `g:${skill}:${tier}` : `g:${skill}`;
+      return guildQuest(id) ? { id, done: false, planned: true } : null;
+    }).filter(Boolean),
     programs: programs.map((id) => ({ id, done: false })),
     typeCounts: {},
     mainCoins: 0,
@@ -258,6 +267,12 @@ export async function doChallenge(uid) {
   });
 }
 
+// Commit tonight to a phone-free first hour tomorrow (or take it back). It becomes one of tomorrow's main quests.
+export async function commitTomorrow(uid, on) {
+  const tomorrow = todayKey(new Date(Date.now() + 86400000));
+  return updateDoc(doc(db, "players", uid), { commit: on ? { date: tomorrow, nophone: true } : deleteField(), updatedAt: serverTimestamp() });
+}
+
 // The tiny version of a quest pays this share of the full reward.
 export const TINY_FACTOR = 0.3;
 
@@ -364,6 +379,9 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
     if (slot === "main") day.mainCoins += coins;
 
     let bonus = slot === "side" ? Math.round(coins * SIDE_BONUS) : 0;
+    // The full morning routine (all nine items, every one ticked) pays extra coins and EXP.
+    const morningFull = slot === "start" && isFullMorning(player, day);
+    if (morningFull) bonus += FULL_MORNING_COINS;
     // Out in bad weather anyway (an outdoor quest while the weather is bad): 25% more.
     const rough = isOutdoor(q) && slot !== "trial" ? weatherNow()?.bad : null;
     if (rough) bonus += Math.round(coins * WEATHER_BONUS);
@@ -412,7 +430,7 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
     // Muscles: the quest's load goes into this week's body map and each muscle's fatigue.
     const trained = opts.quick ? null : trainMuscles(player, questLoad(q), weekNum(today));
 
-    const totalXp = (player.xp ?? 0) + xp + (skillUp?.xp ?? 0) + (loot?.xp ?? 0);
+    const totalXp = (player.xp ?? 0) + xp + (skillUp?.xp ?? 0) + (loot?.xp ?? 0) + (morningFull ? FULL_MORNING_XP : 0);
     const before = levelFromXp(player.xp ?? 0).level;
     const after = levelFromXp(totalXp).level;
 
@@ -441,7 +459,7 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
 
     return {
       programDone, coins, xp, bonus, levelUp: after > before ? after : null, stat: q.stat, streak, skillUp, trialDone: trial?.complete ?? false,
-      loot, allClear: slot === "main" && lastAllMainsDate === day.date && (player.lastAllMainsDate ?? null) !== day.date, title: q.title,
+      loot, allClear: slot === "main" && lastAllMainsDate === day.date && (player.lastAllMainsDate ?? null) !== day.date, title: q.title, morningFull,
       muscles: trained ? trained.report : null,
     };
   });

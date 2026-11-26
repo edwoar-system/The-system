@@ -19,9 +19,9 @@ export const QUESTS = [
     why: "One section and one timer. Starting is the hardest part, and 25 minutes is short enough to start right now.", tiny: "Read one page and write one question about it" },
   { id: "read20", skill: "reading", type: "reading", title: "Read 20 pages of a book", stat: "INT", minutes: 25, difficulty: "normal",
     why: "20 pages a day is about 25 books a year. A book holds years of someone's thinking; a feed holds seconds.", tiny: "Read 2 pages" },
-  { id: "pushups", skill: "pushups", type: "workout", title: "Push-up session: 5 sets, the last one close to failure", stat: "STR", minutes: 20, difficulty: "hard",
-    why: "Five hard sets is enough to make chest, shoulders and arms grow. Log your reps so you can see yourself beat last week.", tiny: "One set of push-ups" },
-  { id: "pullups", skill: "pullups", type: "workout", title: "Pull-up session: 5 sets (negatives count)", stat: "STR", minutes: 20, difficulty: "hard",
+  { id: "pushups", skill: "pushups", type: "workout", title: "Push-up session: 3 sets, the last one close to failure", stat: "STR", minutes: 20, difficulty: "hard",
+    why: "Three hard sets is enough to make chest, shoulders and arms grow. Log your reps so you can see yourself beat last week.", tiny: "One set of push-ups" },
+  { id: "pullups", skill: "pullups", type: "workout", title: "Pull-up session: 3 sets (negatives count)", stat: "STR", minutes: 20, difficulty: "hard",
     why: "Pulling builds your back and grip and balances all the pushing, for healthier shoulders and better posture. Slow negatives build the strength for your first reps.", tiny: "Hang from a bar for 20 seconds" },
   { id: "legs", skill: "pistol", type: "workout", title: "Legs at home: 4×20 squats, 3×10 lunges each side", stat: "STR", minutes: 15, difficulty: "normal",
     why: "Your legs hold about half your muscle. Strong legs make you faster, jump higher and protect your knees in every sport.", tiny: "20 squats" },
@@ -35,11 +35,12 @@ export const QUESTS = [
     why: "Daylight and movement reset your mood and your sleep rhythm. Many people do their best thinking on a walk.", tiny: "10 minutes around the block" },
   { id: "meditate", skill: "meditation", type: "mind", title: "Meditate 10 minutes", stat: "WIL", minutes: 10, difficulty: "hard",
     why: "Every time you notice your mind wandered and bring it back, you train the attention you need for everything else.", tiny: "10 slow breaths, eyes closed" },
-  { id: "nophone", skill: "nophone", type: "mind", title: "Phone-free first hour after waking", stat: "WIL", minutes: 15, difficulty: "hard",
+  // Chosen the evening before (it starts the moment you wake), never handed out at random.
+  { id: "nophone", skill: "nophone", type: "mind", title: "Phone-free first hour after waking", stat: "WIL", minutes: 15, difficulty: "hard", planned: true,
     why: "Whoever gets your first hour shapes your whole day. Start it with your own thoughts, not everyone else's.", tiny: "No phone until you're dressed" },
   { id: "japanese", skill: "japanese", type: "language", title: "Japanese: 15 minutes (next set in Learn)", stat: "INT", minutes: 15, difficulty: "normal",
     why: "A language is built from small daily reps. Fifteen minutes every day beats two hours once a week.", tiny: "Review 5 cards" },
-  { id: "kindness", skill: "kindness", type: "social", title: "Do something kind nobody asked for", stat: "CHA", minutes: 10, difficulty: "normal",
+  { id: "kindness", skill: "kindness", type: "social", title: "Do something kind nobody asked for, or give 3 real compliments", stat: "CHA", minutes: 10, difficulty: "normal",
     why: "Kindness makes the other person's day and, measurably, yours too. It's also how people learn they can count on you.", tiny: "Send someone a nice message" },
   { id: "callsomeone", skill: "reachout", type: "social", title: "Call or meet someone you care about", stat: "CHA", minutes: 20, difficulty: "normal",
     why: "Strong relationships are one of the best predictors of a long, happy life. They need time, not just texts.", tiny: "A 2-minute voice message" },
@@ -74,7 +75,7 @@ function seeded(seedText) {
 // extra: more quests for the focus pool (guild quests for every skill you're into), so focus never runs dry.
 export function pickMainQuests({ date, lastDoneByStat = {}, mainSlots = 3, uid = "", liked = null, tired = null, outside = null, avoid = [], extra = [] }) {
   const rand = seeded(`${uid}:${date}`);
-  const usable = (q) => !q.side && !q.kind && !avoid.includes(q.id);
+  const usable = (q) => !q.side && !q.kind && !q.planned && !avoid.includes(q.id);
   const rest = (list) => { const r = tired?.size ? list.filter((q) => !hitsTired(q, tired)) : list; return r.length ? r : list; };
   const pick = (list) => list[Math.floor(rand() * list.length)];
 
@@ -130,7 +131,7 @@ export const widenBy = (streak) => (streak >= 30 ? 2 : streak >= 7 ? 1 : 0);
 export const SIDE_BONUS = 0.25;
 export function pickSideQuest({ date, uid = "", liked = null, tired = null, avoid = [] }) {
   const rand = seeded(`${uid}:${date}:side`);
-  const all = QUESTS.filter((q) => !q.side && !q.kind && !avoid.includes(q.id) && !(liked?.has(q.skill)));
+  const all = QUESTS.filter((q) => !q.side && !q.kind && !q.planned && !avoid.includes(q.id) && !(liked?.has(q.skill)));
   const r = tired?.size ? all.filter((q) => !hitsTired(q, tired)) : all;
   const from = r.length ? r : all;
   return from.length ? from[Math.floor(rand() * from.length)].id : null;

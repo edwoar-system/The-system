@@ -17,7 +17,15 @@ export const MORNING_ITEMS = [
 ];
 export const morningById = Object.fromEntries(MORNING_ITEMS.map((x) => [x.id, x]));
 export const MORNING_DEFAULT = ["bed", "water", "stretch"];
-export const MORNING_MAX = 5;
+export const MORNING_MAX = MORNING_ITEMS.length;
+
+// The full morning routine: bed, water, stretch, daylight, exercise, breathing, top 3, a page, tidy.
+// All of them in your morning and all ticked → a bonus on top.
+export const FULL_MORNING = ["bed", "water", "stretch", "light", "pushups10", "breathe", "plan", "read1", "tidy"];
+export const FULL_MORNING_COINS = 30;
+export const FULL_MORNING_XP = 40;
+export const hasFullMorning = (player) => FULL_MORNING.every((id) => (player?.morning?.items ?? []).includes(id));
+export const isFullMorning = (player, day) => hasFullMorning(player) && FULL_MORNING.every((id) => day?.startTicks?.[id]);
 
 // The daily challenge: small, a bit outside your comfort zone, different every day.
 export const CHALLENGES = ["coldEnd", "noPhoneDressed", "squats20", "grateful", "wallsit", "plank60", "screenFree", "compliment", "stairs", "learnWord", "sunWalk", "noSugar"];

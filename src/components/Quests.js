@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { END_PARTS, FREE_FIT_SWAPS, boardSource, doChallenge, buyExtraTime, refreshOpenMains, completeQuest, currentDay, getQuest, rewardPreview, swapToFit, tickStart } from "../lib/day";
+import { END_PARTS, FREE_FIT_SWAPS, boardSource, commitTomorrow, doChallenge, buyExtraTime, refreshOpenMains, completeQuest, currentDay, getQuest, rewardPreview, swapToFit, tickStart } from "../lib/day";
 import { useSituation } from "../lib/location";
 import { useWeather } from "../lib/weather";
 import { fitsSituation, isOutdoor } from "../game/effort";
@@ -11,7 +11,7 @@ import { logCheck } from "../lib/habits";
 import { dayEndHour, extraPrice } from "../game/penalty";
 import { isHard } from "../game/hard";
 import { quickLog } from "../lib/quick";
-import { SIDE_BONUS } from "../game/quests";
+import { SIDE_BONUS, todayKey } from "../game/quests";
 import { activeAppTime } from "../game/shop";
 import Guild from "./Guild";
 import { requestUrgent } from "../lib/urgent";
@@ -27,9 +27,10 @@ import Schedule from "./Schedule";
 import { busyBlocks, hhmm, suggestTimes } from "../game/schedule";
 import QuickLog from "./QuickLog";
 import Hud from "./Hud";
+import { courseForSkill } from "../game/courses";
 import Welcome, { needsWelcome } from "./Welcome";
 import MorningCheckin from "./MorningCheckin";
-import { CHALLENGE_COINS, challengeOf, morningById, morningToday, wantsCheckin } from "../game/morning";
+import { CHALLENGE_COINS, FULL_MORNING_XP, challengeOf, morningById, morningToday, wantsCheckin } from "../game/morning";
 import { minutesOf, reminderDone, remindersOn } from "../game/reminders";
 import { tickReminder } from "../lib/player";
 import { showClear, showSystem } from "../lib/popup";
@@ -234,6 +235,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
   const [showCleared, setShowCleared] = useState(false);
   const todaysReminders = remindersOn(player);
   const morningNow = morningToday(player, day);
+  const committed = player.commit?.date === todayKey(new Date(Date.now() + 86400000)) && !!player.commit?.nophone;
   // Quests you do bit by bit all day (water) are never the "Now" quest unless nothing else is left.
   const allDayIds = new Set(QUICK.filter((it) => it.allDay).flatMap((it) => (Array.isArray(it.quest) ? it.quest : [it.quest])));
   const nowHour = nowD.getHours() + nowD.getMinutes() / 60;
@@ -278,7 +280,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
       if (r.skillUp) setRankUp({ letter: RANKS[r.skillUp.rank], name: skillById[r.skillUp.id]?.name ?? "", xp: r.skillUp.xp });
       else if (r.trialDone && q?.skill) setRankUp({ letter: RANKS[q.trial.rank], name: skillById[q.skill]?.name ?? "", xp: 0, restored: true });
     };
-    showClear({ title: q?.title ?? r.title, coins: r.coins + r.bonus, bonus: r.bonus, xp: r.xp, streak: r.streak, allClear: r.allClear, loot: r.loot ?? null, then: next });
+    showClear({ title: r.morningFull ? t.morning.fullTitle : q?.title ?? r.title, coins: r.coins + r.bonus, bonus: r.bonus, xp: r.xp + (r.morningFull ? FULL_MORNING_XP : 0), streak: r.streak, allClear: r.allClear, morningFull: !!r.morningFull, loot: r.loot ?? null, then: next });
   }
 
   async function complete(questId, slot) {
@@ -381,6 +383,14 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
     );
   }
 
+  // Opens a quest. A quest done in a course (Japanese: the next set) goes straight to that course.
+  function openQuest(x) {
+    const q = getQuest(x.id);
+    const course = !x.done && q && !q.trial && !(q.tier > 0) ? courseForSkill(q.skill) : null;
+    if (course && onOpenCourse) { onOpenCourse(course.id, null); return; }
+    setSheet(x);
+  }
+
   // A list of extra quests (guild, programs): title, done count, rows with reward and a check.
   function questList(title, list, slot, hint) {
     const open = list.filter((g) => !g.done);
@@ -399,7 +409,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
             <View key={g.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 14, paddingRight: 8, opacity: g.done ? 0.55 : 1,
               borderBottomWidth: i === all.length - 1 ? 0 : 1, borderBottomColor: color.line }}>
               <HexBadge w={30} h={34} label={q.stat} labelSize={9} />
-              <Pressable accessibilityRole="button" accessibilityHint={t.board.openHint} onPress={() => setSheet({ id: g.id, slot, done: g.done })}
+              <Pressable accessibilityRole="button" accessibilityHint={t.board.openHint} onPress={() => openQuest({ id: g.id, slot, done: g.done })}
                 style={({ pressed }) => ({ flex: 1, gap: 4, opacity: pressed ? 0.7 : 1 })}>
                 <Text style={{ fontFamily: font.bold, fontSize: 15, lineHeight: 20, color: "#FFFFFF" }}>{q.title}</Text>
                 {g.done ? null : (
@@ -433,7 +443,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
         {nowQuest ? (
           <NowCard questId={nowQuest.id} time={nowQuest.time} nowHour={nowHour} reward={rewardPreview(day, nowQuest.id, player.profile)}
             quickItem={quickItemFor(nowQuest.id)} quick={quickFor(nowQuest.id)} notice={noticeFor(nowQuest.id)} busy={busy}
-            onStart={() => setSheet({ id: nowQuest.id, slot: "main", done: false })} onDone={() => complete(nowQuest.id, "main")} onQuick={() => nowQuick(nowQuest.id)} />
+            onStart={() => openQuest({ id: nowQuest.id, slot: "main", done: false })} onDone={() => complete(nowQuest.id, "main")} onQuick={() => nowQuick(nowQuest.id)} />
         ) : null}
 
         {day.checkin?.plan ? (
@@ -464,6 +474,20 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
           </Frame>
         ) : null}
         {bedtime && !day.end?.done ? checklist("end", END_PARTS, day.endTicks) : null}
+
+        {/* Tomorrow: commit tonight to a phone-free first hour (it starts the moment you wake, so it's chosen the day before). */}
+        {nowD.getHours() >= 17 ? (
+          <Frame style={{ marginTop: 14, marginHorizontal: 14 }} cut={10} contentStyle={{ paddingVertical: 12, paddingHorizontal: 16, gap: 8 }}>
+            <Label tone={color.accent}>{t.commit.title}</Label>
+            <Text style={{ fontFamily: font.bodyBold, fontSize: 15, color: "#FFFFFF" }}>{t.commit.nophone}</Text>
+            <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: committed ? "#F6B45A" : color.muted }}>{committed ? t.commit.warningOn : t.commit.warning}</Text>
+            <Pressable accessibilityRole="button" disabled={busy} onPress={() => { tapFeel(); commitTomorrow(user.uid, !committed).catch(() => showToast({ error: true })); }}
+              style={({ pressed }) => ({ minHeight: 44, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: committed ? "rgba(159,203,255,0.3)" : color.frame,
+                backgroundColor: pressed ? "rgba(159,203,255,0.2)" : committed ? "transparent" : "rgba(159,203,255,0.1)" })}>
+              <Text style={{ fontFamily: font.bold, fontSize: 13, letterSpacing: 1.5, color: committed ? color.muted : "#FFFFFF" }}>{committed ? t.commit.undo : t.commit.go}</Text>
+            </Pressable>
+          </Frame>
+        ) : null}
 
         <QuickLog user={user} player={player} day={day} situation={sit} onCompleted={onResult} style={{ marginTop: 14, marginHorizontal: 14 }} />
 
@@ -528,7 +552,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
               <View key={m.id}>
                 {head ? <Text style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 2, fontFamily: font.bold, fontSize: 10, letterSpacing: 3, color: color.muted }}>{t.now.parts[part]}</Text> : null}
                 <GoalRow questId={m.id} done={false} busy={busy} last={i === list.length - 1 && !clearedMains.length} time={m.time}
-                  onDone={() => complete(m.id, "main")} onOpen={() => setSheet({ id: m.id, slot: "main", done: false })} quick={quickFor(m.id)} notice={noticeFor(m.id)} />
+                  onDone={() => complete(m.id, "main")} onOpen={() => openQuest({ id: m.id, slot: "main", done: false })} quick={quickFor(m.id)} notice={noticeFor(m.id)} />
               </View>
             );
           })}

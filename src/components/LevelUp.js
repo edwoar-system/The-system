@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { Animated, Easing, Modal, Text, View } from "react-native";
 import Svg, { Defs, LinearGradient, Polygon, RadialGradient, Rect, Stop } from "react-native-svg";
 import { levelFromXp } from "../game/economy";
+import { levelRewards } from "../game/levelRewards";
 import { Frame, Label, SysButton, hexPoints, nativeDriver } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
@@ -28,6 +29,7 @@ export default function LevelUp({ data, onClose }) {
   const hexScale = a.interpolate({ inputRange: [0, 0.2, 0.32, 0.4, 1], outputRange: [0.4, 0.4, 1.08, 1, 1] });
   const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
   const next = levelFromXp(data.xp);
+  const gift = levelRewards(data.level - 1, data.level);
 
   return (
     <Modal transparent animationType="fade" visible onRequestClose={onClose}>
@@ -75,7 +77,18 @@ export default function LevelUp({ data, onClose }) {
           {t.levelUp.sub}
         </Animated.Text>
 
-        <Animated.View style={{ width: "100%", maxWidth: 360, marginTop: 24, opacity: at(0.55, 0.7) }}>
+        {/* What this level gives: stat points to spend, coins, and a shield every fifth level. */}
+        <Animated.View style={{ width: "100%", maxWidth: 360, marginTop: 22, opacity: at(0.5, 0.62) }}>
+          <Frame kind="premium" contentStyle={{ paddingHorizontal: 16, paddingVertical: 12, gap: 6 }}>
+            <Label tone={color.reward}>{t.levelUp.rewards}</Label>
+            <Text style={{ fontFamily: font.num, fontSize: 20, color: color.purple }}>{fill(t.levelUp.points, { n: gift.points })}</Text>
+            <Text style={{ fontFamily: font.num, fontSize: 20, color: color.reward }}>{fill(t.levelUp.coins, { n: gift.coins })}</Text>
+            {gift.shields ? <Text style={{ fontFamily: font.num, fontSize: 18, color: color.accent }}>{t.levelUp.shield}</Text> : null}
+            <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{t.levelUp.spendHint}</Text>
+          </Frame>
+        </Animated.View>
+
+        <Animated.View style={{ width: "100%", maxWidth: 360, marginTop: 12, opacity: at(0.55, 0.7) }}>
           <Frame kind="premium" contentStyle={{ paddingHorizontal: 16, paddingVertical: 12 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <View style={{ gap: 2 }}>

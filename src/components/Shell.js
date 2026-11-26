@@ -33,6 +33,7 @@ import SystemPopup from "./SystemPopup";
 import QuestClear from "./QuestClear";
 import ErrorCatcher from "./ErrorCatcher";
 import { useReminderAlerts } from "../lib/reminders";
+import { useLevelRewards } from "../lib/level";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
@@ -152,6 +153,7 @@ function ShellBody({ user, state }) {
   useWeather(player);
   useAgendaSync(user.uid, player);
   useReminderAlerts(player);
+  useLevelRewards(user.uid, player);
   // Website: the page behind the app and Safari's own bars take your skin's background, so no white edges.
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") return;

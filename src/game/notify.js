@@ -14,6 +14,7 @@ import { isHard } from "./hard";
 import { programQuest } from "./programs";
 import { splitQuest } from "./gym";
 import { reminderDone } from "./reminders";
+import { plannedOn } from "./weekplan";
 import { needsWhy, whyNow } from "./why";
 import { t } from "../i18n";
 
@@ -152,6 +153,15 @@ export function notificationPlan(player, uid, now = new Date()) {
           id: `hardq-${key}-${q.id}-${i}`, date, title: fill(t.notify.hardTitle, { title: q.title }),
           body: `${w.line}\n"${w.quote.text}" (${w.quote.who})`, data: { kind: "quests" },
         }));
+      });
+    }
+    // Your weekly plan: 20 minutes before each planned skill ("Golf at 07:00").
+    if (s.schedule !== false) {
+      plannedOn(player, base).forEach(({ skill, time }) => {
+        if (!time || !skillById[skill]) return;
+        const [hh, mm] = time.split(":").map(Number);
+        const date = new Date(at(base, 0, hh, mm).getTime() - 20 * 60000);
+        if (date > now) add({ id: `plan-${skill}-${key}`, date, title: fill(t.notify.planTitle, { skill: skillById[skill].name, time }), body: t.notify.planBody, data: { kind: "quests" } });
       });
     }
     // Your schedule: a reminder 10 minutes before each busy block.

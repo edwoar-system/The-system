@@ -7,12 +7,12 @@ export const tierForRank = (rank) => (rank >= 5 ? 2 : rank >= 3 ? 1 : 0);
 
 export const TIERS = {
   // STR
-  pushups: [["8 sets at 60% of your max, plus one set to failure", 25, "hard"], ["Weighted or deficit push-ups: 6 heavy sets, then archers", 30, "hard"]],
-  pullups: [["6 sets at 60% of your max, plus chest-to-bar practice", 25, "hard"], ["Weighted pull-ups 5 × 5, then muscle-up or archer practice", 30, "hard"]],
-  boulder: [["90 min: project one grade above your max", 90, "hard"], ["2 hours: limit projects and 5 sends at max minus one", 120, "hard"]],
+  pushups: [["5 sets at 60% of your max, the last one to failure", 25, "hard"], ["Weighted or deficit push-ups: 4 heavy sets, then archers", 30, "hard"]],
+  pullups: [["4 sets at 60% of your max, plus chest-to-bar practice", 25, "hard"], ["Weighted pull-ups 4 × 5, then muscle-up or archer practice", 30, "hard"]],
+  boulder: [["2 hours: project one grade above your max (warm up first, rest 3 min between tries)", 120, "hard"], ["2.5 hours: limit projects and 5 sends at max minus one", 150, "hard"]],
   fingers: [["Repeaters on 20 mm: 3 sets of 6 × 7 s on, 3 s off", 20, "hard"], ["Weighted max hangs on 20 mm plus one-arm assisted hangs", 25, "hard"]],
   toes: [["Single-leg calf raises off a step, 4 sets, plus short-foot holds", 15, "normal"], ["Weighted single-leg calf raises and 60 s short-foot holds", 20, "normal"]],
-  pistol: [["5 sets of free pistols per leg, slow negatives", 20, "hard"], ["Weighted pistols and shrimp squats, 5 sets per leg", 25, "hard"]],
+  pistol: [["3 sets of free pistols per leg, slow negatives", 20, "hard"], ["Weighted pistols and shrimp squats, 3 sets per leg", 25, "hard"]],
   iso: [["4 rounds: 2 min plank, 90 s wall sit, 90 s dead hang", 20, "hard"], ["Long holds: 5 min plank, 4 min wall sit, one-arm hangs", 25, "hard"]],
   core: [["20 min: L-sits, hanging leg raises, ab-wheel rollouts", 20, "hard"], ["25 min: dragon flags, V-sit practice, tuck front lever", 25, "hard"]],
   grip: [["Heavy farmer carries, towel hangs and gripper sets", 15, "hard"], ["Max-weight carries, plate pinches and one-arm hangs", 20, "hard"]],
@@ -23,7 +23,7 @@ export const TIERS = {
   running: [["Intervals: 6 × 800 m at 10K pace, or a 60-min long run", 50, "hard"], ["Tempo run 30 min at threshold, or a 90-min long run", 75, "hard"]],
   stretch: [["25 min: splits work, pancake and a deep bridge", 25, "normal"], ["35 min: full split session, both sides and middle", 35, "normal"]],
   skate: [["60 min: land a target trick 10 times", 60, "normal"], ["90 min: link a full line, learn one new trick", 90, "hard"]],
-  golf: [["60 min: 30 balls with a plan, 30 short-game shots", 60, "normal"], ["Play 9 holes keeping score, then 30 min on your weakest shot", 120, "normal"]],
+  golf: [["90 min with travel: 30 balls with a plan, then 30 short-game shots", 90, "normal"], ["9 holes keeping score, then 30 min on your weakest shot", 150, "hard"]],
   rope: [["10 min of double-under sets, then 5 × 1 min fast", 20, "hard"], ["Triple-under practice, crossovers and a 10-min continuous set", 25, "hard"]],
   balance: [["15 min: eyes closed, balance board, single-leg squats", 15, "normal"], ["20 min of slackline or balance-board tricks", 20, "normal"]],
   sprints: [["8 × 60 m plus box jumps and broad jumps", 30, "hard"], ["Timed 30 m and 100 m sprints, plyometric circuit", 40, "hard"]],

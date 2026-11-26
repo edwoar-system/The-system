@@ -22,6 +22,8 @@ import { useTheme } from "../theme";
 import { t } from "../i18n";
 import { HelpDot } from "./Explain";
 import { courseForSkill } from "../game/courses";
+import { PLAN_TIMES, WEEKDAYS } from "../game/weekplan";
+import { setWeekPlan } from "../lib/player";
 
 function Chevron({ c }) {
   return <Svg width={18} height={18} viewBox="0 0 24 24"><Path d="M15 5l-7 7 7 7" fill="none" stroke={c} strokeWidth={1.8} /></Svg>;
@@ -67,6 +69,44 @@ function Info({ title, text }) {
       <Label>{title.toUpperCase()}</Label>
       <Text style={{ fontFamily: font.body, fontSize: 14, lineHeight: 20, color: "#CAD6EC" }}>{text}</Text>
     </View>
+  );
+}
+
+// Plan this skill on fixed weekdays at a time: its quest is on your board those days, with a reminder before.
+function WeekPlan({ user, player, id }) {
+  const { color, font } = useTheme();
+  const plan = player.weekPlan?.[id] ?? null;
+  const [open, setOpen] = useState(false);
+  const days = plan?.days ?? [];
+  const time = plan?.time ?? "07:00";
+  const save = (next) => setWeekPlan(user.uid, id, next.days.length ? next : null).catch(() => {});
+  const chip = (on, label, onPress, key) => (
+    <Pressable key={key} accessibilityRole="checkbox" accessibilityState={{ checked: on }} onPress={onPress}
+      style={({ pressed }) => ({ minWidth: 44, minHeight: 40, paddingHorizontal: 8, alignItems: "center", justifyContent: "center", borderWidth: 1,
+        borderColor: on ? color.frame : "rgba(159,203,255,0.22)", backgroundColor: pressed ? "rgba(159,203,255,0.2)" : on ? "rgba(159,203,255,0.16)" : "transparent" })}>
+      <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: on ? "#FFFFFF" : color.text }}>{label}</Text>
+    </Pressable>
+  );
+  return (
+    <Frame cut={12} style={{ marginTop: 12 }} contentStyle={{ padding: 14, gap: 8 }}>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpen((x) => !x)} style={{ minHeight: 36, justifyContent: "center" }}>
+        <Label tone={color.hi}>{t.weekPlan.title}</Label>
+        <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: plan ? color.accent : color.muted }}>
+          {plan ? fill(t.weekPlan.summary, { days: days.map((d) => t.weekPlan.days[d]).join(", "), time }) : t.weekPlan.none}
+        </Text>
+      </Pressable>
+      {open ? (
+        <>
+          <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.weekPlan.sub}</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+            {WEEKDAYS.map((d) => chip(days.includes(d), t.weekPlan.days[d], () => save({ days: days.includes(d) ? days.filter((x) => x !== d) : [...days, d].sort(), time }), d))}
+          </View>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+            {PLAN_TIMES.map((tm) => chip(time === tm, tm, () => save({ days: days.length ? days : [], time: tm }), tm))}
+          </View>
+        </>
+      ) : null}
+    </Frame>
   );
 }
 
@@ -301,6 +341,7 @@ export default function SkillPage({ user, player, id, onBack, onRequest, onOpenC
           <SysButton label={t.course.openCourse} onPress={() => onOpenCourse(courseForSkill(id).id)} style={{ marginTop: 18 }} />
         ) : null}
         <SysButton label={t.skills.request} onPress={onRequest} style={{ marginTop: 18 }} />
+        <WeekPlan user={user} player={player} id={id} />
         {id === "gym" ? (
           <Pressable accessibilityRole="button" onPress={() => setGymOpen(true)} style={{ minHeight: 44, alignItems: "center", justifyContent: "center", marginTop: 6 }}>
             <Text style={{ fontFamily: font.bodyBold, fontSize: 14, color: color.accent }}>{player.gym ? t.gym.edit : t.gym.setUp}</Text>

@@ -30,7 +30,7 @@ export const quickToday = (player) => (player?.quick?.date === todayKey() ? play
 // Guild quests for the same skill count too ("g:pushups", "g:pushups:2").
 const isGuildOf = (item, id) => id === `g:${item.skill}` || id.startsWith(`g:${item.skill}:`);
 // Sets per guild tier (tier 0, I, II), matching the quest text. Tier 0 follows your difficulty (4–7 sets).
-const SET_GOALS = { pushups: [5, 9, 6], pullups: [5, 7, 5] };
+const SET_GOALS = { pushups: [3, 5, 4], pullups: [3, 4, 4] };
 function goalOf(item, id, sets) {
   if (!isGuildOf(item, id)) return item.goalUnit === "sets" && sets ? sets : goalFor(item, id);
   const tier = Number(id.split(":")[2] ?? 0);
