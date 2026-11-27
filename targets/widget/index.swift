@@ -116,7 +116,7 @@ struct SmallView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
       TopRow(info: info)
-      Progress(info: info)
+      QuestProgress(info: info)
       Text(info.nextLine).font(.system(size: 12, weight: .medium)).foregroundStyle(.white.opacity(0.85)).lineLimit(2)
       Spacer(minLength: 0)
     }
