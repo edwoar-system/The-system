@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { patchProfile } from "../lib/player";
-import { bedTonight, bedWeeksLeft, DRIVES, DUTIES, dutyById, dutyDay, ENERGY, INTERESTS, interestSkills, LEVELS, MOUNTAIN_LEVELS, MOUNTAINS, PARTS, partsDone, pickedGroups, rawTimes } from "../game/profile";
+import { bedTonight, bedWeeksLeft, DRIVES, DUTIES, dutyById, dutyDay, ENERGY, INTERESTS, interestSkills, LEVELS, MOUNTAIN_LEVELS, MOUNTAINS, PARTS, partsDone, pickedGroups, rawTimes, wakeTonight } from "../game/profile";
 import { SCHOOL_NAMES } from "../game/quotes";
 import { skillById } from "../game/guild";
 import { useTrack } from "./saved";
 import { HelpDot } from "./Explain";
 import { isHard } from "../game/hard";
 import { useTheme } from "../theme";
+import { Label } from "./sys";
 import { t } from "../i18n";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
@@ -41,6 +42,38 @@ function Stepper({ label, value, onChange, min, max }) {
       {btn(-0.25, "−")}
       <Text accessibilityLabel={`${label} ${hhmm(value)}`} style={{ width: 66, textAlign: "center", fontFamily: font.num, fontSize: 22, color: "#FFFFFF" }}>{hhmm(value)}</Text>
       {btn(0.25, "+")}
+    </View>
+  );
+}
+
+// A compact time: − 23:00 +.
+function MiniTime({ label, value, onChange, min, max }) {
+  const { color, font } = useTheme();
+  const btn = (d, sign) => (
+    <Pressable accessibilityRole="button" accessibilityLabel={`${label} ${sign}15`} onPress={() => onChange(Math.min(max, Math.max(min, value + d)))}
+      style={{ width: 40, height: 44, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(159,203,255,0.3)" }}>
+      <Text style={{ fontFamily: font.bold, fontSize: 18, color: color.text }}>{sign}</Text>
+    </Pressable>
+  );
+  return (
+    <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 4 }}>
+      {btn(-0.25, "−")}
+      <Text accessibilityLabel={`${label} ${hhmm(value)}`} style={{ flex: 1, textAlign: "center", fontFamily: font.num, fontSize: 18, color: "#FFFFFF" }}>{hhmm(value)}</Text>
+      {btn(0.25, "+")}
+    </View>
+  );
+}
+// A time window: label, then from – to.
+function TimeRange({ label, from, to, onFrom, onTo, min, max }) {
+  const { color, font } = useTheme();
+  return (
+    <View style={{ gap: 6 }}>
+      <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{label}</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <MiniTime label={`${label} ${t.tune.from}`} value={from} onChange={onFrom} min={min} max={max} />
+        <Text style={{ fontFamily: font.bold, fontSize: 16, color: color.muted }}>–</Text>
+        <MiniTime label={`${label} ${t.tune.to}`} value={to} onChange={onTo} min={min} max={max} />
+      </View>
     </View>
   );
 }
@@ -107,17 +140,27 @@ function PartForm({ part, draft, set }) {
   const { color, font } = useTheme();
   const row = { flexDirection: "row", flexWrap: "wrap", gap: 6 };
   if (part === "day") {
-    const { wake, wakeLate, bed, bedGoal } = rawTimes(draft);
-    const goal = bedGoal ?? bed;
-    const weeks = bedWeeksLeft({ ...draft, bedGoalAt: draft.bedGoalAt ?? Date.now() });
+    const r = rawTimes(draft);
+    const g = { ...draft, goalAt: draft.goalAt ?? draft.bedGoalAt ?? Date.now() };
+    const bedGoal = r.bedGoal ?? r.bed;
+    const wakeGoal = r.wakeGoal ?? r.wake;
+    const wakeGoalLate = r.wakeGoalLate ?? r.wakeLate;
+    const hasGoal = r.bedGoal != null || r.wakeGoal != null;
+    const wk = wakeTonight(g);
+    const goalSet = (patch) => set({ ...patch, goalAt: Date.now() });
     return (
-      <View style={{ gap: 10 }}>
-        <Stepper label={t.tune.wake} value={wake} min={4} max={12} onChange={(v) => set({ wake: hhmm(v), ...(v > wakeLate ? { wakeLate: hhmm(v) } : {}) })} />
-        <Stepper label={t.tune.wakeLate} value={wakeLate} min={4} max={12} onChange={(v) => set({ wakeLate: hhmm(Math.max(v, wake)) })} />
-        <Stepper label={t.tune.bed} value={bed} min={19} max={26} onChange={(v) => set({ bed: hhmm(v) })} />
-        <Stepper label={t.tune.bedGoal} value={goal} min={19} max={26} onChange={(v) => set({ bedGoal: hhmm(v), bedGoalAt: Date.now() })} />
-        <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: goal === bed ? color.muted : color.accent }}>
-          {goal === bed ? t.tune.bedSame : fill(t.tune.bedPlan, { tonight: hhmm(bedTonight({ ...draft, bedGoalAt: draft.bedGoalAt ?? Date.now() })), goal: hhmm(goal), weeks })}
+      <View style={{ gap: 14 }}>
+        <Label>{t.tune.now}</Label>
+        <TimeRange label={t.tune.sleepNow} from={r.bed} to={r.bedLate} min={19} max={28}
+          onFrom={(v) => set({ bed: hhmm(v), ...(v > r.bedLate ? { bedLate: hhmm(v) } : {}) })} onTo={(v) => set({ bedLate: hhmm(Math.max(v, r.bed)) })} />
+        <TimeRange label={t.tune.wakeNow} from={r.wake} to={r.wakeLate} min={4} max={13}
+          onFrom={(v) => set({ wake: hhmm(v), ...(v > r.wakeLate ? { wakeLate: hhmm(v) } : {}) })} onTo={(v) => set({ wakeLate: hhmm(Math.max(v, r.wake)) })} />
+        <Label tone={color.accent}>{t.tune.goal}</Label>
+        <Stepper label={t.tune.bedGoal} value={bedGoal} min={19} max={28} onChange={(v) => goalSet({ bedGoal: hhmm(v) })} />
+        <TimeRange label={t.tune.wakeGoal} from={wakeGoal} to={wakeGoalLate} min={4} max={13}
+          onFrom={(v) => goalSet({ wakeGoal: hhmm(v), wakeGoalLate: hhmm(Math.max(v, wakeGoalLate)) })} onTo={(v) => goalSet({ wakeGoal: hhmm(wakeGoal), wakeGoalLate: hhmm(Math.max(v, wakeGoal)) })} />
+        <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: hasGoal ? color.accent : color.muted }}>
+          {hasGoal ? fill(t.tune.bedPlan, { tonight: hhmm(bedTonight(g)), from: hhmm(wk.wake), to: hhmm(wk.wakeLate), weeks: bedWeeksLeft(g) }) : t.tune.bedSame}
         </Text>
       </View>
     );
@@ -201,9 +244,15 @@ function PartForm({ part, draft, set }) {
 function patchFor(part, d) {
   const num = (v) => { const n = Number(String(v ?? "").replace(",", ".")); return String(v ?? "").trim() && Number.isFinite(n) && n > 0 ? n : null; };
   if (part === "day") {
-    const { wake, wakeLate, bed, bedGoal } = rawTimes(d);
-    const goal = bedGoal != null && bedGoal !== bed ? hhmm(bedGoal) : null;
-    return { wake: hhmm(wake), wakeLate: hhmm(wakeLate), bed: hhmm(bed), bedGoal: goal, bedGoalAt: goal ? d.bedGoalAt ?? Date.now() : null };
+    const r = rawTimes(d);
+    const bedGoal = r.bedGoal != null && r.bedGoal < (r.bed + r.bedLate) / 2 ? hhmm(r.bedGoal) : null;
+    const wakeGoal = r.wakeGoal != null && (r.wakeGoal !== r.wake || r.wakeGoalLate !== r.wakeLate) ? hhmm(r.wakeGoal) : null;
+    const goal = bedGoal || wakeGoal;
+    return {
+      wake: hhmm(r.wake), wakeLate: hhmm(r.wakeLate), bed: hhmm(r.bed), bedLate: hhmm(r.bedLate),
+      bedGoal, wakeGoal, wakeGoalLate: wakeGoal ? hhmm(r.wakeGoalLate) : null,
+      goalAt: goal ? d.goalAt ?? d.bedGoalAt ?? Date.now() : null,
+    };
   }
   if (part === "interests") { const picked = d.picked ?? []; return { picked, interests: pickedGroups(picked), levels: d.levels ?? {} }; }
   if (part === "drive") return { drive: d.drive ?? null };

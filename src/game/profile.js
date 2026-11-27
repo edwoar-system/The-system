@@ -118,34 +118,46 @@ const parseTime = (v, dflt) => {
   const m = String(v ?? "").match(/^(\d{1,2}):(\d{2})$/);
   return m ? Number(m[1]) + Number(m[2]) / 60 : dflt;
 };
-// Your answers as typed: wake window (earliest to latest), bedtime now, and the bedtime you're working towards.
+// Your answers as typed. Now: when you fall asleep (bed–bedLate) and wake up (wake–wakeLate).
+// Goal: asleep before bedGoal, awake between wakeGoal and wakeGoalLate.
 export function rawTimes(profile) {
   const wake = parseTime(profile?.wake, 7.5);
   const wakeLate = Math.max(wake, parseTime(profile?.wakeLate, wake));
-  let bed = parseTime(profile?.bed, 23);
-  if (bed <= wake) bed += 24; // after midnight
-  let bedGoal = parseTime(profile?.bedGoal, null);
-  if (bedGoal != null && bedGoal <= wake) bedGoal += 24;
-  return { wake, wakeLate, bed, bedGoal };
+  const after = (h) => (h != null && h <= wakeLate ? h + 24 : h); // times after midnight
+  const bed = after(parseTime(profile?.bed, 23));
+  const bedLate = Math.max(bed, after(parseTime(profile?.bedLate, null)) ?? bed);
+  const bedGoal = after(parseTime(profile?.bedGoal, null));
+  const wakeGoal = parseTime(profile?.wakeGoal, null);
+  const wakeGoalLate = wakeGoal == null ? null : Math.max(wakeGoal, parseTime(profile?.wakeGoalLate, wakeGoal));
+  return { wake, wakeLate, bed, bedLate, bedGoal, wakeGoal, wakeGoalLate };
 }
-// A bedtime goal moves you there slowly: 15 minutes earlier (or later) each week since you set it.
+// Goals are reached slowly: every week since you set them, 15 minutes closer (never past the goal).
 export const BED_STEP = 0.25;
+const weeksSince = (profile, now) => Math.max(0, Math.floor((now - (profile?.goalAt ?? profile?.bedGoalAt ?? now)) / (7 * 86400000))) + 1;
+const toward = (from, goal, steps) => (goal == null ? from : from + Math.sign(goal - from) * Math.min(Math.abs(goal - from), steps * BED_STEP));
+// Tonight's bedtime: from the middle of your sleep window towards your goal.
 export function bedTonight(profile, now = Date.now()) {
-  const { bed, bedGoal } = rawTimes(profile);
-  if (bedGoal == null || bedGoal === bed) return bed;
-  const weeks = Math.max(0, Math.floor((now - (profile?.bedGoalAt ?? now)) / (7 * 86400000)));
-  const move = Math.min(Math.abs(bedGoal - bed), (weeks + 1) * BED_STEP);
-  return bed + Math.sign(bedGoal - bed) * move;
+  const { bed, bedLate, bedGoal } = rawTimes(profile);
+  const mid = (bed + bedLate) / 2;
+  return toward(mid, bedGoal != null && bedGoal < mid ? bedGoal : null, weeksSince(profile, now));
 }
-// Weeks left until tonight's bedtime is your goal.
+// Tomorrow's wake window on the way to your goal window.
+export function wakeTonight(profile, now = Date.now()) {
+  const { wake, wakeLate, wakeGoal, wakeGoalLate } = rawTimes(profile);
+  const w = weeksSince(profile, now);
+  return { wake: toward(wake, wakeGoal, w), wakeLate: toward(wakeLate, wakeGoalLate, w) };
+}
+// Weeks until both goals are reached.
 export function bedWeeksLeft(profile, now = Date.now()) {
-  const { bedGoal } = rawTimes(profile);
-  if (bedGoal == null) return 0;
-  return Math.ceil(Math.abs(bedGoal - bedTonight(profile, now)) / BED_STEP);
+  const { bedGoal, wakeGoal, wakeGoalLate } = rawTimes(profile);
+  const b = bedGoal == null ? 0 : Math.max(0, bedTonight(profile, now) - bedGoal);
+  const wk = wakeTonight(profile, now);
+  const w = Math.max(wakeGoal == null ? 0 : Math.abs(wk.wake - wakeGoal), wakeGoalLate == null ? 0 : Math.abs(wk.wakeLate - wakeGoalLate));
+  return Math.ceil(Math.max(b, w) / BED_STEP);
 }
-// The times the System plans with: the start of your wake window, and tonight's bedtime on the way to your goal.
+// The times the System plans with: your wake window and tonight's bedtime, both on the way to your goals.
 export function dayTimes(profile, now = Date.now()) {
-  const { wake, wakeLate } = rawTimes(profile);
+  const { wake, wakeLate } = wakeTonight(profile, now);
   return { wake, wakeLate, bed: bedTonight(profile, now) };
 }
 
