@@ -11,6 +11,11 @@
       "bundleIdentifier": "com.edwardapps.thesystem",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.edwardapps.thesystem"
+        ]
       }
     },
     "android": {
@@ -62,7 +67,8 @@
         {
           "calendarPermission": "The System reads your calendar (never changes it) so quests and reminders plan around your appointments."
         }
-      ]
+      ],
+      "@bacons/apple-targets"
     ],
     "scheme": "thesystem",
     "backgroundColor": "#07090d",

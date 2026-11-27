@@ -38,6 +38,7 @@ import { useLevelRewards } from "../lib/level";
 import { useTitleAlerts } from "../lib/titles";
 import { useObserverEvents } from "../lib/observers";
 import { useLinkActions } from "../lib/links";
+import { useWidgetSync } from "../lib/widget";
 import SwipeBack from "./SwipeBack";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
@@ -161,6 +162,8 @@ function ShellBody({ user, state }) {
   useLevelRewards(user.uid, player);
   useTitleAlerts(user.uid, player);
   useObserverEvents(user.uid);
+  // The home-screen widget (iPhone builds from 1.6.0).
+  useWidgetSync(user.uid, player);
   // Website: the page behind the app and Safari's own bars take your skin's background, so no white edges.
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") return;
