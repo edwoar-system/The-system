@@ -64,6 +64,7 @@ Docs: https://docs.expo.dev/eas/index.md
 - Swipe back: wrap a full-screen page in `SwipeBack` (components/SwipeBack.js) with its back/close handler; Shell wraps the tabs with the back-pill trail.
 - Simple mode (`player.simple`, Settings → The System): hides programs, trials, the side quest and tomorrow's commitment on the quest screen.
 - Penalty redemptions need a minimum time from when they're chosen (`startedAt`, `redemptionReadyAt`), plus a photo for run, cycle and tidy. Severity "off" = no Penalty Zone.
+- This week (game/week.js, lib/week.js, Week.js): `players.week = { key: Monday, items }`, skill or free-text items with times and an optional day (+time). Skill items planned for today go on `day.guild`; a text one planned today becomes the side quest `wk:<id>`. Any week item, to-do (`todo:<id>`) or skill can be made today's side quest (`setSide`, `day.side.chosen`).
 - Observers (`src/lib/observers.js`): friends known only by their worn title. Opening a friend's profile writes a "watch" event (once a day) to `public/{friend}/events`; sponsoring pays 5/20/50 of your own coins into an event the receiver claims. Needs the `events` rule in firestore.rules.
 - Design v0.1 (see the rules doc): black and blue base, purple only for progress, gold for coins and titles, red only for the penalty. Shared pieces live in `src/components/sys.js`.
 

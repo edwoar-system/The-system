@@ -1,4 +1,5 @@
 import { collection, deleteField, doc, runTransaction, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import { weekToday } from "../game/week";
 import { comebackFor, comebackQuest } from "../game/comeback";
 import { db } from "./firebase";
 import { allMainsBonus, levelFromXp, questCoins, questXp } from "../game/economy";
@@ -42,6 +43,15 @@ export function getQuest(id, player = null) {
   if (id.startsWith("t:")) return trialQuest(id);
   if (id.startsWith("d:")) return dutyQuest(id);
   if (id.startsWith("cb:")) return comebackQuest(id);
+  // Your own side quests: something from "This week", or a to-do.
+  if (id.startsWith("wk:")) {
+    const x = ((player ?? playerCache)?.week?.items ?? []).find((i) => `wk:${i.id}` === id);
+    return x ? { id, title: x.text ?? x.skill, how: "Your plan for this week.", minutes: 30, difficulty: "normal", stat: "WIL", type: "week", own: true } : null;
+  }
+  if (id.startsWith("todo:")) {
+    const x = ((player ?? playerCache)?.todos ?? []).find((i) => `todo:${i.id}` === id);
+    return x ? { id, title: x.title, how: "A to-do you made today's side quest.", minutes: 15, difficulty: "easy", stat: "VIT", type: "chore", own: true } : null;
+  }
   return withPrefs(guildQuest(id), (player ?? playerCache)?.profile);
 }
 
@@ -97,7 +107,10 @@ export function newDay(player, uid) {
   // Weekly duties on (or past) their day become real main quests, on top of the usual ones.
   dutiesDue(player, date, weekNum(dayNum(date))).forEach((id) => mains.push(`d:${id}`));
   // The side quest: optional, outside your focus, a bonus for stepping out of your comfort zone.
-  const side = liked.size ? pickSideQuest({ date, uid, liked, tired, avoid: mains }) : null;
+  // Something you planned for today in "This week" (free text) takes its place.
+  const weekNow = weekToday(player);
+  const weekText = weekNow.find((x) => !x.skill);
+  const side = weekText ? `wk:${weekText.id}` : liked.size ? pickSideQuest({ date, uid, liked, tired, avoid: mains }) : null;
   return {
     date,
     start: { id: "start", done: false },
@@ -106,7 +119,7 @@ export function newDay(player, uid) {
     ...(side ? { side: { id: side, done: false } } : {}),
     ...(gym ? { gym: { planned: gym.planned, index: gym.index, swapped: gym.swapped, allTired: !!gym.allTired } } : {}),
     // Skills you planned for this weekday (weekly plan) are on the board already, like a quest you asked for.
-    guild: plannedOn(player, new Date()).map(({ skill }) => {
+    guild: [...new Set([...plannedOn(player, new Date()).map((x) => x.skill), ...weekNow.filter((x) => x.skill).map((x) => x.skill)])].map((skill) => {
       const byRank = tierForRank(skillView(skill, player?.skills?.[skill]).rank);
       const tier = Math.max(0, Math.min(2, byRank));
       const id = tier && guildQuest(`g:${skill}:${tier}`) ? `g:${skill}:${tier}` : `g:${skill}`;
@@ -138,7 +151,7 @@ export async function refreshOpenMains(uid) {
       if (id !== m.id) changed += 1;
       return { id, done: false };
     });
-    const side = day.side && !day.side.done && fresh.side ? fresh.side : day.side;
+    const side = day.side && !day.side.done && !day.side.chosen && fresh.side ? fresh.side : day.side;
     tx.set(ref, { day: { ...day, mains, ...(side ? { side } : {}), source: boardSource(player) }, updatedAt: serverTimestamp() }, { merge: true });
     return { changed };
   });
@@ -330,6 +343,7 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
     let trial = null; // the updated trial when this is a trial part
     let duties = null; // the updated duties list when this is a duty
 
+    const ownSide = {};
     if (slot === "start") {
       if (day.start.done) throw new Error("already-done");
       day.start.done = true;
@@ -347,6 +361,9 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
     } else if (slot === "side") {
       if (!day.side || day.side.id !== questId || day.side.done) throw new Error("already-done");
       day.side.done = true;
+      // Your own side quest: count it in "This week", or tick the to-do.
+      if (questId.startsWith("wk:") && player.week?.items) ownSide.week = { ...player.week, items: player.week.items.map((x) => (`wk:${x.id}` === questId ? { ...x, done: (x.done ?? 0) + 1 } : x)) };
+      if (questId.startsWith("todo:") && player.todos) ownSide.todos = player.todos.map((x) => (`todo:${x.id}` === questId ? { ...x, done: true, doneOn: day.date, paid: true } : x));
     } else if (slot === "program") {
       // Boards from before programs had their own list keep the session among the mains.
       const p = (day.programs ?? []).find((x) => x.id === questId && !x.done) ?? day.mains.find((x) => x.id === questId && !x.done);
@@ -460,6 +477,7 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
     tx.set(ref, {
       day,
       feats,
+      ...ownSide,
       coins: (player.coins ?? 0) + coins + bonus + (loot?.coins ?? 0),
       ...(loot?.shield ? { streakShields: Math.min(MAX_SHIELDS, (player.streakShields ?? 0) + loot.shield) } : {}),
       xp: totalXp,

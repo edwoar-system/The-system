@@ -31,6 +31,7 @@ import { courseForSkill } from "../game/courses";
 import { needsWelcome } from "./Welcome";
 import FirstQuests from "./FirstQuests";
 import Todos from "./Todos";
+import WeekCard, { SidePicker } from "./Week";
 import { needsFirst } from "../game/firstQuests";
 import MorningCheckin from "./MorningCheckin";
 import { CHALLENGE_COINS, FULL_MORNING_XP, challengeOf, morningById, morningToday, wantsCheckin, isSlowMorning } from "../game/morning";
@@ -215,6 +216,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
   const duties = dutiesToday(player, day.date, weekNum(dayNum(day.date))).filter((d) => !day.mains.some((m) => m.id === `d:${d.id}`));
   const trollQ = trollQueue(useTrolls(user.uid));
   // Suggested times for open main quests, in your free time today (from now on).
+  const [sidePick, setSidePick] = useState(false);
   const [schedOpen, setSchedOpen] = useState(false);
   const busyToday = busyBlocks(player, day.date);
   const nowD = new Date();
@@ -626,6 +628,8 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
         <View style={{ marginTop: 18, marginHorizontal: 14, gap: 12 }}>
           {/* Your own to-dos: one line to add, rolls over until done. */}
           <Todos user={user} player={player} />
+          {/* This week: plans without a fixed time ("climb once"), optionally on a day. */}
+          <WeekCard user={user} player={player} />
           {/* Guild quests you took sit right under your goals, not at the bottom. */}
           {day.guild.length ? questList(t.board.guildQuests, day.guild, "guild", t.board.guildHint) : null}
           {/* Program sessions: extra side quests from the programs you follow (they don't count for the streak). */}
@@ -659,13 +663,20 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
               <View style={{ height: 6 }} />
             </Frame>
           ) : null}
-          {day.side && !simple ? (
+          {!simple || day.side?.chosen ? (
             <Frame cut={12}>
-              <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: color.line, gap: 2 }}>
-                <Label tone={color.hi}>{t.board.side}</Label>
-                <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.board.sideSub}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 10, borderBottomWidth: day.side ? 1 : 0, borderBottomColor: color.line }}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Label tone={color.hi}>{t.board.side}</Label>
+                  <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{day.side?.chosen ? t.board.sideChosen : t.board.sideSub}</Text>
+                </View>
+                {!day.side?.done ? (
+                  <Pressable accessibilityRole="button" onPress={() => setSidePick(true)} style={{ minHeight: 40, paddingHorizontal: 10, justifyContent: "center", borderWidth: 1, borderColor: "rgba(159,203,255,0.3)" }}>
+                    <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: color.text }}>{t.board.sideChoose}</Text>
+                  </Pressable>
+                ) : null}
               </View>
-              {(() => {
+              {day.side && (() => {
                 const q = getQuest(day.side.id);
                 if (!q) return null;
                 const r = rewardPreview(day, day.side.id, player.profile);
@@ -798,6 +809,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
       {trollOpen ? <TrollDo user={user} player={player} troll={trollOpen} onClose={() => setTrollOpen(null)}
         onDone={(r) => { if (r) { showToast({ coins: 0, bonus: 0, xp: r.xp }); if (r.levelUp) setLevelUp({ level: r.levelUp, xp: (player.xp ?? 0) + r.xp, coins: 0 }); } }} /> : null}
       {schedOpen ? <Schedule user={user} player={player} onClose={() => setSchedOpen(false)} /> : null}
+      {sidePick ? <SidePicker user={user} player={player} onClose={() => setSidePick(false)} /> : null}
       {sheet && sheet.id.startsWith("gs:") && !sheet.done ? (
         <GymSession user={user} player={player} questId={sheet.id} slot={sheet.slot} onClose={() => setSheet(null)} onResult={(r) => onResult(r, sheet.id)} />
       ) : null}
