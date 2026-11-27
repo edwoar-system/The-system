@@ -62,6 +62,7 @@ Docs: https://docs.expo.dev/eas/index.md
 - Never miss twice (game/comeback.js): a tracked habit kept up lately but missed yesterday comes back as main quest `cb:<habit>`, one step harder.
 - Links: `thesystem://do/<action>` (app/do/[action].js → lib/links.js): water, todo?text=…&when=tomorrow, and tab names. For the iPhone Shortcuts app ("Open URL"). Long-press quick actions need native code and a new build.
 - Widget (from build 1.6.0): `targets/widget` (SwiftUI, @bacons/apple-targets, deployment 17.0) reads a JSON summary that `useWidgetSync` (src/lib/widget.js) writes to App Group `group.com.edwardapps.thesystem` under "summary". Small, medium (with a +1 water link), lock-screen circular and rectangular. Swift can't be compiled here: check the first build log. The plugin needs `ios.appleTeamId` in app.json.
+- Times are set with `TimeInput` (components/TimeInput.js): 5-minute steps, hold to run, tap to type ("1510"). Used in Your week and the sleep settings.
 - Swipe back: wrap a full-screen page in `SwipeBack` (components/SwipeBack.js) with its back/close handler; Shell wraps the tabs with the back-pill trail.
 - Simple mode (`player.simple`, Settings → The System): hides programs, trials, the side quest and tomorrow's commitment on the quest screen.
 - Penalty redemptions need a minimum time from when they're chosen (`startedAt`, `redemptionReadyAt`), plus a photo for run, cycle and tidy. Severity "off" = no Penalty Zone.

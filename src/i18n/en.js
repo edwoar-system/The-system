@@ -1106,7 +1106,7 @@ export default {
   schedule: {
     title: "[ Your week ]",
     back: "Back",
-    sub: "Your usual busy blocks. Urgent quests and water reminders stay out of them, and your main quests get a suggested time in your free time.",
+    sub: "Your usual busy blocks. Sub-scenarios and water reminders stay out of them, and your main quests get a suggested time in your free time.",
     section: "YOUR WEEK",
     sectionSub: "School, training, work: the times the System leaves you alone.",
     summary: "{n} busy blocks in your week.",
@@ -1857,6 +1857,10 @@ export default {
   links: {
     water: "+1 glass of water",
     todo: "To-do added",
+  },
+  time: {
+    holdHint: "Tap for 5 minutes, hold to go faster",
+    typeHint: "Tap to type the time",
   },
   titles: {
     pick: "Choose a title ›",

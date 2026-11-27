@@ -12,6 +12,7 @@ import { isHard } from "../game/hard";
 import { useTheme } from "../theme";
 import { Label } from "./sys";
 import { t } from "../i18n";
+import TimeInput from "./TimeInput";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 const hhmm = (h) => { const m = Math.round(h * 60); return `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; };
@@ -28,40 +29,9 @@ function Chip({ label, sub, on, onPress, flex }) {
   );
 }
 
-function Stepper({ label, value, onChange, min, max }) {
-  const { color, font } = useTheme();
-  const btn = (d, sign) => (
-    <Pressable accessibilityRole="button" accessibilityLabel={`${label} ${sign}15`} onPress={() => onChange(Math.min(max, Math.max(min, value + d)))}
-      style={{ width: 48, height: 48, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(159,203,255,0.3)" }}>
-      <Text style={{ fontFamily: font.bold, fontSize: 20, color: color.text }}>{sign}</Text>
-    </Pressable>
-  );
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-      <Text style={{ flex: 1, fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{label}</Text>
-      {btn(-0.25, "−")}
-      <Text accessibilityLabel={`${label} ${hhmm(value)}`} style={{ width: 66, textAlign: "center", fontFamily: font.num, fontSize: 22, color: "#FFFFFF" }}>{hhmm(value)}</Text>
-      {btn(0.25, "+")}
-    </View>
-  );
-}
-
-// A compact time: − 23:00 +.
+// A compact time (TimeInput: tap, hold or type).
 function MiniTime({ label, value, onChange, min, max }) {
-  const { color, font } = useTheme();
-  const btn = (d, sign) => (
-    <Pressable accessibilityRole="button" accessibilityLabel={`${label} ${sign}15`} onPress={() => onChange(Math.min(max, Math.max(min, value + d)))}
-      style={{ width: 40, height: 44, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(159,203,255,0.3)" }}>
-      <Text style={{ fontFamily: font.bold, fontSize: 18, color: color.text }}>{sign}</Text>
-    </Pressable>
-  );
-  return (
-    <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 4 }}>
-      {btn(-0.25, "−")}
-      <Text accessibilityLabel={`${label} ${hhmm(value)}`} style={{ flex: 1, textAlign: "center", fontFamily: font.num, fontSize: 18, color: "#FFFFFF" }}>{hhmm(value)}</Text>
-      {btn(0.25, "+")}
-    </View>
-  );
+  return <TimeInput label={label} value={value} onChange={onChange} min={min} max={max} compact />;
 }
 // A time window: label, then from – to.
 function TimeRange({ label, from, to, onFrom, onTo, min, max }) {
@@ -156,7 +126,10 @@ function PartForm({ part, draft, set }) {
         <TimeRange label={t.tune.wakeNow} from={r.wake} to={r.wakeLate} min={4} max={13}
           onFrom={(v) => set({ wake: hhmm(v), ...(v > r.wakeLate ? { wakeLate: hhmm(v) } : {}) })} onTo={(v) => set({ wakeLate: hhmm(Math.max(v, r.wake)) })} />
         <Label tone={color.accent}>{t.tune.goal}</Label>
-        <Stepper label={t.tune.bedGoal} value={bedGoal} min={19} max={28} onChange={(v) => goalSet({ bedGoal: hhmm(v) })} />
+        <View style={{ gap: 6 }}>
+          <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{t.tune.bedGoal}</Text>
+          <TimeInput label={t.tune.bedGoal} value={bedGoal} min={19} max={28} onChange={(v) => goalSet({ bedGoal: hhmm(v) })} />
+        </View>
         <TimeRange label={t.tune.wakeGoal} from={wakeGoal} to={wakeGoalLate} min={4} max={13}
           onFrom={(v) => goalSet({ wakeGoal: hhmm(v), wakeGoalLate: hhmm(Math.max(v, wakeGoalLate)) })} onTo={(v) => goalSet({ wakeGoal: hhmm(wakeGoal), wakeGoalLate: hhmm(Math.max(v, wakeGoal)) })} />
         <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: hasGoal ? color.accent : color.muted }}>

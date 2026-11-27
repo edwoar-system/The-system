@@ -10,6 +10,7 @@ import { Frame, Glow, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 import SwipeBack from "./SwipeBack";
+import TimeInput from "./TimeInput";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 const PRESETS = {
@@ -21,18 +22,10 @@ const PRESETS = {
 
 function Step({ label, value, onChange, min = 5, max = 24 }) {
   const { color, font } = useTheme();
-  const b = (d, s) => (
-    <Pressable accessibilityRole="button" accessibilityLabel={`${label} ${s}`} onPress={() => onChange(Math.min(max, Math.max(min, value + d)))}
-      style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(159,203,255,0.25)" }}>
-      <Text style={{ fontFamily: font.bold, fontSize: 16, color: color.text }}>{s}</Text>
-    </Pressable>
-  );
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
       <Text style={{ width: 40, fontFamily: font.body, fontSize: 12, color: color.muted }}>{label}</Text>
-      {b(-0.25, "−")}
-      <Text style={{ width: 52, textAlign: "center", fontFamily: font.num, fontSize: 17, color: "#FFFFFF" }}>{hhmm(value)}</Text>
-      {b(0.25, "+")}
+      <TimeInput label={label} value={value} onChange={onChange} min={min} max={max} compact />
     </View>
   );
 }
@@ -48,8 +41,8 @@ function BlockEditor({ block, onChange, onRemove, shared }) {
           <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.muted }}>{t.schedule.remove}</Text>
         </Pressable>
       </View>
-      <Step label={t.schedule.from} value={block.start} onChange={(v) => onChange({ start: v, end: Math.max(block.end, v + 0.25) })} />
-      <Step label={t.schedule.to} value={block.end} onChange={(v) => onChange({ end: Math.max(v, block.start + 0.25) })} />
+      <Step label={t.schedule.from} value={block.start} onChange={(v) => onChange({ start: v, end: Math.max(block.end, v + 5 / 60) })} />
+      <Step label={t.schedule.to} value={block.end} onChange={(v) => onChange({ end: Math.max(v, block.start + 5 / 60) })} />
       {shared ? <Text style={{ fontFamily: font.body, fontSize: 11, color: color.muted }}>{fill(t.schedule.shared, { days: shared })}</Text> : null}
     </View>
   );
