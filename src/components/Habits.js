@@ -18,6 +18,7 @@ import { doneFeel, tapFeel } from "../lib/haptics";
 import { Frame, Glow, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
+import SwipeBack from "./SwipeBack";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 const AMBER = "#F6B45A";
@@ -311,6 +312,7 @@ export function HabitsScreen({ user, player, onClose, start = "habits" }) {
   const [tab, setTab] = useState(start);
   return (
     <Modal animationType="slide" visible onRequestClose={onClose}>
+      <SwipeBack onBack={onClose}>
       <View style={{ flex: 1, backgroundColor: color.bg }}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 40, paddingHorizontal: 14, maxWidth: 520, width: "100%", alignSelf: "center", gap: 12 }}>
           <Glow height={380} at={0.18} />
@@ -327,6 +329,7 @@ export function HabitsScreen({ user, player, onClose, start = "habits" }) {
           {tab === "screen" ? <ScreenTab user={user} player={player} /> : null}
         </ScrollView>
       </View>
+          </SwipeBack>
     </Modal>
   );
 }

@@ -116,6 +116,10 @@ export function setQuickPins(uid, pins) {
   return updateDoc(doc(db, "players", uid), { quickPins: pins, updatedAt: serverTimestamp() });
 }
 
+export function setSimple(uid, on) {
+  return updateDoc(doc(db, "players", uid), { simple: !!on, updatedAt: serverTimestamp() });
+}
+
 export function setDifficulty(uid, d) {
   return updateDoc(doc(db, "players", uid), { difficulty: d, updatedAt: serverTimestamp() });
 }

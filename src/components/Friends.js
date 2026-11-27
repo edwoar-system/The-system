@@ -18,6 +18,7 @@ import { SPONSOR_AMOUNTS, observerName, sponsorFriend, useObservers, watchFriend
 import { shownTitle } from "../game/titles";
 import { showSystem } from "../lib/popup";
 import { t } from "../i18n";
+import SwipeBack from "./SwipeBack";
 
 const PARTIES_ON = false;
 
@@ -76,6 +77,7 @@ export function TrollPicker({ name, coins, onPick, onClose }) {
   const list = TROLLS.filter((x) => x.level === level && !x.legacy);
   return (
     <Modal animationType="slide" visible onRequestClose={onClose}>
+      <SwipeBack onBack={onClose}>
       <View style={{ flex: 1, backgroundColor: color.bg }}>
         <ScrollView contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 30, paddingHorizontal: 14, maxWidth: 520, width: "100%", alignSelf: "center", gap: 10 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -114,6 +116,7 @@ export function TrollPicker({ name, coins, onPick, onClose }) {
           </Frame>
         </ScrollView>
       </View>
+          </SwipeBack>
     </Modal>
   );
 }
@@ -233,6 +236,7 @@ export function FriendPage({ friend, me, myName, myTitle = null, myCoins = 0, tr
   );
   return (
     <Modal animationType="slide" visible onRequestClose={onClose}>
+      <SwipeBack onBack={onClose}>
       <View style={{ flex: 1, backgroundColor: color.bg }}>
         <ScrollView contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 30, maxWidth: 520, width: "100%", alignSelf: "center" }}>
           <Glow height={520} at={0.22} />
@@ -287,6 +291,7 @@ export function FriendPage({ friend, me, myName, myTitle = null, myCoins = 0, tr
           </View>
         </ScrollView>
       </View>
+          </SwipeBack>
     </Modal>
   );
 }

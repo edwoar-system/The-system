@@ -21,6 +21,7 @@ import { statValue } from "../game/economy";
 import { searchText, similarSkills } from "../game/custom";
 import AddSkill from "./AddSkill";
 import Assess from "./Assess";
+import SwipeBack from "./SwipeBack";
 const FILTERS = ["all", "new", "trained", "rust", "liked"];
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
@@ -76,10 +77,10 @@ export default function Skills({ user, player, onGoToQuest, focusSkill, onFocusD
   useEffect(() => () => clearTimeout(addTimer.current), []);
   const toggle = (st) => setOpenStats((o) => (o.includes(st) ? o.filter((x) => x !== st) : [...o, st]));
 
-  if (guildFor) return <Guild user={user} player={player} initialSkill={guildFor} onClose={() => setGuildFor(null)} onAccepted={(id) => { const from = guildFor; setGuildFor(null); onGoToQuest?.({ id, slot: "guild" }, from); }} />;
-  if (open) return <SkillPage key={`${open}-${placeAt?.rank ?? ""}`} user={user} player={player} id={open} onBack={() => { setOpen(null); setPlaceAt(null); }} onRequest={() => setGuildFor(open)}
+  if (guildFor) return <SwipeBack onBack={() => setGuildFor(null)}><Guild user={user} player={player} initialSkill={guildFor} onClose={() => setGuildFor(null)} onAccepted={(id) => { const from = guildFor; setGuildFor(null); onGoToQuest?.({ id, slot: "guild" }, from); }} /></SwipeBack>;
+  if (open) return <SwipeBack onBack={() => { setOpen(null); setPlaceAt(null); }}><SkillPage key={`${open}-${placeAt?.rank ?? ""}`} user={user} player={player} id={open} onBack={() => { setOpen(null); setPlaceAt(null); }} onRequest={() => setGuildFor(open)}
     initialPlacement={placeAt?.id === open && placeAt.rank > (skillView(open, player.skills?.[open]).rank + 1) ? placeAt.rank : null}
-    onOpenCourse={onOpenCourse ? (cid) => onOpenCourse(cid, open) : null} />;
+    onOpenCourse={onOpenCourse ? (cid) => onOpenCourse(cid, open) : null} /></SwipeBack>;
 
   const today = dayNum();
   const view = (id) => skillView(id, player.skills?.[id], today);

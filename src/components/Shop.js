@@ -14,6 +14,7 @@ import { doneFeel } from "../lib/haptics";
 import { Coins, Frame, Glow, Label, SysButton } from "./sys";
 import { SkinProvider, useTheme } from "../theme";
 import { t } from "../i18n";
+import SwipeBack from "./SwipeBack";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 export const leftText = (ms) => {
@@ -152,6 +153,7 @@ export default function Shop({ user, player, onClose }) {
 
   return (
     <Modal animationType="slide" visible onRequestClose={onClose}>
+      <SwipeBack onBack={onClose}>
       <View style={{ flex: 1, backgroundColor: color.bg }}>
         <ScrollView contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 40, paddingHorizontal: 14, maxWidth: 520, width: "100%", alignSelf: "center", gap: 12 }}>
           <Glow height={380} at={0.18} />
@@ -282,6 +284,7 @@ export default function Shop({ user, player, onClose }) {
           onConfirm={() => buyAppTime(user.uid, kind, unlock.minutes, fill(t.shop.logTitle, { kind: t.shop.kinds[kind], min: unlock.minutes }))} />
       ) : null}
       {trollFor ? <TrollPicker name={trollFor.card?.name ?? trollFor.name} coins={coins} onPick={pickTroll} onClose={() => setTrollFor(null)} /> : null}
+          </SwipeBack>
     </Modal>
   );
 }

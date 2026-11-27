@@ -11,6 +11,7 @@ import { doneFeel } from "../lib/haptics";
 import { Frame, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
+import SwipeBack from "./SwipeBack";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
@@ -142,6 +143,7 @@ function Browse({ user, player, onClose, initial = null }) {
   const start = (id, today = false) => startProgram(user.uid, id, today).then(() => { doneFeel(); setMsg(today ? t.programs.startedToday : t.programs.started); setInfo(null); }).catch((e) => setMsg(e.message === "max" ? fill(t.programs.max, { n: MAX_PROGRAMS }) : t.programs.failed));
   return (
     <Modal animationType="slide" visible onRequestClose={onClose}>
+      <SwipeBack onBack={onClose}>
       <View style={{ flex: 1, backgroundColor: color.bg }}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 40, paddingHorizontal: 14, maxWidth: 520, width: "100%", alignSelf: "center", gap: 12 }}>
           <Pressable accessibilityRole="button" onPress={onClose} style={{ minHeight: 44, justifyContent: "center", alignSelf: "flex-start" }}>
@@ -173,6 +175,7 @@ function Browse({ user, player, onClose, initial = null }) {
           </Frame>}
         </ScrollView>
       </View>
+          </SwipeBack>
     </Modal>
   );
 }

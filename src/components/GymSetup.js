@@ -10,6 +10,7 @@ import { SavedStamp, useSavedStamp } from "./saved";
 import { Frame, Glow, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
+import SwipeBack from "./SwipeBack";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 const mainMuscles = (e) => Object.entries(e.muscles).filter(([, k]) => k >= 0.9).map(([m]) => muscleById[m]?.name).filter(Boolean);
@@ -53,6 +54,7 @@ function ExercisePicker({ onPick, onClose, have }) {
   const match = (e) => !q.trim() || `${e.name} ${mainMuscles(e).join(" ")}`.toLowerCase().includes(q.trim().toLowerCase());
   return (
     <Modal animationType="slide" visible onRequestClose={onClose}>
+      <SwipeBack onBack={onClose}>
       <View style={{ flex: 1, backgroundColor: color.bg }}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 30, paddingHorizontal: 14, maxWidth: 520, width: "100%", alignSelf: "center", gap: 12 }}>
           <Pressable accessibilityRole="button" onPress={onClose} style={{ minHeight: 44, justifyContent: "center", alignSelf: "flex-start" }}>
@@ -82,6 +84,7 @@ function ExercisePicker({ onPick, onClose, have }) {
           })}
         </ScrollView>
       </View>
+          </SwipeBack>
     </Modal>
   );
 }
@@ -119,6 +122,7 @@ export default function GymSetup({ user, player, onClose }) {
 
   return (
     <Modal animationType="slide" visible onRequestClose={onClose}>
+      <SwipeBack onBack={onClose}>
       <Provider value={track}>
         <View style={{ flex: 1, backgroundColor: color.bg }}>
           <ScrollView contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 80, paddingHorizontal: 14, maxWidth: 520, width: "100%", alignSelf: "center", gap: 12 }}>
@@ -222,6 +226,7 @@ export default function GymSetup({ user, player, onClose }) {
             onPick={(id) => { editDay(adding, (dd) => ({ ...dd, ex: [...dd.ex, { id, sets: exerciseById[id].sets, reps: exerciseById[id].reps }] })); setAdding(null); }} />
         ) : null}
       </Provider>
+          </SwipeBack>
     </Modal>
   );
 }

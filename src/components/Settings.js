@@ -1,11 +1,11 @@
 // Settings tab: profile, Tune the System (questionnaire), quotes, the System settings, reminders, quest history and the account.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Image, Modal, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
 import * as Updates from "expo-updates";
 import { signOut } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth } from "../lib/firebase";
-import { setDifficulty, setFeelSetting, setMorning, setNotify, setPrivacy, setProof, setReminders } from "../lib/player";
+import { setDifficulty, setSimple, setFeelSetting, setMorning, setNotify, setPrivacy, setProof, setReminders } from "../lib/player";
 import { difficultyOf } from "../game/difficulty";
 import { hhmm } from "../game/schedule";
 import { changeName } from "../lib/shop";
@@ -59,24 +59,32 @@ function Input({ label, value, onChangeText, keyboardType, width, maxLength }) {
 }
 
 // A settings group. With onToggle it folds: only its title shows until you open it (one open at a time).
-function Section({ title, sub, children, open = true, onToggle }) {
+// A small heading over a group of settings.
+function GroupLabel({ text }) {
+  const { color, font } = useTheme();
+  return <Text style={{ marginTop: 22, marginBottom: 2, paddingHorizontal: 4, fontFamily: font.bold, fontSize: 11, letterSpacing: 3, color: color.muted }}>{text}</Text>;
+}
+
+function Section({ title, sub, children, open = true, onToggle, onLayout }) {
   const { color, font } = useTheme();
   const head = (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
       <View style={{ flex: 1, gap: 4 }}>
-        <Label tone={color.hi}>{title}</Label>
+        <Label tone={color.hi}>{String(title ?? "").toUpperCase()}</Label>
         {sub && (open || !onToggle) ? <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{sub}</Text> : null}
       </View>
       {onToggle ? <Text style={{ fontFamily: font.bold, fontSize: 18, color: color.muted, transform: [{ rotate: open ? "90deg" : "0deg" }] }}>›</Text> : null}
     </View>
   );
   return (
-    <Frame cut={14} style={{ marginTop: onToggle ? 8 : 14 }} contentStyle={{ padding: onToggle && !open ? 14 : 16, gap: 12 }}>
+    <View onLayout={onLayout}>
+    <Frame cut={14} style={{ marginTop: onToggle ? 6 : 14 }} contentStyle={{ padding: onToggle && !open ? 13 : 16, gap: 12 }}>
       {onToggle ? (
         <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={onToggle} style={{ minHeight: 28, justifyContent: "center" }}>{head}</Pressable>
       ) : head}
       {open ? children : null}
     </Frame>
+    </View>
   );
 }
 
@@ -563,7 +571,18 @@ function History({ uid, honesty }) {
 export default function Settings({ user, player, synced }) {
   // Groups fold, one open at a time, so Settings isn't one long scroll.
   const [openGroup, setOpenGroup] = useState(null);
-  const fold = (id) => ({ open: openGroup === id, onToggle: () => setOpenGroup((o) => (o === id ? null : id)) });
+  // One section open at a time; opening one scrolls it to the top so you don't hunt for it.
+  const scrollRef = useRef(null);
+  const sectionY = useRef({});
+  const fold = (id) => ({
+    open: openGroup === id,
+    onLayout: (e) => { sectionY.current[id] = e.nativeEvent.layout.y; },
+    onToggle: () => {
+      const opening = openGroup !== id;
+      setOpenGroup(opening ? id : null);
+      if (opening) setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, (sectionY.current[id] ?? 0) - 8), animated: true }), 60);
+    },
+  });
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
   const [name, setName] = useState(player.name ?? "");
@@ -588,7 +607,7 @@ export default function Settings({ user, player, synced }) {
   return (
     <Provider value={track}>
     <View style={{ flex: 1, backgroundColor: color.bg }}>
-    <ScrollView style={{ flex: 1, backgroundColor: color.bg }} keyboardShouldPersistTaps="handled"
+    <ScrollView ref={scrollRef} style={{ flex: 1, backgroundColor: color.bg }} keyboardShouldPersistTaps="handled"
       contentContainerStyle={{ paddingTop: insets.top + 14, paddingBottom: 40, paddingHorizontal: 14, maxWidth: 520, width: "100%", alignSelf: "center" }}>
       <Glow height={380} at={0.18} />
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 4 }}>
@@ -597,7 +616,8 @@ export default function Settings({ user, player, synced }) {
       </View>
       <Text accessibilityRole="header" style={{ marginTop: 20, marginBottom: 6, textAlign: "center", fontFamily: font.bold, fontSize: 26, letterSpacing: 1, color: "#FFFFFF" }}>{t.settings.title}</Text>
 
-      <Section title={t.settings.profile}>
+      <GroupLabel text={t.settings.groups.you} />
+      <Section title={t.settings.profile} {...fold("profile")}>
         <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-end" }}>
           <View style={{ flex: 1 }}><Input label={t.settings.name} value={name} onChangeText={(v) => { setName(v); setNameError(null); }} maxLength={24} /></View>
         </View>
@@ -606,27 +626,49 @@ export default function Settings({ user, player, synced }) {
         ) : <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{namePrice ? fill(t.settings.nameHint, { n: namePrice }) : t.settings.nameHintFree}</Text>}
         {nameError ? <Text style={{ fontFamily: font.body, fontSize: 13, color: "#F6B45A" }}>{nameError}</Text> : null}
       </Section>
-
       <Section title={t.tune.title} sub={t.tune.sub} {...fold("s2")}>
         <Tune user={user} player={player} />
       </Section>
-
       <Section title={t.morning.section} sub={t.morning.sectionSub} {...fold("morning")}>
         <Morning user={user} player={player} />
       </Section>
+      <Section title={t.gym.section} sub={t.gym.sectionSub} {...fold("s7")}>
+        <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>
+          {player.gym ? fill(t.gym.summary, { name: TEMPLATES[player.gym.template]?.name ?? "", days: player.gym.weekdays.map((d) => t.gym.weekdays[d]).join(" ") || t.gym.noDays }) : t.gym.none}
+        </Text>
+        <SysButton label={player.gym ? t.gym.edit : t.gym.setUp} onPress={() => setGymOpen(true)} />
+      </Section>
+      {gymOpen ? <GymSetup user={user} player={player} onClose={() => setGymOpen(false)} /> : null}
 
+      <GroupLabel text={t.settings.groups.day} />
+      <Section title={t.schedule.section} sub={t.schedule.sectionSub} {...fold("s6")}>
+        <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{fill(t.schedule.summary, { n: (player.schedule ?? []).length })}</Text>
+        <SysButton label={t.schedule.open} onPress={() => setSchedOpen(true)} />
+      </Section>
+      {schedOpen ? <Schedule user={user} player={player} onClose={() => setSchedOpen(false)} /> : null}
       <Section title={t.agenda.title} sub={t.agenda.sub} {...fold("agenda")}>
         <Agenda user={user} player={player} />
+      </Section>
+      <Section title={t.reminders.title} sub={t.reminders.sub} {...fold("s10")}>
+        <Reminders user={user} player={player} />
       </Section>
       <Section title={t.places.title} sub={t.places.sub} {...fold("s3")}>
         <Places user={user} player={player} />
       </Section>
 
-      <Section title={t.hard.title} sub={t.hard.sub} {...fold("s4")}>
-        <HardMode user={user} player={player} />
-      </Section>
-
+      <GroupLabel text={t.settings.groups.game} />
       <Section title={t.settings.system} {...fold("s5")}>
+        <Pressable accessibilityRole="switch" accessibilityState={{ checked: player.simple === true }}
+          onPress={() => track(setSimple(user.uid, player.simple !== true)).catch(() => {})}
+          style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 52 }}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={{ fontFamily: font.bodyBold, fontSize: 15, color: "#FFFFFF" }}>{t.settings.simple}</Text>
+            <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.settings.simpleSub}</Text>
+          </View>
+          <View style={{ width: 46, height: 26, borderWidth: 1, borderColor: player.simple ? color.accent : "rgba(159,203,255,0.35)", backgroundColor: player.simple ? "rgba(159,203,255,0.25)" : "transparent", justifyContent: "center", paddingHorizontal: 3 }}>
+            <View style={{ width: 18, height: 18, backgroundColor: player.simple ? "#FFFFFF" : color.muted, alignSelf: player.simple ? "flex-end" : "flex-start" }} />
+          </View>
+        </Pressable>
         <View style={{ gap: 8 }}>
           <Label>{t.difficulty.title}</Label>
           <DifficultyChips value={difficultyOf(player)} onChange={(d) => { if (!isHard(player)) track(setDifficulty(user.uid, d)).catch(() => {}); }} />
@@ -643,54 +685,35 @@ export default function Settings({ user, player, synced }) {
           {pendingSeverity ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 12, color: color.frame }}>{fill(t.settings.severityNext, { sev: t.penalty.severities[pendingSeverity] })}</Text> : null}
         </View>
       </Section>
-
-      <Section title={t.schedule.section} sub={t.schedule.sectionSub} {...fold("s6")}>
-        <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{fill(t.schedule.summary, { n: (player.schedule ?? []).length })}</Text>
-        <SysButton label={t.schedule.open} onPress={() => setSchedOpen(true)} />
+      <Section title={t.hard.title} sub={t.hard.sub} {...fold("s4")}>
+        <HardMode user={user} player={player} />
       </Section>
-      {schedOpen ? <Schedule user={user} player={player} onClose={() => setSchedOpen(false)} /> : null}
-
-      <Section title={t.gym.section} sub={t.gym.sectionSub} {...fold("s7")}>
-        <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>
-          {player.gym ? fill(t.gym.summary, { name: TEMPLATES[player.gym.template]?.name ?? "", days: player.gym.weekdays.map((d) => t.gym.weekdays[d]).join(" ") || t.gym.noDays }) : t.gym.none}
-        </Text>
-        <SysButton label={player.gym ? t.gym.edit : t.gym.setUp} onPress={() => setGymOpen(true)} />
-      </Section>
-      {gymOpen ? <GymSetup user={user} player={player} onClose={() => setGymOpen(false)} /> : null}
-
       <Section title={t.proof.title} sub={t.proof.sub} {...fold("s8")}>
         <ProofChoice user={user} player={player} />
       </Section>
 
+      <GroupLabel text={t.settings.groups.app} />
+      <Section title={t.notify.section} {...fold("s12")}>
+        <Notifications user={user} player={player} />
+      </Section>
+      <Section title={t.feel.title} sub={t.feel.sub} {...fold("s11")}>
+        <Feel user={user} player={player} />
+      </Section>
       <Section title={t.privacy.title} sub={t.privacy.sub} {...fold("s9")}>
         <Privacy user={user} player={player} />
       </Section>
 
-      <Section title={t.reminders.title} sub={t.reminders.sub} {...fold("s10")}>
-        <Reminders user={user} player={player} />
+      <GroupLabel text={t.settings.groups.more} />
+      <Section title={t.explain.section} sub={t.explain.sectionSub} {...fold("s14")}>
+        <Glossary />
       </Section>
-
-      <Section title={t.feel.title} sub={t.feel.sub} {...fold("s11")}>
-        <Feel user={user} player={player} />
+      <Section title={t.settings.history} {...fold("s15")}>
+        <History uid={user.uid} honesty={player.honesty} />
       </Section>
-
-      <Section title={t.notify.section} {...fold("s12")}>
-        <Notifications user={user} player={player} />
-      </Section>
-
       <Section title={t.feedback.section} sub={t.feedback.sectionSub} {...fold("s13")}>
         <SysButton label={t.feedback.open} onPress={() => setFeedback(true)} />
       </Section>
       {feedback ? <FeedbackSheet user={user} player={player} onClose={() => setFeedback(false)} /> : null}
-
-      <Section title={t.explain.section} sub={t.explain.sectionSub} {...fold("s14")}>
-        <Glossary />
-      </Section>
-
-      <Section title={t.settings.history} {...fold("s15")}>
-        <History uid={user.uid} honesty={player.honesty} />
-      </Section>
-
       <Section title={t.settings.account} {...fold("s16")}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <View style={{ width: 7, height: 7, transform: [{ rotate: "45deg" }], backgroundColor: synced ? color.accent : color.muted }} />
@@ -707,6 +730,7 @@ export default function Settings({ user, player, synced }) {
           <Tester user={user} player={player} />
         </Section>
       ) : null}
+
     </ScrollView>
     <SavedStamp stamp={stamp} />
     </View>

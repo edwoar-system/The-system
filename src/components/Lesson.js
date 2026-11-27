@@ -16,6 +16,7 @@ import WritePad from "./WritePad";
 import { Frame, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
+import SwipeBack from "./SwipeBack";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 const shuffle = (a) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
@@ -133,6 +134,7 @@ export default function Lesson({ user, course, set, review = null, onClose }) {
 
   return (
     <Modal animationType="slide" visible onRequestClose={onClose}>
+      <SwipeBack onBack={onClose}>
       <View style={{ flex: 1, backgroundColor: color.bg }}>
         <ScrollView keyboardShouldPersistTaps="handled" scrollEnabled={phase !== "write"}
           contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 40, paddingHorizontal: 16, maxWidth: 520, width: "100%", alignSelf: "center", gap: 14 }}>
@@ -258,6 +260,7 @@ export default function Lesson({ user, course, set, review = null, onClose }) {
           {mistakes && phase === "quiz" && !review ? <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted, textAlign: "center" }}>{t.course.quizNote}</Text> : null}
         </ScrollView>
       </View>
+          </SwipeBack>
     </Modal>
   );
 }

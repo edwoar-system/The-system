@@ -50,6 +50,7 @@ import { useTheme } from "../theme";
 import { t } from "../i18n";
 import { doneFeel, tapFeel } from "../lib/haptics";
 import { HelpDot } from "./Explain";
+import SwipeBack from "./SwipeBack";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 const DEADLINE_HOUR = 21;
@@ -433,6 +434,9 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
     );
   }
 
+  // Simple mode (Settings → The System): only what matters today; the extras stay out of sight.
+  const simple = player.simple === true;
+
   // New players: first quests until the System knows them (game/firstQuests.js).
   if (needsFirst(player)) {
     return (
@@ -446,7 +450,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
     );
   }
 
-  if (guild) return <Guild user={user} player={player} onClose={() => setGuild(false)} onAccepted={(id) => { setGuild(false); focusTimer.current = setTimeout(() => setSheet({ id, slot: "guild" }), 600); }} />;
+  if (guild) return <SwipeBack onBack={() => setGuild(false)}><Guild user={user} player={player} onClose={() => setGuild(false)} onAccepted={(id) => { setGuild(false); focusTimer.current = setTimeout(() => setSheet({ id, slot: "guild" }), 600); }} /></SwipeBack>;
 
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>
@@ -493,7 +497,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
         {bedtime && !day.end?.done ? checklist("end", END_PARTS, day.endTicks) : null}
 
         {/* Tomorrow: commit tonight to a phone-free first hour (it starts the moment you wake, so it's chosen the day before). */}
-        {nowD.getHours() >= 17 ? (
+        {nowD.getHours() >= 17 && !simple ? (
           <Frame style={{ marginTop: 14, marginHorizontal: 14 }} cut={10} contentStyle={{ paddingVertical: 12, paddingHorizontal: 16, gap: 8 }}>
             <Label tone={color.accent}>{t.commit.title}</Label>
             <Text style={{ fontFamily: font.bodyBold, fontSize: 15, color: "#FFFFFF" }}>{t.commit.nophone}</Text>
@@ -625,8 +629,8 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
           {/* Guild quests you took sit right under your goals, not at the bottom. */}
           {day.guild.length ? questList(t.board.guildQuests, day.guild, "guild", t.board.guildHint) : null}
           {/* Program sessions: extra side quests from the programs you follow (they don't count for the streak). */}
-          {programList.length ? questList(t.board.programQuests, programList, "program", t.board.programHint) : null}
-          {trials.length ? (
+          {programList.length && !simple ? questList(t.board.programQuests, programList, "program", t.board.programHint) : null}
+          {trials.length && !simple ? (
             <Frame cut={12} tone={color.purple}>
               <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: color.line }}>
                 <Label tone={color.hi}>{t.board.trials}</Label>
@@ -655,7 +659,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
               <View style={{ height: 6 }} />
             </Frame>
           ) : null}
-          {day.side ? (
+          {day.side && !simple ? (
             <Frame cut={12}>
               <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: color.line, gap: 2 }}>
                 <Label tone={color.hi}>{t.board.side}</Label>

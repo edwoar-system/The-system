@@ -13,6 +13,7 @@ import { dayNum, skillView } from "../game/skills";
 import { Frame, Label } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
+import SwipeBack from "./SwipeBack";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 const show = (n) => (Number.isInteger(n) ? String(n) : String(Math.round(n * 10) / 10));
@@ -74,6 +75,7 @@ export default function Assess({ user, player, onClose, onTrial }) {
   const row = (id) => <Row key={id} id={id} player={player} value={player.maxes?.[id] ?? null} onChange={(v) => save(id, v)} onTrial={onTrial} />;
   return (
     <Modal animationType="slide" visible onRequestClose={onClose}>
+      <SwipeBack onBack={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: color.bg }}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingTop: insets.top + 10, paddingBottom: insets.bottom + 60, paddingHorizontal: 14, gap: 12, maxWidth: 520, width: "100%", alignSelf: "center" }}>
           <Pressable accessibilityRole="button" onPress={onClose} hitSlop={8} style={{ minHeight: 44, justifyContent: "center", alignSelf: "flex-start" }}>
@@ -94,6 +96,7 @@ export default function Assess({ user, player, onClose, onTrial }) {
           <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.assess.note}</Text>
         </ScrollView>
       </KeyboardAvoidingView>
+          </SwipeBack>
     </Modal>
   );
 }

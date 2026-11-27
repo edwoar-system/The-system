@@ -10,6 +10,7 @@ import Lesson from "./Lesson";
 import { Frame, Glow, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
+import SwipeBack from "./SwipeBack";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
@@ -26,6 +27,7 @@ export default function Course({ user, course, onClose }) {
 
   return (
     <Modal animationType="slide" visible onRequestClose={onClose}>
+      <SwipeBack onBack={onClose}>
       <View style={{ flex: 1, backgroundColor: color.bg }}>
         <ScrollView contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 40, paddingHorizontal: 14, maxWidth: 520, width: "100%", alignSelf: "center", gap: 12 }}>
           <Glow height={360} at={0.18} />
@@ -81,6 +83,7 @@ export default function Course({ user, course, onClose }) {
         </ScrollView>
         {lesson ? <Lesson user={user} course={course} set={lesson.set ?? null} review={lesson.review ?? null} onClose={() => setLesson(null)} /> : null}
       </View>
+          </SwipeBack>
     </Modal>
   );
 }

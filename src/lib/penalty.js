@@ -3,7 +3,8 @@ import { addDoc, collection, doc, runTransaction, serverTimestamp } from "fireba
 import { db } from "./firebase";
 import { currentDay } from "./day";
 import { todayKey } from "../game/quests";
-import { penaltyDue, penaltyUntil, redemptionById, severityFor } from "../game/penalty";
+import { penaltyDue, penaltyUntil, redemptionById, redemptionReadyAt, severityFor } from "../game/penalty";
+import { saveProof } from "./proof";
 
 const ref = (uid) => doc(db, "players", uid);
 
@@ -57,7 +58,9 @@ async function update(uid, fn) {
 }
 
 export const markPenaltySeen = (uid) => update(uid, (p) => (p.penalty ? { penalty: { ...p.penalty, seen: true } } : null));
-export const chooseRedemption = (uid, id) => update(uid, (p) => (p.penalty?.status === "active" && redemptionById[id] ? { penalty: { ...p.penalty, redemption: id } } : null));
+export const chooseRedemption = (uid, id) => update(uid, (p) => (p.penalty?.status === "active" && redemptionById[id] ? { penalty: { ...p.penalty, redemption: id, startedAt: Date.now() } } : null));
+// Changed your mind: pick another (its time starts again).
+export const changeRedemption = (uid) => update(uid, (p) => (p.penalty?.status === "active" ? { penalty: { ...p.penalty, redemption: null, startedAt: null } } : null));
 export const dismissNotice = (uid) => update(uid, (p) => (p.notice ? { notice: { ...p.notice, seen: true } } : null));
 export const setPenaltySeverity = (uid, s) => update(uid, () => ({ penaltySeverity: s, penaltySeverityNext: null, penaltySeverityFrom: null }));
 
@@ -72,10 +75,15 @@ export const scheduleSeverity = (uid, s) => update(uid, (player) => {
 });
 
 // No reward, only freedom.
-export async function finishRedemption(uid) {
+// Finishing needs the minimum time to have passed, and a photo for the ones that ask for one.
+export async function finishRedemption(uid, photo = null) {
   await update(uid, (p) => {
     if (p.penalty?.status !== "active" || !p.penalty.redemption) throw new Error("no-redemption");
+    const r = redemptionById[p.penalty.redemption];
+    if (Date.now() < (redemptionReadyAt(p.penalty) ?? 0)) throw new Error("too-soon");
+    if (r?.photo && !photo) throw new Error("needs-photo");
     return { penalty: { ...p.penalty, status: "redeemed", redeemedAt: Date.now() }, redemptions: (p.redemptions ?? 0) + 1, lastQuestAt: Date.now() };
   });
-  addDoc(collection(db, "players", uid, "log"), { questId: "redemption", slot: "penalty", title: "Redemption quest", coins: 0, xp: 0, date: todayKey(), at: serverTimestamp() }).catch(() => {});
+  const log = await addDoc(collection(db, "players", uid, "log"), { questId: "redemption", slot: "penalty", title: "Redemption quest", coins: 0, xp: 0, date: todayKey(), at: serverTimestamp() }).catch(() => null);
+  if (log && photo) saveProof(uid, log.id, photo).catch(() => {});
 }

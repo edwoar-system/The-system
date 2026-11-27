@@ -21,6 +21,7 @@ import QuotePage from "./QuotePage";
 import { Frame, Glow, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
+import SwipeBack from "./SwipeBack";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 const has = (text, q) => String(text ?? "").toLowerCase().includes(q);
@@ -31,6 +32,7 @@ function Page({ back, title, sub, onClose, children }) {
   const insets = useSafeAreaInsets();
   return (
     <Modal animationType="slide" visible onRequestClose={onClose}>
+      <SwipeBack onBack={onClose}>
       <View style={{ flex: 1, backgroundColor: color.bg }}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 40, paddingHorizontal: 14, maxWidth: 560, width: "100%", alignSelf: "center", gap: 12 }}>
           <Pressable accessibilityRole="button" onPress={onClose} style={{ minHeight: 44, justifyContent: "center", alignSelf: "flex-start" }}>
@@ -41,6 +43,7 @@ function Page({ back, title, sub, onClose, children }) {
           {children}
         </ScrollView>
       </View>
+          </SwipeBack>
     </Modal>
   );
 }

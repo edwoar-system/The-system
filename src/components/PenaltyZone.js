@@ -1,11 +1,12 @@
 // Penalty Zone: the cutscene when you enter, the timer, and the redemption quest. Black with red accents only.
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { Animated, Easing, Image, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Path, Polygon, Rect, Line } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { REDEMPTIONS, redemptionById, redemptionTitle } from "../game/penalty";
+import { REDEMPTIONS, redemptionById, redemptionMinutes, redemptionReadyAt, redemptionTitle } from "../game/penalty";
 import { questById } from "../game/quests";
-import { chooseRedemption, finishRedemption, markPenaltySeen } from "../lib/penalty";
+import { changeRedemption, chooseRedemption, finishRedemption, markPenaltySeen } from "../lib/penalty";
+import { pickProof } from "../lib/proof";
 import { Label, SysButton, hexPoints } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
@@ -43,6 +44,7 @@ export default function PenaltyZone({ user, player, onClose, intro }) {
   const a = useRef(new Animated.Value(intro ? 0 : 1)).current;
   const [busy, setBusy] = useState(false);
   const [freed, setFreed] = useState(false);
+  const [photo, setPhoto] = useState(null);
   const p = player.penalty;
 
   useEffect(() => {
@@ -62,6 +64,7 @@ export default function PenaltyZone({ user, player, onClose, intro }) {
   const u = new Date(p.until);
   const untilText = `${String(u.getHours()).padStart(2, "0")}:${String(u.getMinutes()).padStart(2, "0")}`;
   const chosen = p.redemption ? redemptionById[p.redemption] : null;
+  const readyIn = chosen ? Math.max(0, (redemptionReadyAt(p) ?? 0) - now) : 0;
   const act = async (fn, after) => { setBusy(true); try { await fn(); after?.(); } catch (e) { /* stays as is */ } finally { setBusy(false); } };
 
   return (
@@ -128,10 +131,27 @@ export default function PenaltyZone({ user, player, onClose, intro }) {
                       <Text style={{ fontFamily: font.bodyMedium, fontSize: 15, lineHeight: 21, color: "#F4E9EA" }}>
                         {fill(t.penalty.acceptedText, { title: redemptionTitle(chosen, p.severity) })}
                       </Text>
-                      <Text style={{ fontFamily: font.body, fontSize: 12, color: "#A28C90" }}>{chosen.proof}</Text>
-                      <Pressable accessibilityRole="button" disabled={busy} onPress={() => act(() => finishRedemption(user.uid), () => setFreed(true))}
-                        style={({ pressed }) => ({ minHeight: 50, alignItems: "center", justifyContent: "center", backgroundColor: "#B3142E", borderWidth: 1, borderColor: "#FF5A6B", opacity: busy ? 0.6 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
+                      {readyIn > 0 ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: "#E0A3AA" }}>{fill(t.penalty.readyIn, { time: hms(readyIn) })}</Text> : null}
+                      {chosen.photo ? (
+                        <View style={{ gap: 8 }}>
+                          <Text style={{ fontFamily: font.body, fontSize: 12, color: "#A28C90" }}>{photo ? t.penalty.photoAdded : t.penalty.needsPhoto}</Text>
+                          {photo ? <Image source={{ uri: photo }} style={{ width: "100%", height: 160 }} resizeMode="cover" accessibilityIgnoresInvertColors /> : null}
+                          <View style={{ flexDirection: "row", gap: 8 }}>
+                            {["camera", "library"].map((src) => (
+                              <Pressable key={src} accessibilityRole="button" onPress={() => pickProof(src).then((r) => { if (r?.uri) setPhoto(r.uri); }).catch(() => {})}
+                                style={{ flex: 1, minHeight: 44, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,90,107,0.4)" }}>
+                                <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: "#F4E9EA" }}>{src === "camera" ? t.penalty.photoCamera : t.penalty.photoLibrary}</Text>
+                              </Pressable>
+                            ))}
+                          </View>
+                        </View>
+                      ) : null}
+                      <Pressable accessibilityRole="button" disabled={busy || readyIn > 0 || (chosen.photo && !photo)} onPress={() => act(() => finishRedemption(user.uid, photo), () => setFreed(true))}
+                        style={({ pressed }) => ({ minHeight: 50, alignItems: "center", justifyContent: "center", backgroundColor: "#B3142E", borderWidth: 1, borderColor: "#FF5A6B", opacity: busy || readyIn > 0 || (chosen.photo && !photo) ? 0.4 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
                         <Text style={{ fontFamily: font.bold, fontSize: 15, letterSpacing: 3, color: "#FFFFFF" }}>{t.penalty.finished}</Text>
+                      </Pressable>
+                      <Pressable accessibilityRole="button" disabled={busy} onPress={() => act(() => changeRedemption(user.uid), () => setPhoto(null))} style={{ minHeight: 40, alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: "#A28C90" }}>{t.penalty.change}</Text>
                       </Pressable>
                     </>
                   ) : (
@@ -139,7 +159,7 @@ export default function PenaltyZone({ user, player, onClose, intro }) {
                       <Pressable key={r.id} accessibilityRole="button" disabled={busy} onPress={() => act(() => chooseRedemption(user.uid, r.id))}
                         style={{ minHeight: 56, paddingHorizontal: 12, paddingVertical: 10, justifyContent: "center", gap: 3, borderWidth: 1, borderColor: "rgba(255,90,107,0.22)" }}>
                         <Text style={{ fontFamily: font.bold, fontSize: 16, color: "#F4E9EA" }}>{redemptionTitle(r, p.severity)}</Text>
-                        <Text style={{ fontFamily: font.body, fontSize: 12, color: "#A28C90" }}>{r.proof}</Text>
+                        <Text style={{ fontFamily: font.body, fontSize: 12, color: "#A28C90" }}>{fill(r.photo ? t.penalty.proofPhoto : t.penalty.proofTime, { n: redemptionMinutes(r, p.severity) })}</Text>
                       </Pressable>
                     ))
                   )}

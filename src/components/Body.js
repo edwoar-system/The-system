@@ -11,6 +11,7 @@ import { useTheme } from "../theme";
 import { t } from "../i18n";
 import StatusEffects from "./StatusEffects";
 import { HabitsScreen } from "./Habits";
+import SwipeBack from "./SwipeBack";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
@@ -107,6 +108,7 @@ export function BodyScreen({ user, player, onClose }) {
   };
   return (
     <Modal animationType="slide" visible onRequestClose={onClose}>
+      <SwipeBack onBack={onClose}>
       <View style={{ flex: 1, backgroundColor: color.bg }}>
         <ScrollView contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 30, paddingHorizontal: 14, maxWidth: 520, width: "100%", alignSelf: "center" }}>
           <Glow height={420} at={0.2} />
@@ -167,6 +169,7 @@ export function BodyScreen({ user, player, onClose }) {
           ))}
         </ScrollView>
       </View>
+          </SwipeBack>
     </Modal>
   );
 }

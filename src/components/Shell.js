@@ -38,6 +38,7 @@ import { useLevelRewards } from "../lib/level";
 import { useTitleAlerts } from "../lib/titles";
 import { useObserverEvents } from "../lib/observers";
 import { useLinkActions } from "../lib/links";
+import SwipeBack from "./SwipeBack";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
@@ -242,7 +243,8 @@ function ShellBody({ user, state }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: color.bg }}>
-      <View style={{ flex: 1 }}>
+      {/* Swipe from the left edge = the back pill (when you came here from another tab). */}
+      <SwipeBack onBack={goBack} enabled={trail.length > 0 && !penaltyView}>
         {/* key={tab}: a broken screen resets when you switch tabs. */}
         <ErrorCatcher key={tab} place={tab} uid={user.uid} name={state.player?.name}>
         {tab === "status" ? <Status user={user} {...state} onOpenQuests={() => goTo({ tab: "quests" })} onOpenSettings={() => goTo({ tab: "settings" })} /> : null}
@@ -269,7 +271,7 @@ function ShellBody({ user, state }) {
         {player && !penaltyView ? <Urgent user={user} player={player} /> : null}
         <QuestClear />
         <SystemPopup />
-      </View>
+      </SwipeBack>
       {player && penaltyView ? <PenaltyZone user={user} player={player} intro={penaltyView === "intro"} onClose={() => setPenaltyView(null)} /> : null}
       {player?.notice && !player.notice.seen && !penaltyView ? <ShieldNotice player={player} onClose={() => dismissNotice(user.uid)} /> : null}
       {inPenalty ? <PenaltyBar player={player} onOpen={() => setPenaltyView("manual")} /> : null}

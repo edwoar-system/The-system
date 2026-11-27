@@ -61,6 +61,9 @@ Docs: https://docs.expo.dev/eas/index.md
 - To-dos: `players.todos` (game/todos.js, lib/todos.js, Todos.js): roll over until done, +2 coins for the first 5 a day.
 - Never miss twice (game/comeback.js): a tracked habit kept up lately but missed yesterday comes back as main quest `cb:<habit>`, one step harder.
 - Links: `thesystem://do/<action>` (app/do/[action].js → lib/links.js): water, todo?text=…&when=tomorrow, and tab names. For the iPhone Shortcuts app ("Open URL"). Widgets and long-press quick actions need native code and a new build.
+- Swipe back: wrap a full-screen page in `SwipeBack` (components/SwipeBack.js) with its back/close handler; Shell wraps the tabs with the back-pill trail.
+- Simple mode (`player.simple`, Settings → The System): hides programs, trials, the side quest and tomorrow's commitment on the quest screen.
+- Penalty redemptions need a minimum time from when they're chosen (`startedAt`, `redemptionReadyAt`), plus a photo for run, cycle and tidy. Severity "off" = no Penalty Zone.
 - Observers (`src/lib/observers.js`): friends known only by their worn title. Opening a friend's profile writes a "watch" event (once a day) to `public/{friend}/events`; sponsoring pays 5/20/50 of your own coins into an event the receiver claims. Needs the `events` rule in firestore.rules.
 - Design v0.1 (see the rules doc): black and blue base, purple only for progress, gold for coins and titles, red only for the penalty. Shared pieces live in `src/components/sys.js`.
 
