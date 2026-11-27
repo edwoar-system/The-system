@@ -1,5 +1,5 @@
 // Settings tab: profile, Tune the System (questionnaire), quotes, the System settings, reminders, quest history and the account.
-import { TONES, VOICE_MAX_LINES, ownLines, voiceTone } from "../game/voice";
+import { VOICE_MAX_LINES, myLines, ownLines, pickedIds } from "../game/voice";
 import { useEffect, useRef, useState } from "react";
 import { Image, Modal, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
 import * as Updates from "expo-updates";
@@ -44,6 +44,7 @@ import { parseTime } from "../game/reminders";
 import { askWebNotifications } from "../lib/reminders";
 import { FULL_MORNING, FULL_MORNING_COINS, FULL_MORNING_XP, MORNING_DEFAULT, MORNING_ITEMS, MORNING_MAX, hasFullMorning } from "../game/morning";
 import { deleteAccount } from "../lib/account";
+import SwipeBack from "./SwipeBack";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
@@ -246,59 +247,107 @@ function Places({ user, player }) {
   );
 }
 
-// Voice: how notifications talk to you. Pick a tone, or write your own lines.
+// Voice: which lines your reminders use. Pick from the library (or write your own); none = quotes.
 function Voice({ user, player }) {
+  const { color, font } = useTheme();
+  const [open, setOpen] = useState(false);
+  const n = myLines(player, t.notify.library).length;
+  return (
+    <View style={{ gap: 8, marginTop: 6 }}>
+      <Label>{t.notify.voice}</Label>
+      <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.notify.voiceSub}</Text>
+      <Pressable accessibilityRole="button" onPress={() => setOpen(true)} style={{ minHeight: 48, flexDirection: "row", alignItems: "center", paddingHorizontal: 12, borderWidth: 1, borderColor: color.frame }}>
+        <Text style={{ flex: 1, fontFamily: font.bodyBold, fontSize: 14, color: "#FFFFFF" }}>{t.notify.voiceOpen}</Text>
+        <Text style={{ fontFamily: font.body, fontSize: 12, color: n ? color.accent : color.muted }}>{n ? fill(t.notify.voicePicked, { n }) : t.notify.voiceNone}</Text>
+      </Pressable>
+      {open ? <LinePicker user={user} player={player} onClose={() => setOpen(false)} /> : null}
+    </View>
+  );
+}
+
+function LinePicker({ user, player, onClose }) {
   const track = useTrack();
   const { color, font } = useTheme();
+  const insets = useSafeAreaInsets();
+  const lib = t.notify.library;
+  const cats = Object.keys(lib);
+  const [cat, setCat] = useState(cats[0]);
   const [text, setText] = useState("");
-  const tone = voiceTone(player);
+  const picked = pickedIds(player, lib);
   const lines = ownLines(player);
-  const save = (patch) => track(setVoice(user.uid, { tone, lines, ...patch })).catch(() => {});
+  const save = (patch) => track(setVoice(user.uid, { picked, lines, ...patch })).catch(() => {});
+  const toggle = (id) => save({ picked: picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id] });
+  const ids = lib[cat].map((_, i) => `${cat}:${i}`);
+  const allOn = ids.every((id) => picked.includes(id));
   const add = () => {
     const v = text.trim();
     if (!v) return;
     setText("");
-    save({ tone: "mine", lines: [...lines, v.slice(0, 140)].slice(-VOICE_MAX_LINES) });
+    save({ lines: [...lines, v.slice(0, 140)].slice(-VOICE_MAX_LINES) });
   };
-  const example = tone === "mine" ? lines[lines.length - 1] : tone === "stoic" ? null : t.notify.voices[tone][0];
   return (
-    <View style={{ gap: 10, marginTop: 6 }}>
-      <Label>{t.notify.voice}</Label>
-      <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.notify.voiceSub}</Text>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-        {TONES.map((x) => (
-          <Pressable key={x} accessibilityRole="button" accessibilityState={{ selected: tone === x }} onPress={() => save({ tone: x })}
-            style={{ minHeight: 40, paddingHorizontal: 12, justifyContent: "center", borderWidth: 1, borderColor: tone === x ? color.frame : "rgba(159,203,255,0.25)", backgroundColor: tone === x ? "rgba(159,203,255,0.14)" : "transparent" }}>
-            <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: tone === x ? "#FFFFFF" : color.muted }}>{t.notify.tones[x]}</Text>
-          </Pressable>
-        ))}
-      </View>
-      <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.notify.toneHint[tone]}</Text>
-      {example ? (
-        <View style={{ borderLeftWidth: 2, borderLeftColor: color.accent, paddingLeft: 10, gap: 2 }}>
-          <Text style={{ fontFamily: font.bodyBold, fontSize: 11, letterSpacing: 2, color: color.muted }}>{t.notify.example.toUpperCase()}</Text>
-          <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, lineHeight: 20, color: color.text }}>{example}</Text>
-        </View>
-      ) : null}
-      {tone === "mine" ? (
-        <View style={{ gap: 6 }}>
-          {!lines.length ? <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{t.notify.noLines}</Text> : null}
-          {lines.map((l, i) => (
-            <Pressable key={`${i}-${l}`} accessibilityRole="button" accessibilityHint={t.notify.removeLine} onLongPress={() => save({ lines: lines.filter((_, j) => j !== i) })}
-              style={{ paddingVertical: 8, borderTopWidth: 1, borderTopColor: color.line }}>
-              <Text style={{ fontFamily: font.body, fontSize: 14, lineHeight: 20, color: color.text }}>{l}</Text>
-            </Pressable>
-          ))}
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <TextInput value={text} onChangeText={setText} onSubmitEditing={add} placeholder={t.notify.linePh} placeholderTextColor="#5A6A8A" maxLength={140} accessibilityLabel={t.notify.linePh}
-              style={{ flex: 1, minHeight: 44, paddingHorizontal: 10, fontFamily: font.body, fontSize: 14, color: "#FFFFFF", borderWidth: 1, borderColor: "rgba(159,203,255,0.3)", backgroundColor: "rgba(5,10,24,0.7)" }} />
-            <Pressable accessibilityRole="button" onPress={add} disabled={!text.trim()} style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: "center", borderWidth: 1, borderColor: color.frame, opacity: text.trim() ? 1 : 0.4 }}>
-              <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: "#FFFFFF" }}>{t.notify.addLine}</Text>
+    <Modal animationType="slide" visible onRequestClose={onClose}>
+      <SwipeBack onBack={onClose}>
+        <View style={{ flex: 1, backgroundColor: color.bg, paddingTop: insets.top + 10 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 10 }}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Label tone={color.hi}>{t.notify.libTitle}</Label>
+              <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{fill(t.notify.voicePicked, { n: myLines(player, lib).length })}</Text>
+            </View>
+            <Pressable accessibilityRole="button" onPress={onClose} style={{ minHeight: 44, paddingHorizontal: 12, justifyContent: "center", borderWidth: 1, borderColor: color.frame }}>
+              <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: "#FFFFFF" }}>{t.notify.done}</Text>
             </Pressable>
           </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginTop: 12 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 6 }}>
+            {[...cats, "own"].map((c) => (
+              <Pressable key={c} accessibilityRole="tab" accessibilityState={{ selected: cat === c }} onPress={() => setCat(c)}
+                style={{ minHeight: 40, paddingHorizontal: 12, justifyContent: "center", borderBottomWidth: 2, borderBottomColor: cat === c ? color.accent : "transparent" }}>
+                <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: cat === c ? "#FFFFFF" : color.muted }}>{c === "own" ? t.notify.ownTitle : t.notify.libCats[c]}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40, gap: 2, maxWidth: 560, width: "100%", alignSelf: "center" }}>
+            <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted, marginBottom: 8 }}>{t.notify.libSub}</Text>
+            {cat === "own" ? (
+              <View style={{ gap: 8 }}>
+                {lines.map((l, i) => (
+                  <Pressable key={`${i}-${l}`} accessibilityRole="button" accessibilityHint={t.notify.removeLine} onLongPress={() => save({ lines: lines.filter((_, j) => j !== i) })}
+                    style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: color.line }}>
+                    <Text style={{ fontFamily: font.body, fontSize: 15, lineHeight: 21, color: color.text }}>{l}</Text>
+                  </Pressable>
+                ))}
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <TextInput value={text} onChangeText={setText} onSubmitEditing={add} placeholder={t.notify.linePh} placeholderTextColor="#5A6A8A" maxLength={140} accessibilityLabel={t.notify.linePh}
+                    style={{ flex: 1, minHeight: 44, paddingHorizontal: 10, fontFamily: font.body, fontSize: 14, color: "#FFFFFF", borderWidth: 1, borderColor: "rgba(159,203,255,0.3)", backgroundColor: "rgba(5,10,24,0.7)" }} />
+                  <Pressable accessibilityRole="button" onPress={add} disabled={!text.trim()} style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: "center", borderWidth: 1, borderColor: color.frame, opacity: text.trim() ? 1 : 0.4 }}>
+                    <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: "#FFFFFF" }}>{t.notify.addLine}</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <>
+                <Pressable accessibilityRole="button" onPress={() => save({ picked: allOn ? picked.filter((x) => !ids.includes(x)) : [...new Set([...picked, ...ids])] })} style={{ alignSelf: "flex-end", minHeight: 36, justifyContent: "center" }}>
+                  <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: color.accent }}>{allOn ? t.notify.libClear : t.notify.libAll}</Text>
+                </Pressable>
+                {lib[cat].map((line, i) => {
+                  const id = `${cat}:${i}`;
+                  const on = picked.includes(id);
+                  return (
+                    <Pressable key={id} accessibilityRole="checkbox" accessibilityState={{ checked: on }} onPress={() => toggle(id)}
+                      style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: color.line }}>
+                      <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: on ? color.accent : "rgba(159,203,255,0.4)", backgroundColor: on ? color.accent : "transparent", alignItems: "center", justifyContent: "center" }}>
+                        {on ? <Text style={{ fontSize: 12, fontWeight: "700", color: color.bg }}>✓</Text> : null}
+                      </View>
+                      <Text style={{ flex: 1, fontFamily: on ? font.bodyMedium : font.body, fontSize: 15, lineHeight: 21, color: on ? "#FFFFFF" : color.text }}>{line}</Text>
+                    </Pressable>
+                  );
+                })}
+              </>
+            )}
+          </ScrollView>
         </View>
-      ) : null}
-    </View>
+      </SwipeBack>
+    </Modal>
   );
 }
 

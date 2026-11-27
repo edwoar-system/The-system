@@ -1,6 +1,6 @@
 // Which notifications the phone should have scheduled, worked out from the player. Pure: no native calls.
 // Everything is local (scheduled on the phone), so nothing needs a server.
-import { ownLines, pickLine, voiceTone } from "./voice";
+import { myLines, pickLine } from "./voice";
 import { questById, todayKey } from "./quests";
 import { URGENT } from "./urgent";
 import { dayEndHour, isInPenalty } from "./penalty";
@@ -51,11 +51,7 @@ const listOf = (titles) => (titles.length > 3 ? `${titles.slice(0, 3).join(", ")
 // A short quote under a reminder, different each time.
 const quoteLine = (key, n, player) => { const q = quoteOfDay(key, n, player?.profile?.schools, player?.favQuotes); return `"${q.text}" (${q.who})`; };
 // Your chosen voice (game/voice.js): your own lines, a coach, calm, or a quote.
-const voiceLine = (key, n, player) => {
-  const tone = voiceTone(player);
-  const line = tone === "mine" ? pickLine(ownLines(player), key, n) : tone === "stoic" ? null : pickLine(t.notify.voices[tone], key, n);
-  return line ?? quoteLine(key, n, player);
-};
+const voiceLine = (key, n, player) => pickLine(myLines(player, t.notify.library), key, n) ?? quoteLine(key, n, player);
 
 // Seeded random so the urgent times for a day stay the same when the plan is rebuilt.
 function seeded(str) {
