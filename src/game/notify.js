@@ -1,5 +1,6 @@
 // Which notifications the phone should have scheduled, worked out from the player. Pure: no native calls.
 // Everything is local (scheduled on the phone), so nothing needs a server.
+import { ownLines, pickLine, voiceTone } from "./voice";
 import { questById, todayKey } from "./quests";
 import { URGENT } from "./urgent";
 import { dayEndHour, isInPenalty } from "./penalty";
@@ -49,6 +50,12 @@ function questOf(id, player) {
 const listOf = (titles) => (titles.length > 3 ? `${titles.slice(0, 3).join(", ")} +${titles.length - 3}` : titles.join(", "));
 // A short quote under a reminder, different each time.
 const quoteLine = (key, n, player) => { const q = quoteOfDay(key, n, player?.profile?.schools, player?.favQuotes); return `"${q.text}" (${q.who})`; };
+// Your chosen voice (game/voice.js): your own lines, a coach, calm, or a quote.
+const voiceLine = (key, n, player) => {
+  const tone = voiceTone(player);
+  const line = tone === "mine" ? pickLine(ownLines(player), key, n) : tone === "stoic" ? null : pickLine(t.notify.voices[tone], key, n);
+  return line ?? quoteLine(key, n, player);
+};
 
 // Seeded random so the urgent times for a day stay the same when the plan is rebuilt.
 function seeded(str) {
@@ -130,7 +137,7 @@ export function notificationPlan(player, uid, now = new Date()) {
       // Normal nudges move to just after a busy block; hourly Hard ones in a busy block are skipped.
       const times = hard ? hours.filter((h) => !isBusy(busy, h)) : [...new Set(hours.map((h) => outsideBusy(busy, h, end - 1.5)).filter((h) => h != null))];
       times.forEach((h, i) => add({ id: `nudge-${key}-${Math.round(h * 60)}`, date: at(base, 0, Math.floor(h), Math.round((h % 1) * 60)), title: hard ? t.notify.nudgeHardTitle : t.notify.nudgeTitle,
-        body: `${openLine}\n${quoteLine(key, i + 1, player)}`, data: { kind: "quests" } }));
+        body: `${openLine}\n${voiceLine(key, i + 1, player)}`, data: { kind: "quests" } }));
     }
     // Hard quests you asked for yourself (guild, program, gym split): the System keeps at you about them,
     // with a reason to go now. Two alerts per quest at most, outside your busy blocks.
@@ -170,7 +177,7 @@ export function notificationPlan(player, uid, now = new Date()) {
     // The day ends: get ready for bed (and a reminder of anything you forgot).
     if (s.bedtime && !(d === 0 && day?.end?.done)) {
       add({ id: `bedtime-${key}`, date: endAt, title: t.notify.bedTitle,
-        body: `${mainsOpen > 0 && openTitles.length ? `${fill(t.notify.forgot, { list: listOf(openTitles) })} ` : ""}${t.notify.bedBody}\n${quoteLine(key, 9, player)}`, data: { kind: "quests" } });
+        body: `${mainsOpen > 0 && openTitles.length ? `${fill(t.notify.forgot, { list: listOf(openTitles) })} ` : ""}${t.notify.bedBody}\n${voiceLine(key, 9, player)}`, data: { kind: "quests" } });
       if (hard) add({ id: `bedtime2-${key}`, date: new Date(endAt.getTime() + 30 * 60000), title: t.notify.bedTitle2, body: t.notify.bedBody2, data: { kind: "quests" } });
     }
     if (s.penalty && mainsOpen > 0 && !(d === 0 && isInPenalty(player))) {

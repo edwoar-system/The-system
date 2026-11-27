@@ -3,15 +3,16 @@
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { weekDone, weekItems } from "../game/week";
+import { suggestWhen, weekDone, weekItems } from "../game/week";
 import { WEEKDAYS, PLAN_TIMES, weekdayOf } from "../game/weekplan";
 import { skillById } from "../game/guild";
 import { interestSkills } from "../game/profile";
 import { todayKey } from "../game/quests";
 import { todosToday } from "../game/todos";
-import { addWeekItem, removeWeekItem, setSide, skillQuestId } from "../lib/week";
-import { tapFeel } from "../lib/haptics";
-import { Frame, Label, SysButton } from "./sys";
+import { addWeekItem, planWeekItem, removeWeekItem, setSide, skillQuestId, tickWeekItem } from "../lib/week";
+import { doneFeel, tapFeel } from "../lib/haptics";
+import { showSystem } from "../lib/popup";
+import { Frame, HexCheck, Label, SysButton } from "./sys";
 import SwipeBack from "./SwipeBack";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
@@ -131,22 +132,49 @@ export function SidePicker({ user, player, onClose }) {
   );
 }
 
+// Little dots for progress (filled = done), lighter than a box.
+function Dots({ n, of }) {
+  const { color } = useTheme();
+  return (
+    <View style={{ flexDirection: "row", gap: 4 }} accessibilityLabel={fill(t.week.progress, { n, of })}>
+      {Array.from({ length: of }, (_, i) => (
+        <View key={i} style={{ width: 8, height: 8, borderRadius: 4, borderWidth: 1, borderColor: i < n ? color.purple : "rgba(159,203,255,0.4)", backgroundColor: i < n ? color.purple : "transparent" }} />
+      ))}
+    </View>
+  );
+}
+
+// A text link, no box.
+function TextLink({ label, onPress, tone }) {
+  const { color, font } = useTheme();
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} hitSlop={8} style={{ minHeight: 32, justifyContent: "center" }}>
+      <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: tone ?? color.accent }}>{label}</Text>
+    </Pressable>
+  );
+}
+
 export default function WeekCard({ user, player }) {
   const { color, font } = useTheme();
   const [adding, setAdding] = useState(false);
   const items = weekItems(player);
   const wd = weekdayOf();
   const sideId = player.day?.side && !player.day.side.done ? player.day.side.id : null;
+  // Spread suggestions: each item gets a different day.
+  const used = new Set();
+  const tick = (x) => tickWeekItem(user.uid, x.id).then((r) => {
+    if (!r) return;
+    doneFeel();
+    showSystem({ title: fill(t.week.ticked, { name: nameOf(x) }), lines: [fill(t.week.tickedLine, { n: r.n, of: r.of, c: r.coins })], tone: "buff" });
+  }).catch(() => {});
   return (
     <Frame cut={12} contentStyle={{ paddingVertical: 4 }}>
-      <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingTop: 10, paddingBottom: 6, gap: 10 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingTop: 10, paddingBottom: 4, gap: 10 }}>
         <View style={{ flex: 1, gap: 2 }}>
           <Label tone={color.hi}>{t.week.title}</Label>
           {!items.length ? <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.week.empty}</Text> : null}
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel={t.week.add} onPress={() => setAdding(true)} style={{ minHeight: 40, paddingHorizontal: 12, justifyContent: "center", borderWidth: 1, borderColor: color.frame }}>
-          <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: "#FFFFFF" }}>{t.week.addShort}</Text>
-        </Pressable>
+        <TextLink label={t.week.addShort} onPress={() => setAdding(true)} />
       </View>
       {items.map((x) => {
         const n = weekDone(player, x);
@@ -154,19 +182,25 @@ export default function WeekCard({ user, player }) {
         const done = n >= of;
         const id = x.skill ? skillQuestId(player, x.skill) : `wk:${x.id}`;
         const isSide = sideId === id;
-        const when = x.day ? `${t.week.days[x.day - 1]}${x.time ? ` ${x.time}` : ""}${x.day === wd ? ` · ${t.week.todayWord}` : ""}` : t.week.anyDay;
+        const planned = x.day ? `${t.week.days[x.day - 1]}${x.time ? ` ${x.time}` : ""}${x.day === wd ? ` · ${t.week.todayWord}` : ""}` : null;
+        const tip = !done && !x.day ? suggestWhen(player, x, new Date(), 7).find((o) => !used.has(o.day)) ?? null : null;
+        if (tip) used.add(tip.day);
         return (
-          <View key={x.id} style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 52, paddingLeft: 14, paddingRight: 8, borderTopWidth: 1, borderTopColor: color.line, opacity: done ? 0.55 : 1 }}>
-            <Pressable accessibilityRole="button" accessibilityLabel={fill(t.week.holdDelete, { name: nameOf(x) })} onLongPress={() => removeWeekItem(user.uid, x.id).catch(() => {})} style={{ flex: 1, gap: 2 }}>
-              <Text style={{ fontFamily: font.bodyBold, fontSize: 15, color: "#FFFFFF" }}>{nameOf(x)}</Text>
-              <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{`${fill(t.week.progress, { n: Math.min(n, of), of })} · ${when}`}</Text>
+          <View key={x.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8, paddingLeft: 14, paddingRight: 8, opacity: done ? 0.5 : 1 }}>
+            <Pressable accessibilityRole="button" accessibilityLabel={fill(t.week.holdDelete, { name: nameOf(x) })} onLongPress={() => removeWeekItem(user.uid, x.id).catch(() => {})} style={{ flex: 1, gap: 4 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <Text style={{ flexShrink: 1, fontFamily: font.bodyBold, fontSize: 15, color: "#FFFFFF" }}>{nameOf(x)}</Text>
+                <Dots n={Math.min(n, of)} of={of} />
+              </View>
+              {done ? <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{t.week.doneWeek}</Text> : (
+                <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", columnGap: 14 }}>
+                  {planned ? <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{planned}</Text> : null}
+                  {tip ? <TextLink label={fill(t.week.suggest, { when: `${tip.today ? t.week.todayWord : t.week.days[tip.day - 1]} ${tip.time}` })} onPress={() => { tapFeel(); planWeekItem(user.uid, x.id, tip.day, tip.time).catch(() => {}); }} /> : null}
+                  {x.day !== wd ? <TextLink label={isSide ? t.week.isSide : t.week.doToday} tone={isSide ? color.purple : color.text} onPress={() => { if (!isSide) { tapFeel(); setSide(user.uid, id).catch(() => {}); } }} /> : null}
+                </View>
+              )}
             </Pressable>
-            {!done && x.day !== wd ? (
-              <Pressable accessibilityRole="button" disabled={isSide} onPress={() => { tapFeel(); setSide(user.uid, id).catch(() => {}); }}
-                style={{ minHeight: 40, paddingHorizontal: 10, justifyContent: "center", borderWidth: 1, borderColor: isSide ? color.accent : "rgba(159,203,255,0.3)" }}>
-                <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: isSide ? color.accent : color.text }}>{isSide ? t.week.isSide : t.week.doToday}</Text>
-              </Pressable>
-            ) : null}
+            {!done ? <HexCheck size={30} done={false} onPress={() => tick(x)} label={fill(t.week.tickLabel, { name: nameOf(x) })} /> : null}
           </View>
         );
       })}

@@ -1,11 +1,12 @@
 // Settings tab: profile, Tune the System (questionnaire), quotes, the System settings, reminders, quest history and the account.
+import { TONES, VOICE_MAX_LINES, ownLines, voiceTone } from "../game/voice";
 import { useEffect, useRef, useState } from "react";
 import { Image, Modal, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
 import * as Updates from "expo-updates";
 import { signOut } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth } from "../lib/firebase";
-import { setDifficulty, setSimple, setFeelSetting, setMorning, setNotify, setPrivacy, setProof, setReminders } from "../lib/player";
+import { setDifficulty, setSimple, setVoice, setFeelSetting, setMorning, setNotify, setPrivacy, setProof, setReminders } from "../lib/player";
 import { difficultyOf } from "../game/difficulty";
 import { hhmm } from "../game/schedule";
 import { changeName } from "../lib/shop";
@@ -241,6 +242,62 @@ function Places({ user, player }) {
       ) : null}
       <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.places.privacy}</Text>
       {msg ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: color.accent }}>{msg}</Text> : null}
+    </View>
+  );
+}
+
+// Voice: how notifications talk to you. Pick a tone, or write your own lines.
+function Voice({ user, player }) {
+  const track = useTrack();
+  const { color, font } = useTheme();
+  const [text, setText] = useState("");
+  const tone = voiceTone(player);
+  const lines = ownLines(player);
+  const save = (patch) => track(setVoice(user.uid, { tone, lines, ...patch })).catch(() => {});
+  const add = () => {
+    const v = text.trim();
+    if (!v) return;
+    setText("");
+    save({ tone: "mine", lines: [...lines, v.slice(0, 140)].slice(-VOICE_MAX_LINES) });
+  };
+  const example = tone === "mine" ? lines[lines.length - 1] : tone === "stoic" ? null : t.notify.voices[tone][0];
+  return (
+    <View style={{ gap: 10, marginTop: 6 }}>
+      <Label>{t.notify.voice}</Label>
+      <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.notify.voiceSub}</Text>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+        {TONES.map((x) => (
+          <Pressable key={x} accessibilityRole="button" accessibilityState={{ selected: tone === x }} onPress={() => save({ tone: x })}
+            style={{ minHeight: 40, paddingHorizontal: 12, justifyContent: "center", borderWidth: 1, borderColor: tone === x ? color.frame : "rgba(159,203,255,0.25)", backgroundColor: tone === x ? "rgba(159,203,255,0.14)" : "transparent" }}>
+            <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: tone === x ? "#FFFFFF" : color.muted }}>{t.notify.tones[x]}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.notify.toneHint[tone]}</Text>
+      {example ? (
+        <View style={{ borderLeftWidth: 2, borderLeftColor: color.accent, paddingLeft: 10, gap: 2 }}>
+          <Text style={{ fontFamily: font.bodyBold, fontSize: 11, letterSpacing: 2, color: color.muted }}>{t.notify.example.toUpperCase()}</Text>
+          <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, lineHeight: 20, color: color.text }}>{example}</Text>
+        </View>
+      ) : null}
+      {tone === "mine" ? (
+        <View style={{ gap: 6 }}>
+          {!lines.length ? <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{t.notify.noLines}</Text> : null}
+          {lines.map((l, i) => (
+            <Pressable key={`${i}-${l}`} accessibilityRole="button" accessibilityHint={t.notify.removeLine} onLongPress={() => save({ lines: lines.filter((_, j) => j !== i) })}
+              style={{ paddingVertical: 8, borderTopWidth: 1, borderTopColor: color.line }}>
+              <Text style={{ fontFamily: font.body, fontSize: 14, lineHeight: 20, color: color.text }}>{l}</Text>
+            </Pressable>
+          ))}
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <TextInput value={text} onChangeText={setText} onSubmitEditing={add} placeholder={t.notify.linePh} placeholderTextColor="#5A6A8A" maxLength={140} accessibilityLabel={t.notify.linePh}
+              style={{ flex: 1, minHeight: 44, paddingHorizontal: 10, fontFamily: font.body, fontSize: 14, color: "#FFFFFF", borderWidth: 1, borderColor: "rgba(159,203,255,0.3)", backgroundColor: "rgba(5,10,24,0.7)" }} />
+            <Pressable accessibilityRole="button" onPress={add} disabled={!text.trim()} style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: "center", borderWidth: 1, borderColor: color.frame, opacity: text.trim() ? 1 : 0.4 }}>
+              <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: "#FFFFFF" }}>{t.notify.addLine}</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -695,6 +752,7 @@ export default function Settings({ user, player, synced }) {
       <GroupLabel text={t.settings.groups.app} />
       <Section title={t.notify.section} {...fold("s12")}>
         <Notifications user={user} player={player} />
+        <Voice user={user} player={player} />
       </Section>
       <Section title={t.feel.title} sub={t.feel.sub} {...fold("s11")}>
         <Feel user={user} player={player} />

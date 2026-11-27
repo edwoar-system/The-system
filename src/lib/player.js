@@ -116,6 +116,11 @@ export function setQuickPins(uid, pins) {
   return updateDoc(doc(db, "players", uid), { quickPins: pins, updatedAt: serverTimestamp() });
 }
 
+// Notification voice (game/voice.js).
+export function setVoice(uid, voice) {
+  return updateDoc(doc(db, "players", uid), { voice, updatedAt: serverTimestamp() });
+}
+
 export function setSimple(uid, on) {
   return updateDoc(doc(db, "players", uid), { simple: !!on, updatedAt: serverTimestamp() });
 }

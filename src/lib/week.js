@@ -1,7 +1,7 @@
 // "This week" items and choosing your own side quest (game/week.js).
 import { doc, runTransaction, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
-import { WEEK_MAX, mondayKey, weekItems } from "../game/week";
+import { WEEK_COINS, WEEK_MAX, mondayKey, weekDone, weekItems } from "../game/week";
 import { guildQuest } from "../game/guild";
 import { skillView } from "../game/skills";
 import { tierForRank } from "../game/tiers";
@@ -46,5 +46,27 @@ export function setSide(uid, questId) {
     if (p.day?.date !== todayKey()) throw new Error("no-day");
     if (p.day.side?.done) throw new Error("side-done");
     tx.update(ref(uid), { "day.side": { id: questId, done: false, chosen: true }, updatedAt: serverTimestamp() });
+  });
+}
+
+// "I did it": +1 on a week item (a few coins), up to how often you wanted it.
+export function tickWeekItem(uid, id) {
+  return runTransaction(db, async (tx) => {
+    const p = (await tx.get(ref(uid))).data() ?? {};
+    const items = weekItems(p);
+    const x = items.find((i) => i.id === id);
+    if (!x) return null;
+    const n = weekDone(p, x);
+    if (n >= (x.times ?? 1)) return null;
+    tx.set(ref(uid), { week: { key: mondayKey(), items: items.map((i) => (i.id === id ? { ...i, done: n + 1 } : i)) }, coins: (p.coins ?? 0) + WEEK_COINS, updatedAt: serverTimestamp() }, { merge: true });
+    return { n: n + 1, of: x.times ?? 1, coins: WEEK_COINS };
+  });
+}
+
+// Puts an item on a day (and time): your own choice or the System's suggestion.
+export function planWeekItem(uid, id, day, time) {
+  return runTransaction(db, async (tx) => {
+    const p = (await tx.get(ref(uid))).data() ?? {};
+    tx.set(ref(uid), { week: { key: mondayKey(), items: weekItems(p).map((i) => (i.id === id ? { ...i, day, time: time ?? null } : i)) }, updatedAt: serverTimestamp() }, { merge: true });
   });
 }
