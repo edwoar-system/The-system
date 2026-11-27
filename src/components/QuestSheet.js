@@ -227,6 +227,14 @@ export default function QuestSheet({ user, player, questId, slot, done, onClose,
               </View>
             ) : null}
 
+            {q.focus || q.limit ? (
+              <View style={{ gap: 4 }}>
+                <Label tone={color.accent}>{t.sheet.yourWay}</Label>
+                {q.focus ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, lineHeight: 20, color: "#FFFFFF" }}>{fill(t.sheet.focusLine, { x: q.focus })}</Text> : null}
+                {q.limit ? <Text style={{ fontFamily: font.body, fontSize: 14, lineHeight: 20, color: "#CAD6EC" }}>{fill(t.sheet.limitLine, { x: q.limit })}</Text> : null}
+              </View>
+            ) : null}
+
             {q.counts ? (
               <View style={{ gap: 4 }}>
                 <Label>{t.sheet.whatCounts}</Label>

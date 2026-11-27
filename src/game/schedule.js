@@ -4,6 +4,7 @@
 //
 // schedule = [{ id, label, days: [0..6] (Monday = 0), start, end }] with hours as decimals (16.5 = 16:30).
 // scheduleDay = { date, skip: [block ids], extra: [{ id, label, start, end }] } for today's changes.
+import { isSlowMorning, morningMinutes } from "./morning";
 import { dayTimes } from "./profile";
 
 export const weekdayOf = (dateKey) => (new Date(`${dateKey}T12:00:00`).getDay() + 6) % 7;
@@ -75,7 +76,8 @@ export function outsideBusy(blocks, hour, limit = 24) {
 // Free time between waking up (plus half an hour) and going to bed (minus an hour).
 export function freeSlots(player, dateKey) {
   const { wake, bed } = dayTimes(player?.profile);
-  const from = wake + 0.5;
+  // A slow morning gets its routine at an easy pace (×1.5) plus 15 minutes before any quest.
+  const from = wake + (isSlowMorning(player) ? Math.max(0.5, (morningMinutes(player) * 1.5) / 60 + 0.25) : 0.5);
   const to = Math.min(bed - 1, 23.5);
   const slots = [];
   let cur = from;
@@ -97,6 +99,9 @@ export function suggestTimes(quests, player, dateKey, nowHour = null) {
     const pieces = slots.flatMap((s) => [[s.start, Math.min(s.end, win[0])], [Math.max(s.start, win[0]), Math.min(s.end, win[1])], [Math.max(s.start, win[1]), s.end]])
       .filter(([a, b]) => b > a).map(([a, b]) => ({ start: a, end: b, inWin: a >= win[0] && b <= win[1] }));
     slots = [...pieces.filter((p) => p.inWin), ...pieces.filter((p) => !p.inWin)];
+    // Hardest first, so the hard ones land in your best hours.
+    const rank = { hard: 0, normal: 1, easy: 2 };
+    quests = [...quests].sort((a, b) => (rank[a.difficulty] ?? 1) - (rank[b.difficulty] ?? 1));
   }
   const out = {};
   quests.forEach((q) => {

@@ -45,6 +45,7 @@ const TASKS = [
   { id: "memory", skill: "memory", title: "Memory drill, 10 min", how: "Learn a list or a deck order, then test yourself.", minutes: 10, difficulty: "normal" },
   { id: "typing", skill: "typing", title: "Typing test × 3", how: "Eyes on the screen, not the keys.", minutes: 8, difficulty: "easy" },
   { id: "coding", skill: "coding", title: "Code for 15 minutes", how: "One small thing in your project, then commit.", minutes: 15, difficulty: "normal" },
+  { id: "poetry", skill: "poetry", title: "Write 3 lines of a poem, or one quote", how: "About something you noticed today.", minutes: 8, difficulty: "easy" },
   { id: "writing", skill: "writing", title: "Write 150 words", how: "No editing until you're done.", minutes: 10, difficulty: "normal" },
   { id: "music", skill: "music", title: "Practise your instrument, 15 min", how: "One hard bar, slowly, then up to speed.", minutes: 15, difficulty: "normal" },
   { id: "chess", skill: "chess", title: "Chess: 5 puzzles", how: "Find the move before you check.", minutes: 10, difficulty: "normal" },

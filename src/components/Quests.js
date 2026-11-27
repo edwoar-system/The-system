@@ -30,9 +30,10 @@ import Hud from "./Hud";
 import { courseForSkill } from "../game/courses";
 import { needsWelcome } from "./Welcome";
 import FirstQuests from "./FirstQuests";
+import Todos from "./Todos";
 import { needsFirst } from "../game/firstQuests";
 import MorningCheckin from "./MorningCheckin";
-import { CHALLENGE_COINS, FULL_MORNING_XP, challengeOf, morningById, morningToday, wantsCheckin } from "../game/morning";
+import { CHALLENGE_COINS, FULL_MORNING_XP, challengeOf, morningById, morningToday, wantsCheckin, isSlowMorning } from "../game/morning";
 import { minutesOf, reminderDone, remindersOn } from "../game/reminders";
 import { tickReminder } from "../lib/player";
 import { showClear, showSystem } from "../lib/popup";
@@ -220,7 +221,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
   const endH = dayEndHour(player.profile) + (day.extraMin ?? 0) / 60;
   const bedtime = nowD.getHours() + nowD.getMinutes() / 60 >= endH;
   const extraCost = extraPrice(day, isHard(player));
-  const times = suggestTimes(day.mains.filter((m) => !m.done).map((m) => ({ id: m.id, minutes: getQuest(m.id)?.minutes })), player, day.date, nowD.getHours() + nowD.getMinutes() / 60);
+  const times = suggestTimes(day.mains.filter((m) => !m.done).map((m) => ({ id: m.id, minutes: getQuest(m.id)?.minutes, difficulty: getQuest(m.id)?.difficulty })), player, day.date, nowD.getHours() + nowD.getMinutes() / 60);
   const toastAnim = useRef(new Animated.Value(0)).current;
 
   const quickCounts = quickToday(player);
@@ -358,6 +359,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
       <Frame style={{ marginTop: 14, marginHorizontal: 14 }} cut={10} contentStyle={{ paddingVertical: 10, paddingHorizontal: 16, gap: 6 }}>
         <Label tone={color.accent}>{which === "end" ? t.board.end : t.board.start}</Label>
         {which === "end" ? <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.board.endSub}</Text> : null}
+        {which === "start" && isSlowMorning(player) && parts.length ? <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{player.profile?.energy === "morning" ? t.morning.slowLineBest : t.morning.slowLine}</Text> : null}
         {parts.map((part) => {
           const on = !!ticks?.[part];
           return (
@@ -618,6 +620,8 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
         </Frame>
 
         <View style={{ marginTop: 18, marginHorizontal: 14, gap: 12 }}>
+          {/* Your own to-dos: one line to add, rolls over until done. */}
+          <Todos user={user} player={player} />
           {/* Guild quests you took sit right under your goals, not at the bottom. */}
           {day.guild.length ? questList(t.board.guildQuests, day.guild, "guild", t.board.guildHint) : null}
           {/* Program sessions: extra side quests from the programs you follow (they don't count for the streak). */}

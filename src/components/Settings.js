@@ -358,6 +358,7 @@ function Morning({ user, player }) {
   const items = player.morning?.items ?? MORNING_DEFAULT;
   const challenge = player.morning?.challenge !== false;
   const checkin = player.morning?.checkin !== false;
+  const slow = player.morning?.slow !== false;
   const save = (next) => track(setMorning(user.uid, { items, challenge, checkin, ...next })).catch(() => {});
   const toggleItem = (id) => {
     const next = items.includes(id) ? items.filter((x) => x !== id) : [...items, id];
@@ -388,7 +389,7 @@ function Morning({ user, player }) {
           </Pressable>
         );
       })}
-      {[["challenge", challenge, t.morning.challengeToggle, t.morning.challengeToggleSub], ["checkin", checkin, t.morning.checkinToggle, t.morning.checkinToggleSub]].map(([k, on, label, sub]) => (
+      {[["slow", slow, t.morning.slowToggle, t.morning.slowToggleSub], ["challenge", challenge, t.morning.challengeToggle, t.morning.challengeToggleSub], ["checkin", checkin, t.morning.checkinToggle, t.morning.checkinToggleSub]].map(([k, on, label, sub]) => (
         <View key={k} style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 52 }}>
           <View style={{ flex: 1 }}>
             <Text style={{ fontFamily: font.bodyBold, fontSize: 14, color: color.text }}>{label}</Text>

@@ -1,9 +1,10 @@
 import { collection, deleteField, doc, runTransaction, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import { comebackFor, comebackQuest } from "../game/comeback";
 import { db } from "./firebase";
 import { allMainsBonus, levelFromXp, questCoins, questXp } from "../game/economy";
 import { QUESTS, SIDE_BONUS, pickMainQuests, pickSideQuest, questById, todayKey, widenBy } from "../game/quests";
 import { PROGRAM_DONE_BONUS, dueSessions, programById, programQuest, weekKey } from "../game/programs";
-import { OUTING, guildQuest } from "../game/guild";
+import { OUTING, guildQuest, withPrefs } from "../game/guild";
 import { ladderById } from "../game/ladders";
 import { dayNum, habitRank, isHabit, passTrial, recordTraining, skillView, SKILL_RULES, trialQuest, trialState, weekNum } from "../game/skills";
 import { tierForRank } from "../game/tiers";
@@ -40,7 +41,8 @@ export function getQuest(id, player = null) {
   if (id.startsWith("p:")) return programQuest(id, player ?? playerCache);
   if (id.startsWith("t:")) return trialQuest(id);
   if (id.startsWith("d:")) return dutyQuest(id);
-  return guildQuest(id);
+  if (id.startsWith("cb:")) return comebackQuest(id);
+  return withPrefs(guildQuest(id), (player ?? playerCache)?.profile);
 }
 
 const rankXp = (from, to) => {
@@ -89,6 +91,9 @@ export function newDay(player, uid) {
   }
   // Committed last night: phone-free first hour (chosen the day before, never at random).
   if (player?.commit?.date === date && player.commit.nophone && !mains.includes("nophone")) mains.push("nophone");
+  // Never miss twice: a tracked habit missed yesterday comes back today, worth more.
+  const back = comebackFor(player, date);
+  if (back && !mains.includes(`cb:${back}`)) mains.unshift(`cb:${back}`);
   // Weekly duties on (or past) their day become real main quests, on top of the usual ones.
   dutiesDue(player, date, weekNum(dayNum(date))).forEach((id) => mains.push(`d:${id}`));
   // The side quest: optional, outside your focus, a bonus for stepping out of your comfort zone.
@@ -123,9 +128,9 @@ export async function refreshOpenMains(uid) {
     const day = player.day?.date === todayKey() ? player.day : null;
     if (!day) return { changed: 0 };
     const fresh = newDay(player, uid);
-    const keep = (m) => m.done || m.id.startsWith("p:") || m.id.startsWith("d:") || m.id.startsWith("gs:");
+    const keep = (m) => m.done || m.id.startsWith("p:") || m.id.startsWith("d:") || m.id.startsWith("gs:") || m.id.startsWith("cb:");
     const taken = new Set(day.mains.filter(keep).map((m) => m.id));
-    const pool = fresh.mains.map((m) => m.id).filter((id) => !taken.has(id) && !id.startsWith("d:"));
+    const pool = fresh.mains.map((m) => m.id).filter((id) => !taken.has(id) && !id.startsWith("d:") && !id.startsWith("cb:"));
     let changed = 0;
     const mains = day.mains.map((m) => {
       if (keep(m) || !pool.length) return m;

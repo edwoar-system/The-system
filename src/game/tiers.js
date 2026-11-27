@@ -69,6 +69,7 @@ export const TIERS = {
   cube: [["30 min: learn and drill two new algorithms, 10 timed solves", 30, "normal"], ["45 min: 50 timed solves, average of 5 written down", 45, "normal"]],
   maths: [["20 problems at your level, check every answer", 40, "normal"], ["A past exam or olympiad set in time", 75, "hard"]],
   coding: [["60 min on your project: one feature finished", 60, "normal"], ["90 min: ship something, tests included", 90, "hard"]],
+  poetry: [["a poem with a fixed form: a haiku chain, a sonnet or 4 rhyming lines × 3", 25, "normal"], ["rework one old poem until every line is strong, then read it out loud", 40, "hard"]],
   writing: [["800 words", 45, "normal"], ["1,500 words, or rework a piece after feedback", 75, "hard"]],
   memory: [["Memorise 50 digits or a 30-item list", 25, "normal"], ["A full deck of cards, timed", 30, "hard"]],
   morse: [["15 min copy practice at your speed plus sending", 15, "normal"], ["20 min head copy at 20 wpm", 20, "hard"]],

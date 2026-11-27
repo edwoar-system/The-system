@@ -24,7 +24,7 @@ export const INTERESTS = [
   { id: "health", name: "Health and sleep", skills: ["sleep", "winddown", "water", "cook", "light", "coldshower", "cold", "tidy"] },
   { id: "study", name: "Study and maths", skills: ["study", "maths", "memory", "docu", "typing"] },
   { id: "languages", name: "Languages", skills: ["japanese", "latin", "spanish", "french", "german", "italian", "portuguese", "korean", "mandarin", "morse"] },
-  { id: "create", name: "Making things", skills: ["coding", "writing", "music", "crafts"] },
+  { id: "create", name: "Making things", skills: ["coding", "writing", "poetry", "music", "crafts"] },
   { id: "games", name: "Chess and reading", skills: ["chess", "reading", "cube"] },
   { id: "mind", name: "Mind and philosophy", skills: ["meditation", "breath", "philosophy", "journal", "gratitude", "silent", "nophone", "hardfirst", "craving"] },
   { id: "social", name: "People", skills: ["reachout", "kindness", "conversation", "compliment", "thanks", "speaking", "plan", "listen", "helphome"] },
@@ -114,15 +114,39 @@ export function dutiesToday(player, todayKey, week) {
 }
 
 // Day timing from the "Your day" part. Defaults when not answered.
-export function dayTimes(profile) {
-  const parse = (v, dflt) => {
-    const m = String(v ?? "").match(/^(\d{1,2}):(\d{2})$/);
-    return m ? Number(m[1]) + Number(m[2]) / 60 : dflt;
-  };
-  const wake = parse(profile?.wake, 7.5);
-  let bed = parse(profile?.bed, 23);
+const parseTime = (v, dflt) => {
+  const m = String(v ?? "").match(/^(\d{1,2}):(\d{2})$/);
+  return m ? Number(m[1]) + Number(m[2]) / 60 : dflt;
+};
+// Your answers as typed: wake window (earliest to latest), bedtime now, and the bedtime you're working towards.
+export function rawTimes(profile) {
+  const wake = parseTime(profile?.wake, 7.5);
+  const wakeLate = Math.max(wake, parseTime(profile?.wakeLate, wake));
+  let bed = parseTime(profile?.bed, 23);
   if (bed <= wake) bed += 24; // after midnight
-  return { wake, bed };
+  let bedGoal = parseTime(profile?.bedGoal, null);
+  if (bedGoal != null && bedGoal <= wake) bedGoal += 24;
+  return { wake, wakeLate, bed, bedGoal };
+}
+// A bedtime goal moves you there slowly: 15 minutes earlier (or later) each week since you set it.
+export const BED_STEP = 0.25;
+export function bedTonight(profile, now = Date.now()) {
+  const { bed, bedGoal } = rawTimes(profile);
+  if (bedGoal == null || bedGoal === bed) return bed;
+  const weeks = Math.max(0, Math.floor((now - (profile?.bedGoalAt ?? now)) / (7 * 86400000)));
+  const move = Math.min(Math.abs(bedGoal - bed), (weeks + 1) * BED_STEP);
+  return bed + Math.sign(bedGoal - bed) * move;
+}
+// Weeks left until tonight's bedtime is your goal.
+export function bedWeeksLeft(profile, now = Date.now()) {
+  const { bedGoal } = rawTimes(profile);
+  if (bedGoal == null) return 0;
+  return Math.ceil(Math.abs(bedGoal - bedTonight(profile, now)) / BED_STEP);
+}
+// The times the System plans with: the start of your wake window, and tonight's bedtime on the way to your goal.
+export function dayTimes(profile, now = Date.now()) {
+  const { wake, wakeLate } = rawTimes(profile);
+  return { wake, wakeLate, bed: bedTonight(profile, now) };
 }
 
 // Which parts are answered.

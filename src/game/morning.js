@@ -14,10 +14,19 @@ export const MORNING_ITEMS = [
   { id: "plan", minutes: 3 },
   { id: "read1", minutes: 3, skill: "reading" },
   { id: "tidy", minutes: 3 },
+  // Slow and mindful ones.
+  { id: "meditate5", minutes: 5, skill: "meditation" },
+  { id: "tea", minutes: 5 },
+  { id: "journal3", minutes: 3, skill: "journal" },
+  { id: "nophone30", minutes: 0 },
 ];
 export const morningById = Object.fromEntries(MORNING_ITEMS.map((x) => [x.id, x]));
 export const MORNING_DEFAULT = ["bed", "water", "stretch"];
 export const MORNING_MAX = MORNING_ITEMS.length;
+// Slow morning (on unless you turn it off): the routine is done calmly and the System plans no quests until it's
+// over, with room to spare. Your best work comes right after, when your best time is the morning.
+export const isSlowMorning = (player) => player?.morning?.slow !== false;
+export const morningMinutes = (player) => (player?.morning?.items ?? MORNING_DEFAULT).reduce((a, id) => a + (morningById[id]?.minutes ?? 0), 0);
 
 // The full morning routine: bed, water, stretch, daylight, exercise, breathing, top 3, a page, tidy.
 // All of them in your morning and all ticked → a bonus on top.

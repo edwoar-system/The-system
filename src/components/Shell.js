@@ -37,6 +37,7 @@ import { useReminderAlerts } from "../lib/reminders";
 import { useLevelRewards } from "../lib/level";
 import { useTitleAlerts } from "../lib/titles";
 import { useObserverEvents } from "../lib/observers";
+import { useLinkActions } from "../lib/links";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
@@ -200,6 +201,8 @@ function ShellBody({ user, state }) {
 
   const goToRef = useRef(goTo);
   goToRef.current = goTo;
+  // Links from the Shortcuts app or a bookmark (thesystem://do/water and so on).
+  useLinkActions(user.uid, goToRef);
 
   // Penalty check on open and every minute: deadline passed with open mains -> zone (or a shield is used).
   useEffect(() => {

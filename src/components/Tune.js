@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { patchProfile } from "../lib/player";
-import { DRIVES, DUTIES, ENERGY, INTERESTS, LEVELS, MOUNTAINS, MOUNTAIN_LEVELS, PARTS, dayTimes, dutyById, dutyDay, interestSkills, partsDone, pickedGroups } from "../game/profile";
+import { bedTonight, bedWeeksLeft, DRIVES, DUTIES, dutyById, dutyDay, ENERGY, INTERESTS, interestSkills, LEVELS, MOUNTAIN_LEVELS, MOUNTAINS, PARTS, partsDone, pickedGroups, rawTimes } from "../game/profile";
 import { SCHOOL_NAMES } from "../game/quotes";
 import { skillById } from "../game/guild";
 import { useTrack } from "./saved";
@@ -107,11 +107,18 @@ function PartForm({ part, draft, set }) {
   const { color, font } = useTheme();
   const row = { flexDirection: "row", flexWrap: "wrap", gap: 6 };
   if (part === "day") {
-    const { wake, bed } = dayTimes(draft);
+    const { wake, wakeLate, bed, bedGoal } = rawTimes(draft);
+    const goal = bedGoal ?? bed;
+    const weeks = bedWeeksLeft({ ...draft, bedGoalAt: draft.bedGoalAt ?? Date.now() });
     return (
       <View style={{ gap: 10 }}>
-        <Stepper label={t.tune.wake} value={wake} min={4} max={12} onChange={(v) => set({ wake: hhmm(v) })} />
+        <Stepper label={t.tune.wake} value={wake} min={4} max={12} onChange={(v) => set({ wake: hhmm(v), ...(v > wakeLate ? { wakeLate: hhmm(v) } : {}) })} />
+        <Stepper label={t.tune.wakeLate} value={wakeLate} min={4} max={12} onChange={(v) => set({ wakeLate: hhmm(Math.max(v, wake)) })} />
         <Stepper label={t.tune.bed} value={bed} min={19} max={26} onChange={(v) => set({ bed: hhmm(v) })} />
+        <Stepper label={t.tune.bedGoal} value={goal} min={19} max={26} onChange={(v) => set({ bedGoal: hhmm(v), bedGoalAt: Date.now() })} />
+        <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: goal === bed ? color.muted : color.accent }}>
+          {goal === bed ? t.tune.bedSame : fill(t.tune.bedPlan, { tonight: hhmm(bedTonight({ ...draft, bedGoalAt: draft.bedGoalAt ?? Date.now() })), goal: hhmm(goal), weeks })}
+        </Text>
       </View>
     );
   }
@@ -193,7 +200,11 @@ function PartForm({ part, draft, set }) {
 // What a part saves (only its own fields).
 function patchFor(part, d) {
   const num = (v) => { const n = Number(String(v ?? "").replace(",", ".")); return String(v ?? "").trim() && Number.isFinite(n) && n > 0 ? n : null; };
-  if (part === "day") { const { wake, bed } = dayTimes(d); return { wake: hhmm(wake), bed: hhmm(bed) }; }
+  if (part === "day") {
+    const { wake, wakeLate, bed, bedGoal } = rawTimes(d);
+    const goal = bedGoal != null && bedGoal !== bed ? hhmm(bedGoal) : null;
+    return { wake: hhmm(wake), wakeLate: hhmm(wakeLate), bed: hhmm(bed), bedGoal: goal, bedGoalAt: goal ? d.bedGoalAt ?? Date.now() : null };
+  }
   if (part === "interests") { const picked = d.picked ?? []; return { picked, interests: pickedGroups(picked), levels: d.levels ?? {} }; }
   if (part === "drive") return { drive: d.drive ?? null };
   if (part === "energy") return { energy: d.energy ?? null };

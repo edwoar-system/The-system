@@ -73,6 +73,7 @@ const RAW = {
     ["maths", "Maths practice", "10 problems at your level", "Check every answer.", 20, "normal", "study"],
     ["coding", "Coding", "30 min building something", "Your own project, not a tutorial video.", 30, "normal", "create"],
     ["writing", "Writing", "300 words", "An essay idea, a story or a letter.", 20, "normal", "create"],
+    ["poetry", "Poems & quotes", "one short poem, or 3 quotes of your own", "Start from one thing you saw or felt today. No rhyme needed: cut every word that isn't pulling its weight. A quote is one true sentence you'd put on a wall.", 15, "normal", "create"],
     ["memory", "Memory", "Learn a short list by heart", "Say it back without looking.", 15, "normal", "study"],
     ["morse", "Morse code", "10 min: learn 5 letters", "Decode a message at the end.", 10, "easy", "language"],
     ["music", "Music", "20 min instrument or theory", "Practise, don't just play what you know.", 20, "normal", "create"],
@@ -207,6 +208,23 @@ export function guildQuest(id) {
   const tq = TIERS[s.id]?.[tier - 1];
   if (!tq) return null;
   return { id, skill: s.id, stat: s.stat, type: s.type, difficulty: tq[2], minutes: tq[1], tier, title: `${s.name}: ${tq[0]}`, counts: s.counts };
+}
+
+// Your own way for a skill (profile.skillPrefs[skill], set on its skill page): what exactly you want to learn,
+// your limits (an injury, little time), a maximum length, and for distance skills a distance range.
+export const DISTANCE = { running: { pace: 6, verb: "Run" }, walk: { pace: 12, verb: "Walk" }, cycling: { pace: 3, verb: "Cycle" } };
+export function withPrefs(q, profile) {
+  const pr = q?.skill ? profile?.skillPrefs?.[q.skill] : null;
+  if (!pr) return q;
+  const out = { ...q, focus: pr.focus || null, limit: pr.limit || null };
+  const dist = DISTANCE[q.skill];
+  if (dist && pr.km?.length === 2) {
+    const [lo, hi] = pr.km;
+    out.title = `${skillById[q.skill]?.name ?? q.skill}: ${dist.verb.toLowerCase()} ${lo}–${hi} km at an easy pace`;
+    out.minutes = Math.round(hi * dist.pace);
+  }
+  if (pr.maxMin && out.minutes > pr.maxMin) out.minutes = pr.maxMin;
+  return out;
 }
 
 // Three suggestions: skills you haven't trained for the longest first, shuffled by the reroll seed.

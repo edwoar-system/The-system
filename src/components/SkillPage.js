@@ -1,9 +1,9 @@
 // One skill: rank, progress inside the rank, the next rank trial (or a retest), rust, the last 14 days and the ladder.
 import { useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import Svg, { Defs, LinearGradient, Path, Polygon, Stop } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { skillById } from "../game/guild";
+import { DISTANCE, skillById } from "../game/guild";
 import { TIERS, TIER_RANKS } from "../game/tiers";
 import { HABIT_LADDER, RANKS } from "../game/ladders";
 import { dayNum, isHabit, skillView, trialParts, trialQuestId, trialState } from "../game/skills";
@@ -23,7 +23,7 @@ import { t } from "../i18n";
 import { HelpDot } from "./Explain";
 import { courseForSkill } from "../game/courses";
 import { PLAN_TIMES, WEEKDAYS } from "../game/weekplan";
-import { setWeekPlan } from "../lib/player";
+import { patchProfile, setWeekPlan } from "../lib/player";
 
 function Chevron({ c }) {
   return <Svg width={18} height={18} viewBox="0 0 24 24"><Path d="M15 5l-7 7 7 7" fill="none" stroke={c} strokeWidth={1.8} /></Svg>;
@@ -73,6 +73,51 @@ function Info({ title, text }) {
 }
 
 // Plan this skill on fixed weekdays at a time: its quest is on your board those days, with a reminder before.
+// Your own way for this skill: what exactly you want, your limits, how long at most, and for distance skills
+// how far. Quests of this skill follow it (game/guild.js withPrefs).
+function MyWay({ user, player, id }) {
+  const { color, font } = useTheme();
+  const saved = player.profile?.skillPrefs?.[id] ?? {};
+  const [focus, setFocus] = useState(saved.focus ?? "");
+  const [limit, setLimit] = useState(saved.limit ?? "");
+  const [maxMin, setMaxMin] = useState(saved.maxMin ?? 0);
+  const [km, setKm] = useState(saved.km ?? null);
+  const [state, setState] = useState(null);
+  const dist = DISTANCE[id];
+  const input = { minHeight: 46, paddingHorizontal: 12, fontFamily: font.body, fontSize: 15, color: "#FFFFFF", borderWidth: 1, borderColor: "rgba(159,203,255,0.3)", backgroundColor: "rgba(5,10,24,0.7)" };
+  const step = (label, value, onChange, unit, min, max, d) => (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+      <Text style={{ flex: 1, fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{label}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${label} −`} onPress={() => onChange(Math.max(min, value - d))} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: color.frame }}><Text style={{ color: "#FFFFFF", fontSize: 18 }}>−</Text></Pressable>
+      <Text style={{ minWidth: 64, textAlign: "center", fontFamily: font.num, fontSize: 18, color: "#FFFFFF" }}>{value ? `${value} ${unit}` : t.skills.noMax}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${label} +`} onPress={() => onChange(Math.min(max, value + d))} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: color.frame }}><Text style={{ color: "#FFFFFF", fontSize: 18 }}>+</Text></Pressable>
+    </View>
+  );
+  async function save() {
+    const pr = { focus: focus.trim() || null, limit: limit.trim() || null, maxMin: maxMin || null, km: dist && km ? km : null };
+    const empty = !pr.focus && !pr.limit && !pr.maxMin && !pr.km;
+    setState("saving");
+    try { await patchProfile(user.uid, { [`skillPrefs.${id}`]: empty ? null : pr }); setState("saved"); } catch { setState("error"); }
+  }
+  return (
+    <Frame cut={12} style={{ marginTop: 18 }} contentStyle={{ padding: 16, gap: 10 }}>
+      <Label tone={color.hi}>{t.skills.myWay}</Label>
+      <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.skills.myWaySub}</Text>
+      <TextInput value={focus} onChangeText={(v) => { setFocus(v); setState(null); }} placeholder={t.skills.focusPh} placeholderTextColor="#5A6A8A" maxLength={80} accessibilityLabel={t.skills.focusPh} style={input} />
+      <TextInput value={limit} onChangeText={(v) => { setLimit(v); setState(null); }} placeholder={t.skills.limitPh} placeholderTextColor="#5A6A8A" maxLength={80} accessibilityLabel={t.skills.limitPh} style={input} />
+      {step(t.skills.maxMin, maxMin, (v) => { setMaxMin(v); setState(null); }, t.skills.minUnit, 0, 180, 5)}
+      {dist ? (
+        <>
+          {step(t.skills.kmFrom, km?.[0] ?? 0, (v) => { setKm(v ? [v, Math.max(v, km?.[1] ?? v)] : null); setState(null); }, "km", 0, 50, 1)}
+          {km ? step(t.skills.kmTo, km[1], (v) => { setKm([km[0], Math.max(km[0], v)]); setState(null); }, "km", 1, 60, 1) : null}
+        </>
+      ) : null}
+      <SysButton label={state === "saved" ? t.skills.myWaySaved : t.skills.myWaySave} disabled={state === "saving"} onPress={save} />
+      {state === "error" ? <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{t.skills.myWayError}</Text> : null}
+    </Frame>
+  );
+}
+
 function WeekPlan({ user, player, id }) {
   const { color, font } = useTheme();
   const plan = player.weekPlan?.[id] ?? null;
@@ -341,6 +386,7 @@ export default function SkillPage({ user, player, id, onBack, onRequest, onOpenC
           <SysButton label={t.course.openCourse} onPress={() => onOpenCourse(courseForSkill(id).id)} style={{ marginTop: 18 }} />
         ) : null}
         <SysButton label={t.skills.request} onPress={onRequest} style={{ marginTop: 18 }} />
+        <MyWay key={id} user={user} player={player} id={id} />
         <WeekPlan user={user} player={player} id={id} />
         {id === "gym" ? (
           <Pressable accessibilityRole="button" onPress={() => setGymOpen(true)} style={{ minHeight: 44, alignItems: "center", justifyContent: "center", marginTop: 6 }}>
