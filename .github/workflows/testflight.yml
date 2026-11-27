@@ -3,8 +3,14 @@ name: TestFlight build
 # Builds the App Store version (production profile) and sends it to TestFlight when it's done.
 # Run it from the Actions tab or with: gh workflow run testflight.yml
 # Needs these repository secrets: EXPO_TOKEN, ASC_API_KEY (contents of the .p8 file), ASC_KEY_ID, ASC_ISSUER_ID, APPLE_TEAM_ID.
+# The app version for this build is set here (input "version"), not committed first, so over-the-air updates keep
+# reaching the installed app until the build is done. After it's on TestFlight, set the same version in app.json.
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: App version for this build
+        default: "1.6.0"
 
 jobs:
   build:
@@ -19,7 +25,32 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
+      - name: Check that all secrets are there
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=""
+          for n in EXPO_TOKEN ASC_API_KEY ASC_KEY_ID ASC_ISSUER_ID APPLE_TEAM_ID; do [ -z "${!n}" ] && missing="$missing $n"; done
+          if [ -n "$missing" ]; then echo "::error::Missing repository secrets:$missing"; exit 1; fi
+          echo "All secrets are there."
       - run: npm ci
+      - name: Version and team for this build
+        env:
+          VERSION: ${{ inputs.version }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const a = JSON.parse(fs.readFileSync("app.json", "utf8"));
+            a.expo.version = process.env.VERSION;
+            a.expo.ios.appleTeamId = process.env.APPLE_TEAM_ID;
+            fs.writeFileSync("app.json", JSON.stringify(a, null, 2) + "\n");
+            console.log("Building version", a.expo.version);
+          '
       - name: Write the App Store Connect API key
         env:
           ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
@@ -36,4 +67,6 @@ jobs:
           EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           EXPO_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Upload the folder as it is now (with the version set above), not the last commit.
+          EAS_NO_VCS: "1"
         run: eas build --platform ios --profile production --non-interactive --auto-submit --no-wait
