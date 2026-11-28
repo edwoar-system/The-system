@@ -25,7 +25,9 @@ import CheckIn from "./CheckIn";
 import GymSession from "./GymSession";
 import Schedule from "./Schedule";
 import { busyBlocks, hhmm, suggestTimes } from "../game/schedule";
-import QuickLog from "./QuickLog";
+import DidIt from "./DidIt";
+import Evening from "./Evening";
+import { JOURNAL_FROM_HOUR, journaledToday, tomorrowNote } from "../game/journal";
 import Hud from "./Hud";
 import { courseForSkill } from "../game/courses";
 import { needsWelcome } from "./Welcome";
@@ -159,21 +161,26 @@ function NowCard({ questId, time, nowHour, reward, quickItem, quick, notice, bus
 // Morning, afternoon, evening: where a suggested time falls.
 const partOfDay = (h) => (h == null ? "any" : h < 12 ? "morning" : h < 17 ? "afternoon" : "evening");
 
-// What you cleared today: main quests, side quest, guild and program quests, morning routine, to-dos.
-function TodayLog({ player, day }) {
-  const { color, font } = useTheme();
+// What you cleared today, as rows (DONE TODAY and the evening journal): quests, things you did, to-dos.
+function todayRows(player, day) {
   const today = day.date;
   const titleOf = (id) => getQuest(id, player)?.title ?? null;
-  const rows = [
+  return [
     ...(day.start?.done ? [{ key: "start", title: t.log.morning }] : []),
     ...(day.challengeDone ? [{ key: "challenge", title: t.log.challenge }] : []),
     ...day.mains.filter((m) => m.done).map((m) => ({ key: m.id, title: titleOf(m.id) })),
     ...(day.side?.done ? [{ key: "side", title: titleOf(day.side.id), tag: t.log.side }] : []),
     ...(day.guild ?? []).filter((g) => g.done).map((g) => ({ key: g.id, title: titleOf(g.id) })),
     ...(day.programs ?? []).filter((g) => g.done).map((g) => ({ key: g.id, title: titleOf(g.id) })),
+    ...(day.did ?? []).map((x, i) => ({ key: `did${i}`, title: `${skillById[x.skill]?.name ?? x.skill}, ${x.minutes} min`, tag: t.did.levels[x.level] })),
     ...(day.end?.done ? [{ key: "end", title: t.log.evening }] : []),
     ...(player.todos ?? []).filter((x) => x.done && x.doneOn === today && !(day.side?.id === `todo:${x.id}`)).map((x) => ({ key: `t${x.id}`, title: x.title, tag: t.log.todo })),
+    ...(day.journal ? [{ key: "journal", title: t.evening.logged }] : []),
   ].filter((r) => r.title);
+}
+function TodayLog({ player, day }) {
+  const { color, font } = useTheme();
+  const rows = todayRows(player, day);
   if (!rows.length) return null;
   return (
     <View style={{ gap: 6, paddingHorizontal: 4, paddingTop: 6 }}>
@@ -211,6 +218,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
   const focusTimer = useRef(null);
   const [trollOpen, setTrollOpen] = useState(null);
   const [fab, setFab] = useState(false);
+  const [didOpen, setDidOpen] = useState(false);
   const sit = useSituation(player)?.id ?? null;
   const weather = useWeather(player);
   const freeFits = FREE_FIT_SWAPS - (day.fitSwaps ?? 0);
@@ -314,7 +322,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
       const proof = needsProof(player, r.slot);
       const ask = ASK_SLOTS.includes(r.slot);
       if ((proof || ask) && r.logId) setCheck({ logId: r.logId, title: q?.title ?? "", proof, ask });
-      if (r.muscles) setBody({ ...r.muscles, skillId: q?.skill, skillName: skillById[q?.skill]?.name ?? "" });
+      if (r.muscles && q?.did !== "play") setBody({ ...r.muscles, skillId: q?.skill, skillName: skillById[q?.skill]?.name ?? "" });
       if (r.skillUp) setRankUp({ letter: RANKS[r.skillUp.rank], name: skillById[r.skillUp.id]?.name ?? "", xp: r.skillUp.xp });
       else if (r.trialDone && q?.skill) setRankUp({ letter: RANKS[q.trial.rank], name: skillById[q.skill]?.name ?? "", xp: 0, restored: true });
     };
@@ -495,6 +503,10 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
 
         <Hud user={user} player={player} />
         <SituationLine user={user} player={player} situation={sit} weather={weather} />
+        {/* Last night's "one thing for tomorrow". */}
+        {tomorrowNote(player, nowD) ? (
+          <Text style={{ marginTop: 10, marginHorizontal: 18, fontFamily: font.bodyMedium, fontSize: 14, lineHeight: 20, color: color.gold }}>{fill(t.evening.yesterday, { text: tomorrowNote(player, nowD) })}</Text>
+        ) : null}
 
         {nowQuest ? (
           <NowCard questId={nowQuest.id} time={nowQuest.time} nowHour={nowHour} reward={rewardPreview(day, nowQuest.id, player.profile)}
@@ -530,6 +542,10 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
           </Frame>
         ) : null}
         {bedtime && !day.end?.done ? checklist("end", END_PARTS, day.endTicks) : null}
+        {/* The evening journal: closes the day. */}
+        {(bedtime || nowD.getHours() >= JOURNAL_FROM_HOUR) && !journaledToday(day) ? (
+          <Evening user={user} done={todayRows(player, day).filter((r) => r.key !== "journal").map((r) => (r.tag ? `${r.title} (${r.tag.toLowerCase()})` : r.title))} style={{ marginTop: 14, marginHorizontal: 14 }} />
+        ) : null}
 
         {/* Tomorrow: commit tonight to a phone-free first hour (it starts the moment you wake, so it's chosen the day before). */}
         {nowD.getHours() >= 17 && !simple ? (
@@ -544,8 +560,6 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
             </Pressable>
           </Frame>
         ) : null}
-
-        <QuickLog user={user} player={player} day={day} situation={sit} onCompleted={onResult} style={{ marginTop: 14, marginHorizontal: 14 }} />
 
         <Frame kind="premium" cut={16} corners style={{ marginTop: 14, marginHorizontal: 14 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: "rgba(159,203,255,0.18)" }}>
@@ -804,6 +818,15 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
         <Modal transparent animationType="fade" visible onRequestClose={() => setFab(false)}>
           <Pressable accessibilityLabel={t.board.fabClose} onPress={() => setFab(false)} style={{ flex: 1, backgroundColor: "rgba(1,4,10,0.6)", justifyContent: "flex-end" }}>
             <View style={{ padding: 14, paddingBottom: insets.bottom + 70, gap: 10, maxWidth: 520, width: "100%", alignSelf: "center" }}>
+              {/* What you did on your own: playing around, a real session, or pushing to your limit. */}
+              <Pressable accessibilityRole="button" onPress={() => { setFab(false); setDidOpen(true); }}
+                style={{ minHeight: 60, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, borderWidth: 1, borderColor: color.frame, backgroundColor: "rgba(16,30,60,0.98)" }}>
+                <View style={{ width: 8, height: 8, backgroundColor: "#FFFFFF", transform: [{ rotate: "45deg" }] }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: font.bold, fontSize: 15, color: "#FFFFFF" }}>{t.did.button}</Text>
+                  <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{t.did.buttonSub}</Text>
+                </View>
+              </Pressable>
               <Pressable accessibilityRole="button" disabled={busy || urgentOpen} onPress={async () => {
                 setFab(false);
                 setBusy(true);
@@ -849,6 +872,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
       {trollOpen ? <TrollDo user={user} player={player} troll={trollOpen} onClose={() => setTrollOpen(null)}
         onDone={(r) => { if (r) { showToast({ coins: 0, bonus: 0, xp: r.xp }); if (r.levelUp) setLevelUp({ level: r.levelUp, xp: (player.xp ?? 0) + r.xp, coins: 0 }); } }} /> : null}
       {schedOpen ? <Schedule user={user} player={player} onClose={() => setSchedOpen(false)} /> : null}
+      {didOpen ? <DidIt user={user} player={player} onClose={() => setDidOpen(false)} onDone={(r, id) => { setDidOpen(false); onResult(r, id); }} /> : null}
       {sidePick ? <SidePicker user={user} player={player} onClose={() => setSidePick(false)} /> : null}
       {sheet && sheet.id.startsWith("gs:") && !sheet.done ? (
         <GymSession user={user} player={player} questId={sheet.id} slot={sheet.slot} onClose={() => setSheet(null)} onResult={(r) => onResult(r, sheet.id)} />

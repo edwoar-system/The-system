@@ -8,6 +8,7 @@ import { QUESTS, SIDE_BONUS, pickMainQuests, pickSideQuest, questById, todayKey,
 import { PROGRAM_DONE_BONUS, dueSessions, programById, programQuest, weekKey } from "../game/programs";
 import { OUTING, guildQuest, withPrefs } from "../game/guild";
 import { goalSkills } from "../game/goals";
+import { didQuest } from "../game/didit";
 import { ladderById } from "../game/ladders";
 import { dayNum, habitRank, isHabit, passTrial, recordTraining, skillView, SKILL_RULES, trialQuest, trialState, weekNum } from "../game/skills";
 import { tierForRank } from "../game/tiers";
@@ -45,6 +46,7 @@ export function getQuest(id, player = null) {
   if (id.startsWith("t:")) return trialQuest(id);
   if (id.startsWith("d:")) return dutyQuest(id);
   if (id.startsWith("cb:")) return comebackQuest(id);
+  if (id.startsWith("did:")) return didQuest(id);
   // Your own side quests: something from "This week", or a to-do.
   if (id.startsWith("wk:")) {
     const x = ((player ?? playerCache)?.week?.items ?? []).find((i) => `wk:${i.id}` === id);
@@ -367,6 +369,10 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
       // Your own side quest: count it in "This week", or tick the to-do.
       if (questId.startsWith("wk:") && player.week?.items) ownSide.week = { ...player.week, items: player.week.items.map((x) => (`wk:${x.id}` === questId ? { ...x, done: (x.done ?? 0) + 1 } : x)) };
       if (questId.startsWith("todo:") && player.todos) ownSide.todos = player.todos.map((x) => (`todo:${x.id}` === questId ? { ...x, done: true, doneOn: day.date, paid: true } : x));
+    } else if (slot === "did") {
+      // Something you did on your own (game/didit.js): kept for today's log and the evening journal.
+      if (!q.did) throw new Error("unknown-quest");
+      day.did = [...(day.did ?? []), { skill: q.skill, level: q.did, minutes: q.minutes, at: Date.now() }];
     } else if (slot === "program") {
       // Boards from before programs had their own list keep the session among the mains.
       const p = (day.programs ?? []).find((x) => x.id === questId && !x.done) ?? day.mains.find((x) => x.id === questId && !x.done);
@@ -448,6 +454,8 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
       const ladder = ladderById[q.skill];
       const skillBefore = player.skills?.[q.skill]?.rank ?? 0;
       let entry = recordTraining(player.skills?.[q.skill], q.minutes, today);
+      // Playing around keeps the skill fresh but isn't a rank session.
+      if (q.did === "play") entry = { ...entry, sessions: player.skills?.[q.skill]?.sessions ?? 0 };
       if (trial?.complete) entry = passTrial(entry, ladder, trial.rank).entry;
       if (isHabit(ladder)) entry = { ...entry, rank: habitRank({ ...entry, rank: skillBefore }, ladder, today) };
       const best = player.skillBest?.[q.skill] ?? 0;

@@ -10,6 +10,7 @@ import { Frame, Glow, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 import StatusEffects from "./StatusEffects";
+import BodyIcons, { waterLevel } from "./BodyIcons";
 import { HabitsScreen } from "./Habits";
 import SwipeBack from "./SwipeBack";
 
@@ -72,16 +73,14 @@ export function BodyCard({ user, player }) {
               <Svg width={18} height={18} viewBox="0 0 24 24"><Path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7" fill="none" stroke={color.muted} strokeWidth={1.8} /></Svg>
             </View>
           </View>
-          <View style={{ alignItems: "center" }}><BodyMap load={load} width={300} /></View>
+          <View style={{ alignItems: "center" }}><BodyMap load={load} width={300} water={waterLevel(player)} /></View>
           <Legend />
           {tired.length ? (
             <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: REST_COLORS.tired }}>{fill(t.body.tiredLine, { list: tired.slice(0, 4).join(", ") })}</Text>
           ) : null}
         </Pressable>
-        {/* Your status today, right with your body: water, sleep and the buffs and debuffs they give. */}
-        <View style={{ height: 1, backgroundColor: "rgba(159,203,255,0.16)", marginVertical: 2 }} />
-        <Label tone={color.hi}>{t.effects.title}</Label>
-        <StatusEffects user={user} player={player} bare onOpenHabits={() => setSleepOpen(true)} />
+        {/* Water and sleep as two small icons; the water you log fills the body above. */}
+        <BodyIcons user={user} player={player} onSleep={() => setSleepOpen(true)} onMore={() => setOpen(true)} />
       </Frame>
       {open ? <BodyScreen user={user} player={player} onClose={() => setOpen(false)} /> : null}
       {sleepOpen ? <HabitsScreen user={user} player={player} start="sleep" onClose={() => setSleepOpen(false)} /> : null}

@@ -1,9 +1,9 @@
 // Body map: a faceted front and back figure with 35 real muscles. Each fills with this week's training load,
 // or (mode "rest") shows how recovered it is.
 // Shapes are the left half (viewer's left) in a 120 × 206 box per figure, mirrored for the right half.
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { Animated, Easing, View } from "react-native";
-import Svg, { Line, Polygon } from "react-native-svg";
+import Svg, { ClipPath, Defs, G, Line, Polygon, Rect } from "react-native-svg";
 import { level, recoveryState } from "../game/muscles";
 import { nativeDriver } from "./sys";
 
@@ -91,7 +91,10 @@ const HEADS = [pts(pairs(HEAD), 0), pts(pairs(HEAD), 120)];
 
 // load: { muscle: n } for the week. hit: muscles to pulse (just trained).
 // mode "rest" colours by fatigue instead ({ muscle: 0–2 } in fatigue). onMuscle: tap a muscle.
-export default function BodyMap({ load = {}, hit = null, width = 300, mode = "week", fatigue = {}, onMuscle, selected }) {
+// water (0–1): how far today's water has filled the body, drawn as a rising blue level.
+export default function BodyMap({ load = {}, hit = null, width = 300, mode = "week", fatigue = {}, onMuscle, selected, water = 0 }) {
+  const clipId = `wl${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  const waterY = 206 * (1 - Math.max(0, Math.min(1, water)));
   const height = Math.round((width * 206) / 240);
   const pulse = useRef(new Animated.Value(0)).current;
 
@@ -118,6 +121,15 @@ export default function BodyMap({ load = {}, hit = null, width = 300, mode = "we
             onPress={onMuscle && s.m !== "base" ? () => onMuscle(s.m) : undefined} />
         ))}
         {[72, 80, 88].map((y) => <Line key={y} x1={52.5} y1={y} x2={67.5} y2={y} stroke={BG} strokeWidth={1} />)}
+        {water > 0 ? (
+          <>
+            <Defs><ClipPath id={clipId}><Rect x={0} y={waterY} width={240} height={206 - waterY} /></ClipPath></Defs>
+            <G clipPath={`url(#${clipId})`}>
+              {HEADS.map((p, i) => <Polygon key={`wh${i}`} points={p} fill="rgba(96,170,255,0.32)" />)}
+              {ALL.map((s) => <Polygon key={`w${s.key}`} points={s.points} fill="rgba(96,170,255,0.32)" />)}
+            </G>
+          </>
+        ) : null}
       </Svg>
       {hitSet ? (
         <Animated.View pointerEvents="none" style={{ position: "absolute", left: 0, top: 0, opacity: pulse }}>
