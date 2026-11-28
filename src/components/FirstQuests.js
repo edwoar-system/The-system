@@ -17,7 +17,7 @@ import { useTheme } from "../theme";
 import { t } from "../i18n";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
-const TUNE_PART = { skills: "interests", day: "day", energy: "energy" };
+const TUNE_PART = { skills: ["goals", "interests"], day: "day", energy: "energy" };
 
 // A full-screen page for one step (Tune part or name), with a Done button.
 function StepPage({ title, children, onClose }) {

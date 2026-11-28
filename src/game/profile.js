@@ -3,7 +3,7 @@
 // Everyone has their own mountain: what's hard for you pays more for you.
 
 // Only questions that change something are asked.
-export const PARTS = ["day", "interests", "drive", "energy", "mountains", "duties", "mind", "about"];
+export const PARTS = ["goals", "interests", "day", "drive", "energy", "mountains", "duties", "mind", "about"];
 
 // What drives you: changes how reminders talk to you.
 export const DRIVES = ["progress", "streak", "coins", "push", "friends"];
@@ -173,5 +173,6 @@ export function partsDone(profile) {
     duties: Array.isArray(p.duties) && p.duties.length > 0,
     drive: !!p.drive,
     energy: !!p.energy,
+    goals: (p.goals ?? []).some((g) => String(g?.text ?? "").trim()),
   };
 }

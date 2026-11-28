@@ -13,6 +13,9 @@ import { useTheme } from "../theme";
 import { Label } from "./sys";
 import { t } from "../i18n";
 import TimeInput from "./TimeInput";
+import GearAsk from "./GearAsk";
+import { gearOf, hasGear } from "../game/gear";
+import { HORIZONS, MAX_GOALS, searchSkills, suggestFor } from "../game/goals";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 const hhmm = (h) => { const m = Math.round(h * 60); return `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; };
@@ -60,7 +63,7 @@ function NumberInput({ label, value, onChangeText, keyboardType, width }) {
 }
 
 // Interests: pick the exact skills you want (only those give you quests). Groups fold open one at a time.
-function InterestsForm({ draft, set }) {
+function InterestsForm({ draft, set, user, player }) {
   const { color, font } = useTheme();
   const [openId, setOpenId] = useState(null);
   // Older profiles picked whole groups: start from what those meant.
@@ -88,6 +91,10 @@ function InterestsForm({ draft, set }) {
                 ))}
               </View>
             ) : null}
+            {/* Ticked a skill that needs something? Its question comes right away. */}
+            {user ? g.skills.filter((id) => picked.includes(id) && gearOf(id) && hasGear(player?.profile, id) === undefined).map((id) => (
+              <GearAsk key={`gear-${id}`} user={user} player={player} skill={id} boxed showName />
+            )) : null}
           </View>
         );
       })}
@@ -105,8 +112,62 @@ function InterestsForm({ draft, set }) {
   );
 }
 
+// Goals for the coming months: each one links the skills that get you there.
+const newGoal = () => ({ id: Math.random().toString(36).slice(2, 9), text: "", by: "1y", skills: [] });
+function GoalRow({ goal, onChange, onRemove }) {
+  const { color, font } = useTheme();
+  const [q, setQ] = useState("");
+  const linked = goal.skills ?? [];
+  const ideas = suggestFor(goal.text).filter((id) => !linked.includes(id));
+  const found = searchSkills(q).filter((id) => !linked.includes(id));
+  const row = { flexDirection: "row", flexWrap: "wrap", gap: 6 };
+  const sub = { fontFamily: font.bodyBold, fontSize: 12, color: color.muted };
+  return (
+    <View style={{ gap: 8, padding: 10, borderWidth: 1, borderColor: "rgba(159,203,255,0.22)" }}>
+      <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+        <TextInput value={goal.text} onChangeText={(text) => onChange({ text })} placeholder={t.tune.goalPlaceholder} placeholderTextColor={color.muted} accessibilityLabel={t.tune.goalPlaceholder} multiline
+          style={{ flex: 1, minHeight: 46, paddingHorizontal: 12, paddingVertical: 10, fontFamily: font.bodyMedium, fontSize: 15, color: "#FFFFFF", borderWidth: 1, borderColor: "rgba(159,203,255,0.3)", backgroundColor: "rgba(5,10,24,0.7)" }} />
+        <Pressable accessibilityRole="button" accessibilityLabel={t.tune.goalRemove} onPress={onRemove} hitSlop={6} style={{ minWidth: 40, minHeight: 44, alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ fontFamily: font.bold, fontSize: 18, color: color.muted }}>×</Text>
+        </Pressable>
+      </View>
+      <View style={{ flexDirection: "row", gap: 6 }}>
+        {HORIZONS.map((h) => <Chip key={h} flex label={t.tune.horizons[h]} on={goal.by === h} onPress={() => onChange({ by: h })} />)}
+      </View>
+      <Text style={sub}>{t.tune.goalSkills}</Text>
+      {linked.length ? <View style={row}>{linked.map((id) => <Chip key={id} label={skillById[id]?.name ?? id} on onPress={() => onChange({ skills: linked.filter((x) => x !== id) })} />)}</View> : null}
+      {ideas.length ? (
+        <>
+          <Text style={sub}>{t.tune.goalIdeas}</Text>
+          <View style={row}>{ideas.map((id) => <Chip key={id} label={`+ ${skillById[id].name}`} onPress={() => onChange({ skills: [...linked, id] })} />)}</View>
+        </>
+      ) : null}
+      <TextInput value={q} onChangeText={setQ} placeholder={t.tune.goalSearch} placeholderTextColor={color.muted} accessibilityLabel={t.tune.goalSearch}
+        style={{ minHeight: 40, paddingHorizontal: 12, fontFamily: font.body, fontSize: 14, color: "#FFFFFF", borderBottomWidth: 1, borderBottomColor: "rgba(159,203,255,0.3)" }} />
+      {found.length ? <View style={row}>{found.map((id) => <Chip key={id} label={`+ ${skillById[id].name}`} onPress={() => { onChange({ skills: [...linked, id] }); setQ(""); }} />)}</View> : null}
+    </View>
+  );
+}
+function GoalsForm({ draft, set }) {
+  const { color, font } = useTheme();
+  const goals = draft.goals?.length ? draft.goals : [newGoal()];
+  const put = (list) => set({ goals: list });
+  return (
+    <View style={{ gap: 10 }}>
+      {goals.map((g, i) => (
+        <GoalRow key={g.id ?? i} goal={g} onChange={(patch) => put(goals.map((x, k) => (k === i ? { ...x, ...patch } : x)))} onRemove={() => put(goals.filter((_, k) => k !== i))} />
+      ))}
+      {goals.length < MAX_GOALS ? (
+        <Pressable accessibilityRole="button" onPress={() => put([...goals, newGoal()])} style={{ minHeight: 44, justifyContent: "center", alignItems: "center", borderWidth: 1, borderStyle: "dashed", borderColor: "rgba(159,203,255,0.35)" }}>
+          <Text style={{ fontFamily: font.bodyBold, fontSize: 14, color: color.accent }}>{t.tune.goalAdd}</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 // One part's questions. draft holds the answers until you save.
-function PartForm({ part, draft, set }) {
+function PartForm({ part, draft, set, user, player }) {
   const { color, font } = useTheme();
   const row = { flexDirection: "row", flexWrap: "wrap", gap: 6 };
   if (part === "day") {
@@ -138,7 +199,8 @@ function PartForm({ part, draft, set }) {
       </View>
     );
   }
-  if (part === "interests") return <InterestsForm draft={draft} set={set} />;
+  if (part === "goals") return <GoalsForm draft={draft} set={set} />;
+  if (part === "interests") return <InterestsForm draft={draft} set={set} user={user} player={player} />;
   if (part === "drive") {
     return <View style={row}>{DRIVES.map((d) => <Chip key={d} label={t.tune.drives[d]} on={draft.drive === d} onPress={() => set({ drive: draft.drive === d ? null : d })} />)}</View>;
   }
@@ -227,6 +289,12 @@ function patchFor(part, d) {
       goalAt: goal ? d.goalAt ?? d.bedGoalAt ?? Date.now() : null,
     };
   }
+  if (part === "goals") {
+    const goals = (d.goals ?? []).map((g) => ({ id: g.id, text: String(g.text ?? "").trim().slice(0, 120), by: g.by ?? "1y", skills: g.skills ?? [] })).filter((g) => g.text || g.skills.length).slice(0, MAX_GOALS);
+    // A skill linked to a goal is one you train: it's ticked under "What you're into" too.
+    const picked = [...new Set([...(d.picked ?? [...interestSkills(d)]), ...goals.flatMap((g) => g.skills)])];
+    return { goals, picked, interests: pickedGroups(picked) };
+  }
   if (part === "interests") { const picked = d.picked ?? []; return { picked, interests: pickedGroups(picked), levels: d.levels ?? {} }; }
   if (part === "drive") return { drive: d.drive ?? null };
   if (part === "energy") return { energy: d.energy ?? null };
@@ -245,7 +313,8 @@ export const saveDayDefaults = (uid, profile) => patchProfile(uid, patchFor("day
 export default function Tune({ user, player, only = null }) {
   const { color, font } = useTheme();
   const track = useTrack();
-  const [open, setOpen] = useState(only);
+  const onlyList = only ? [].concat(only) : null;
+  const [open, setOpen] = useState(onlyList?.[0] ?? null);
   const [draft, setDraft] = useState(() => startDraft(player.profile));
   const done = partsDone(player.profile);
   const count = PARTS.filter((p) => done[p]).length;
@@ -276,7 +345,7 @@ export default function Tune({ user, player, only = null }) {
     <View pointerEvents={locked ? "box-none" : "auto"}>
       {only ? null : <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: color.muted }}>{fill(t.tune.progress, { n: count, of: PARTS.length })}</Text>}
       {locked ? <Text style={{ marginTop: 6, fontFamily: font.bodyBold, fontSize: 13, lineHeight: 18, color: color.accent }}>{t.hard.tuneLocked}</Text> : null}
-      {(only ? [only] : PARTS).map((part) => {
+      {(onlyList ?? PARTS).map((part) => {
         const isOpen = open === part;
         return (
           <View key={part} style={{ borderTopWidth: 1, borderTopColor: color.line, marginTop: 10 }}>
@@ -297,7 +366,7 @@ export default function Tune({ user, player, only = null }) {
                   <Text style={{ flex: 1, fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.text }}>{t.tune.parts[part].ask}</Text>
                   {part === "mountains" || part === "duties" ? <HelpDot term={part} size={20} /> : null}
                 </View>
-                <PartForm part={part} draft={draft} set={(patch) => change(part, patch)} />
+                <PartForm part={part} draft={draft} set={(patch) => change(part, patch)} user={user} player={player} />
                 <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{t.tune.autosave}</Text>
               </View>
               </View>

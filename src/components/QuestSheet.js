@@ -20,7 +20,8 @@ import { quickLog } from "../lib/quick";
 import { DIFF_SETS, difficultyOf } from "../game/difficulty";
 import { needsWhy, whyNow } from "../game/why";
 import { gearOf, hasGear } from "../game/gear";
-import { setGear } from "../lib/player";
+import GearAsk from "./GearAsk";
+import { goalFor } from "../game/goals";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 const ROMAN = ["I", "II", "III"];
@@ -229,20 +230,9 @@ export default function QuestSheet({ user, player, questId, slot, done, onClose,
               </View>
             ) : null}
 
-            {q.skill && gearOf(q.skill) && hasGear(player?.profile, q.skill) === undefined ? (
-              <View style={{ gap: 8, padding: 12, borderWidth: 1, borderColor: color.gold }}>
-                <Label tone={color.gold}>{t.gear.title}</Label>
-                <Text style={{ fontFamily: font.bodyMedium, fontSize: 14, lineHeight: 20, color: "#FFFFFF" }}>{fill(t.gear.ask, { need: gearOf(q.skill).need })}</Text>
-                <View style={{ flexDirection: "row", gap: 8 }}>
-                  {[[true, t.gear.yes], [false, t.gear.no]].map(([v, label]) => (
-                    <Pressable key={String(v)} accessibilityRole="button" onPress={() => setGear(user.uid, q.skill, v).catch(() => {})}
-                      style={{ flex: 1, minHeight: 44, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: v ? color.frame : "rgba(159,203,255,0.3)" }}>
-                      <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: "#FFFFFF" }}>{label}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-            ) : null}
+            {q.skill && gearOf(q.skill) && hasGear(player?.profile, q.skill) === undefined ? <GearAsk user={user} player={player} skill={q.skill} boxed /> : null}
+            {q.skill && goalFor(player?.profile, q.skill) ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, lineHeight: 18, color: color.gold }}>{fill(t.tune.forGoal, { goal: goalFor(player.profile, q.skill).text })}</Text> : null}
+            {q.at ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: color.accent }}>{t.gear.atLine[q.at]}</Text> : null}
             {q.gearFor ? <Text style={{ fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.muted }}>{t.gear.afterThis}</Text> : null}
 
             {q.focus || q.limit ? (

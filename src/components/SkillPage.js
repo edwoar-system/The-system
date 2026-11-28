@@ -23,8 +23,10 @@ import { t } from "../i18n";
 import { HelpDot } from "./Explain";
 import { courseForSkill } from "../game/courses";
 import { PLAN_TIMES, WEEKDAYS } from "../game/weekplan";
-import { patchProfile, setGear, setWeekPlan } from "../lib/player";
+import { patchProfile, setWeekPlan } from "../lib/player";
+import GearAsk from "./GearAsk";
 import { gearOf, hasGear } from "../game/gear";
+import { goalFor } from "../game/goals";
 
 function Chevron({ c }) {
   return <Svg width={18} height={18} viewBox="0 0 24 24"><Path d="M15 5l-7 7 7 7" fill="none" stroke={c} strokeWidth={1.8} /></Svg>;
@@ -104,17 +106,7 @@ function MyWay({ user, player, id }) {
     <Frame cut={12} style={{ marginTop: 18 }} contentStyle={{ padding: 16, gap: 10 }}>
       <Label tone={color.hi}>{t.skills.myWay}</Label>
       <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.skills.myWaySub}</Text>
-      {gearOf(id) ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Text style={{ flex: 1, fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{fill(t.gear.ask, { need: gearOf(id).need })}</Text>
-          {[[true, t.gear.yesShort], [false, t.gear.noShort]].map(([v, label]) => (
-            <Pressable key={String(v)} accessibilityRole="button" accessibilityState={{ selected: hasGear(player.profile, id) === v }} onPress={() => setGear(user.uid, id, v).catch(() => {})}
-              style={{ minHeight: 40, minWidth: 52, paddingHorizontal: 10, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: hasGear(player.profile, id) === v ? color.frame : "rgba(159,203,255,0.25)", backgroundColor: hasGear(player.profile, id) === v ? "rgba(159,203,255,0.14)" : "transparent" }}>
-              <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: "#FFFFFF" }}>{label}</Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
+      {hasGear(player?.profile, id) !== undefined ? <GearAsk user={user} player={player} skill={id} /> : null}
       <TextInput value={focus} onChangeText={(v) => { setFocus(v); setState(null); }} placeholder={t.skills.focusPh} placeholderTextColor="#5A6A8A" maxLength={80} accessibilityLabel={t.skills.focusPh} style={input} />
       <TextInput value={limit} onChangeText={(v) => { setLimit(v); setState(null); }} placeholder={t.skills.limitPh} placeholderTextColor="#5A6A8A" maxLength={80} accessibilityLabel={t.skills.limitPh} style={input} />
       {step(t.skills.maxMin, maxMin, (v) => { setMaxMin(v); setState(null); }, t.skills.minUnit, 0, 180, 5)}
@@ -284,7 +276,10 @@ export default function SkillPage({ user, player, id, onBack, onRequest, onOpenC
           </View>
           <Text accessibilityRole="header" style={{ marginTop: 4, fontFamily: font.displayHeavy, fontSize: 28, letterSpacing: 1, color: "#FFFFFF", textAlign: "center" }}>{skill.name}</Text>
           <Text style={{ marginTop: 2, fontFamily: font.body, fontSize: 13, color: color.muted, textAlign: "center" }}>{L.stats}</Text>
+          {goalFor(player?.profile, id) ? <Text style={{ marginTop: 6, fontFamily: font.bodyMedium, fontSize: 13, color: color.gold, textAlign: "center" }}>{fill(t.tune.forGoal, { goal: goalFor(player.profile, id).text })}</Text> : null}
         </View>
+        {/* A skill that needs something asks that first. */}
+        {hasGear(player?.profile, id) === undefined && gearOf(id) ? <View style={{ marginTop: 14 }}><GearAsk user={user} player={player} skill={id} boxed /></View> : null}
 
         {/* Progress inside the rank */}
         <View style={{ marginTop: 20, paddingHorizontal: 4 }}>

@@ -74,7 +74,7 @@ function seeded(seedText) {
 // liked: skills from your interests; a quest for one of them is picked 3 times out of 4 when the stat has one.
 // tired: muscles that are still tired; quests that lean on them are skipped when there's another choice.
 // extra: more quests for the focus pool (guild quests for every skill you're into), so focus never runs dry.
-export function pickMainQuests({ date, lastDoneByStat = {}, mainSlots = 3, uid = "", liked = null, tired = null, outside = null, avoid = [], extra = [] }) {
+export function pickMainQuests({ date, lastDoneByStat = {}, mainSlots = 3, uid = "", liked = null, tired = null, outside = null, avoid = [], extra = [], goal = null }) {
   const rand = seeded(`${uid}:${date}`);
   const usable = (q) => !q.side && !q.kind && !q.planned && !(q.onlyIf && !liked?.has(q.onlyIf)) && !avoid.includes(q.id);
   const rest = (list) => { const r = tired?.size ? list.filter((q) => !hitsTired(q, tired)) : list; return r.length ? r : list; };
@@ -95,7 +95,9 @@ export function pickMainQuests({ date, lastDoneByStat = {}, mainSlots = 3, uid =
       const stat = byStat.find((st) => inFocus.some((q) => q.stat === st && open(q))) ?? null;
       const from = inFocus.filter((q) => open(q) && (!stat || q.stat === stat));
       if (!from.length) break;
-      const q = pick(from);
+      // Skills that build one of your goals come up about two times in three.
+      const forGoal = goal?.size ? from.filter((x) => goal.has(x.skill)) : [];
+      const q = forGoal.length && rand() < 0.67 ? pick(forGoal) : pick(from);
       picked.push(q.id);
       skillsUsed.add(q.skill);
       if (stat) byStat.push(byStat.splice(byStat.indexOf(stat), 1)[0]);

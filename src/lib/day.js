@@ -7,6 +7,7 @@ import { allMainsBonus, levelFromXp, questCoins, questXp } from "../game/economy
 import { QUESTS, SIDE_BONUS, pickMainQuests, pickSideQuest, questById, todayKey, widenBy } from "../game/quests";
 import { PROGRAM_DONE_BONUS, dueSessions, programById, programQuest, weekKey } from "../game/programs";
 import { OUTING, guildQuest, withPrefs } from "../game/guild";
+import { goalSkills } from "../game/goals";
 import { ladderById } from "../game/ladders";
 import { dayNum, habitRank, isHabit, passTrial, recordTraining, skillView, SKILL_RULES, trialQuest, trialState, weekNum } from "../game/skills";
 import { tierForRank } from "../game/tiers";
@@ -92,7 +93,7 @@ export function newDay(player, uid) {
     const tier = Math.max(0, Math.min(2, base + DIFF_TIER[difficultyOf(player)]));
     return guildQuest(tier ? `g:${id}:${tier}` : `g:${id}`) ?? guildQuest(`g:${id}`);
   }).filter(Boolean);
-  const mains = pickMainQuests({ date, uid, lastDoneByStat: player?.lastDoneByStat ?? {}, mainSlots: slots, liked, tired, outside, extra });
+  const mains = pickMainQuests({ date, uid, lastDoneByStat: player?.lastDoneByStat ?? {}, mainSlots: slots, liked, tired, outside, extra, goal: goalSkills(player?.profile) });
   const gym = gymToday(player?.gym, date, (muscles) => Object.entries(muscles).some(([m, k]) => k >= 0.7 && tired.has(m)));
   if (gym) {
     const at = mains.findIndex((id) => !id.startsWith("p:") && getQuest(id, player)?.stat === "STR");

@@ -5,6 +5,7 @@ import { busyBlocks, isBusy } from "./schedule";
 import { interestSkills } from "./profile";
 import { skillById } from "./guild";
 import { needsFirst } from "./firstQuests";
+import { atHome } from "./gear";
 
 export const URGENT = {
   acceptMinutes: 15, // the notice disappears after this
@@ -72,7 +73,7 @@ export function taskById(id) {
 // What you could be offered: tasks of the skills you picked.
 export function urgentTasks(player) {
   const liked = interestSkills(player?.profile);
-  return [...TASKS.filter((x) => liked.has(x.skill)).map((x) => x.id), ...LANGUAGES.filter((l) => liked.has(l)).map((l) => `lang:${l}`)];
+  return [...TASKS.filter((x) => liked.has(x.skill) && atHome(player?.profile, x.skill)).map((x) => x.id), ...LANGUAGES.filter((l) => liked.has(l)).map((l) => `lang:${l}`)];
 }
 export function pickTask(player, rand = Math.random) {
   const ids = urgentTasks(player);

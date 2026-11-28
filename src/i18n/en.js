@@ -792,7 +792,7 @@ export default {
     allCoins: "{n} coins earned in all",
     q: {
       name: { title: "Tell the System your name", why: "So it knows who it's talking to." },
-      skills: { title: "Choose the skills you want to train", why: "Only these give you quests, at your level. Pick as many as you really want." },
+      skills: { title: "Your goals and skills", why: "Write what you want this year, then tick the skills you want to train. Only these give you quests, at your level." },
       day: { title: "Set when you wake up and go to bed", why: "Quests and reminders fit your day, not someone else's." },
       busy: { title: "Add your school or work times", why: "No quests while you're in class or at work.", skip: "I have no fixed times" },
       energy: { title: "Pick your best time of day", why: "Hard quests come when you have the most energy." },
@@ -1717,6 +1717,14 @@ export default {
   },
   tune: {
     pickedCount: "{n} picked",
+    goalPlaceholder: "A goal, in your words (e.g. get really good at climbing)",
+    goalRemove: "Remove this goal",
+    goalSkills: "Skills that get you there",
+    goalIdeas: "Ideas from your words",
+    goalSearch: "Search another skill…",
+    goalAdd: "+ Add a goal",
+    forGoal: "For your goal: {goal}",
+    horizons: { "3m": "3 months", "6m": "6 months", "1y": "This year" },
     levelAsk: "How good are you at each one already? New keeps your quests easy; experienced starts them a level higher.",
     levelNames: ["New to it", "Some experience", "Experienced"],
     drives: { progress: "Seeing my progress", streak: "Not breaking my streak", coins: "Earning rewards", push: "Being pushed hard", friends: "Keeping up with friends" },
@@ -1744,6 +1752,7 @@ export default {
     levels: { 1: "Easy", 2: "OK", 3: "Hard", 4: "Very hard" },
     freq: { daily: "daily", weekly: "weekly" },
     parts: {
+      goals: { title: "Your goals", effect: "Skills that build your goals come up more often.", ask: "What do you want to be able to do in a few months, or by the end of the year? Write each goal in your own words, then link the skills that get you there. Linked skills are ticked for you." },
       day: { title: "Your day", effect: "Sets when your morning message and sub-scenarios come.", ask: "A range is fine. Your morning message comes after the start of your wake window, and sub-scenarios stay an hour away from your sleep. A bedtime goal is reached step by step." },
       drive: { title: "What drives you", effect: "Changes how the System's reminders talk to you.", ask: "What makes you actually do it? Pick the one that's most true." },
       energy: { title: "Your best time", effect: "Quests are suggested in that part of the day first.", ask: "When do you have the most energy for hard things?" },
@@ -1873,6 +1882,10 @@ export default {
   gear: {
     title: "YOU NEED",
     ask: "Do you have {need}?",
+    where: "Where can you do {skill}?",
+    places: { home: "At home", gym: "At the gym", park: "At a park" },
+    nowhere: "Nowhere yet",
+    atLine: { gym: "At the gym", park: "At a park or playground", home: "At home" },
     yes: "Yes, I have it",
     no: "Not yet",
     yesShort: "Yes",
