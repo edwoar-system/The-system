@@ -210,6 +210,9 @@ export default {
     tooSoon: "Not yet: the time isn't up.",
   },
   skills: {
+    trialSure: "TAP AGAIN TO START THE TRIAL",
+    trialCancel: "Cancel",
+    trialStopSure: "Tap again to stop this trial",
     myWay: "YOUR WAY",
     myWaySub: "Tell the System exactly what you want from this skill and what to keep in mind. Its quests follow this.",
     focusPh: "What exactly? e.g. the windmill",
@@ -730,6 +733,7 @@ export default {
       read1: "Read one page", tidy: "Tidy one surface",
       meditate5: "Meditate 5 minutes", tea: "Make tea or coffee and drink it slowly", journal3: "Write 3 lines in your journal", nophone30: "No phone for the first 30 minutes",
     },
+    payLine: "+{c} coins per item · whole routine +{b} more",
     slowToggle: "Slow morning",
     slowToggleSub: "Do your routine calmly, one thing at a time. No quests are planned until it's over.",
     slowLine: "Slow morning: no rush, one thing at a time.",
@@ -1857,6 +1861,23 @@ export default {
   links: {
     water: "+1 glass of water",
     todo: "To-do added",
+  },
+  log: {
+    title: "DONE TODAY · {n}",
+    morning: "Morning routine",
+    challenge: "Daily challenge",
+    evening: "Evening routine",
+    side: "side quest",
+    todo: "to-do",
+  },
+  gear: {
+    title: "YOU NEED",
+    ask: "Do you have {need}?",
+    yes: "Yes, I have it",
+    no: "Not yet",
+    yesShort: "Yes",
+    noShort: "Not yet",
+    afterThis: "Once you have it, this skill's real quests start.",
   },
   time: {
     holdHint: "Tap for 5 minutes, hold to go faster",

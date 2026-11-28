@@ -34,7 +34,7 @@ import Todos from "./Todos";
 import WeekCard, { SidePicker } from "./Week";
 import { needsFirst } from "../game/firstQuests";
 import MorningCheckin from "./MorningCheckin";
-import { CHALLENGE_COINS, FULL_MORNING_XP, challengeOf, morningById, morningToday, wantsCheckin, isSlowMorning } from "../game/morning";
+import { CHALLENGE_COINS, FULL_MORNING_XP, MORNING_DONE_COINS, MORNING_ITEM_COINS, challengeOf, morningById, morningToday, wantsCheckin, isSlowMorning } from "../game/morning";
 import { minutesOf, reminderDone, remindersOn } from "../game/reminders";
 import { tickReminder } from "../lib/player";
 import { showClear, showSystem } from "../lib/popup";
@@ -52,6 +52,7 @@ import { t } from "../i18n";
 import { doneFeel, tapFeel } from "../lib/haptics";
 import { HelpDot } from "./Explain";
 import SwipeBack from "./SwipeBack";
+import { stopTrial } from "../lib/skills";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 const DEADLINE_HOUR = 21;
@@ -158,6 +159,36 @@ function NowCard({ questId, time, nowHour, reward, quickItem, quick, notice, bus
 // Morning, afternoon, evening: where a suggested time falls.
 const partOfDay = (h) => (h == null ? "any" : h < 12 ? "morning" : h < 17 ? "afternoon" : "evening");
 
+// What you cleared today: main quests, side quest, guild and program quests, morning routine, to-dos.
+function TodayLog({ player, day }) {
+  const { color, font } = useTheme();
+  const today = day.date;
+  const titleOf = (id) => getQuest(id, player)?.title ?? null;
+  const rows = [
+    ...(day.start?.done ? [{ key: "start", title: t.log.morning }] : []),
+    ...(day.challengeDone ? [{ key: "challenge", title: t.log.challenge }] : []),
+    ...day.mains.filter((m) => m.done).map((m) => ({ key: m.id, title: titleOf(m.id) })),
+    ...(day.side?.done ? [{ key: "side", title: titleOf(day.side.id), tag: t.log.side }] : []),
+    ...(day.guild ?? []).filter((g) => g.done).map((g) => ({ key: g.id, title: titleOf(g.id) })),
+    ...(day.programs ?? []).filter((g) => g.done).map((g) => ({ key: g.id, title: titleOf(g.id) })),
+    ...(day.end?.done ? [{ key: "end", title: t.log.evening }] : []),
+    ...(player.todos ?? []).filter((x) => x.done && x.doneOn === today && !(day.side?.id === `todo:${x.id}`)).map((x) => ({ key: `t${x.id}`, title: x.title, tag: t.log.todo })),
+  ].filter((r) => r.title);
+  if (!rows.length) return null;
+  return (
+    <View style={{ gap: 6, paddingHorizontal: 4, paddingTop: 6 }}>
+      <Text style={{ fontFamily: font.bold, fontSize: 11, letterSpacing: 2, color: color.purple }}>{fill(t.log.title, { n: rows.length })}</Text>
+      {rows.map((r) => (
+        <View key={r.key} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color.purple }} />
+          <Text style={{ flex: 1, fontFamily: font.body, fontSize: 13, lineHeight: 18, color: color.text }}>{r.title}</Text>
+          {r.tag ? <Text style={{ fontFamily: font.body, fontSize: 11, color: color.muted }}>{r.tag}</Text> : null}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, onOpenCourse, onOpenAssess }) {
   const { color, font } = useTheme();
   const insets = useSafeAreaInsets();
@@ -216,6 +247,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
   const duties = dutiesToday(player, day.date, weekNum(dayNum(day.date))).filter((d) => !day.mains.some((m) => m.id === `d:${d.id}`));
   const trollQ = trollQueue(useTrolls(user.uid));
   // Suggested times for open main quests, in your free time today (from now on).
+  const [stopSure, setStopSure] = useState(null);
   const [sidePick, setSidePick] = useState(false);
   const [schedOpen, setSchedOpen] = useState(false);
   const busyToday = busyBlocks(player, day.date);
@@ -362,6 +394,7 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
       <Frame style={{ marginTop: 14, marginHorizontal: 14 }} cut={10} contentStyle={{ paddingVertical: 10, paddingHorizontal: 16, gap: 6 }}>
         <Label tone={color.accent}>{which === "end" ? t.board.end : t.board.start}</Label>
         {which === "end" ? <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.board.endSub}</Text> : null}
+        {which === "start" && parts.length ? <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: color.gold }}>{fill(t.morning.payLine, { c: MORNING_ITEM_COINS, b: MORNING_DONE_COINS })}</Text> : null}
         {which === "start" && isSlowMorning(player) && parts.length ? <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{player.profile?.energy === "morning" ? t.morning.slowLineBest : t.morning.slowLine}</Text> : null}
         {parts.map((part) => {
           const on = !!ticks?.[part];
@@ -645,6 +678,11 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
                     <Text style={{ fontFamily: font.bold, fontSize: 11, letterSpacing: 1.5, color: color.purple }}>{fill(t.board.trialOf, { skill: skillById[tr.skillId].name.toUpperCase(), rank: RANKS[tr.rank] })}</Text>
                     <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted }}>{tr.daysLeft != null ? fill(t.skills.trialActive, { n: tr.daysLeft }) : t.skills.trialWaiting}</Text>
                   </View>
+                  {/* Started by accident? Stop it here (two taps). */}
+                  <Pressable accessibilityRole="button" onPress={() => (stopSure === tr.skillId ? stopTrial(user.uid, tr.skillId).catch(() => {}).finally(() => setStopSure(null)) : setStopSure(tr.skillId))}
+                    style={{ alignSelf: "flex-start", minHeight: 36, justifyContent: "center", paddingHorizontal: 14 }}>
+                    <Text style={{ fontFamily: font.bodyBold, fontSize: 12, color: stopSure === tr.skillId ? color.dangerSoft : color.muted }}>{stopSure === tr.skillId ? t.skills.trialStopSure : t.skills.trialStop}</Text>
+                  </Pressable>
                   {tr.parts.map((p) => {
                     const id = trialQuestId(tr.skillId, tr.rank, p.key);
                     return (
@@ -750,6 +788,8 @@ export default function Quests({ user, player, focus, onFocusDone, onOpenSkill, 
               })}
             </Frame>
           ) : null}
+          {/* Everything you cleared today, at the bottom: the day's score. */}
+          <TodayLog player={player} day={day} />
         </View>
       </ScrollView>
 

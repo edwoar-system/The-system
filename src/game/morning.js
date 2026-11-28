@@ -33,6 +33,15 @@ export const morningMinutes = (player) => (player?.morning?.items ?? MORNING_DEF
 export const FULL_MORNING = ["bed", "water", "stretch", "light", "pushups10", "breathe", "plan", "read1", "tidy"];
 export const FULL_MORNING_COINS = 30;
 export const FULL_MORNING_XP = 40;
+// Every morning item you ticked pays, and finishing your whole routine (at least 4 items) adds a bonus.
+export const MORNING_ITEM_COINS = 3;
+export const MORNING_DONE_COINS = 10;
+export function morningPay(player, day) {
+  const items = player?.morning?.items ?? MORNING_DEFAULT;
+  const ticked = items.filter((id) => day?.startTicks?.[id]).length;
+  const all = items.length >= 4 && ticked === items.length;
+  return ticked * MORNING_ITEM_COINS + (all ? MORNING_DONE_COINS : 0);
+}
 export const hasFullMorning = (player) => FULL_MORNING.every((id) => (player?.morning?.items ?? []).includes(id));
 export const isFullMorning = (player, day) => hasFullMorning(player) && FULL_MORNING.every((id) => day?.startTicks?.[id]);
 

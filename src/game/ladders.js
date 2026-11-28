@@ -461,6 +461,13 @@ export const LADDERS = [
     trials: { D: "Finish a piece of 2,000+ words.", C: "Rewrite one piece after someone's feedback.", B: "Submit to a magazine, competition or editor." },
     quests: "300 words; edit one page; write in a new form (poem, essay, scene).", earn: "150 words.", test: "Word counts logged in the app.", proof: "log" },
   {
+    id: "poetry", stat: "INT", stats: "INT (main), CHA", basis: "milestone",
+    note: "The rank comes from poems and quotes written and shared, then from people reading them.",
+    col: "Milestone",
+    ranks: ["Write one short poem or 3 quotes", "20 poems or quotes written", "50 written; one shared with someone", "A small collection (15 poems) reworked until every line holds", "Read aloud at an open mic, or published online with readers", "Published in a magazine or anthology", "Your own collection published", "A known, awarded poet"],
+    trials: { D: "Write a poem in a fixed form (sonnet, haiku chain, villanelle).", C: "Rework one poem after someone's feedback.", B: "Share a poem publicly: an open mic, a magazine submission or a post with readers." },
+    quests: "One short poem; 3 quotes of your own; rework an old poem.", earn: "One poem or quote.", test: "Poems logged in the app.", proof: "log" },
+  {
     id: "memory", stat: "INT", stats: "INT (main), WIL", basis: "test",
     note: "The rank comes from digits recalled in order. The normal span for adults is about 7 digits (Miller 1956); memory athletes using a memory palace go far beyond it, and Simon Reinhard reached a forward span of 240.",
     col: "Digits recalled in order",

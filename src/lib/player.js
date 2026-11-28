@@ -121,6 +121,11 @@ export function setVoice(uid, voice) {
   return updateDoc(doc(db, "players", uid), { voice, updatedAt: serverTimestamp() });
 }
 
+// Do you have what this skill needs (game/gear.js)? true / false.
+export function setGear(uid, skill, has) {
+  return updateDoc(doc(db, "players", uid), { [`profile.gear.${skill}`]: has, updatedAt: serverTimestamp() });
+}
+
 export function setSimple(uid, on) {
   return updateDoc(doc(db, "players", uid), { simple: !!on, updatedAt: serverTimestamp() });
 }

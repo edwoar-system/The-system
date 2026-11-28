@@ -94,7 +94,8 @@ function streakOf(days, freq, today) {
 
 // Everything the Skills screens show about one skill.
 export function skillView(id, entry = {}, today = dayNum()) {
-  const ladder = ladderById[id];
+  // A skill without its own ladder (shouldn't happen) gets a plain one instead of breaking the screen.
+  const ladder = ladderById[id] ?? { id, stat: "WIL", basis: "milestone", ranks: [] };
   const days = entry.days ?? [];
   const last = days.length ? days[days.length - 1] : null;
   const since = last == null ? null : today - last;

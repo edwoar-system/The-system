@@ -23,7 +23,8 @@ import { t } from "../i18n";
 import { HelpDot } from "./Explain";
 import { courseForSkill } from "../game/courses";
 import { PLAN_TIMES, WEEKDAYS } from "../game/weekplan";
-import { patchProfile, setWeekPlan } from "../lib/player";
+import { patchProfile, setGear, setWeekPlan } from "../lib/player";
+import { gearOf, hasGear } from "../game/gear";
 
 function Chevron({ c }) {
   return <Svg width={18} height={18} viewBox="0 0 24 24"><Path d="M15 5l-7 7 7 7" fill="none" stroke={c} strokeWidth={1.8} /></Svg>;
@@ -103,6 +104,17 @@ function MyWay({ user, player, id }) {
     <Frame cut={12} style={{ marginTop: 18 }} contentStyle={{ padding: 16, gap: 10 }}>
       <Label tone={color.hi}>{t.skills.myWay}</Label>
       <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{t.skills.myWaySub}</Text>
+      {gearOf(id) ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Text style={{ flex: 1, fontFamily: font.bodyMedium, fontSize: 14, color: color.text }}>{fill(t.gear.ask, { need: gearOf(id).need })}</Text>
+          {[[true, t.gear.yesShort], [false, t.gear.noShort]].map(([v, label]) => (
+            <Pressable key={String(v)} accessibilityRole="button" accessibilityState={{ selected: hasGear(player.profile, id) === v }} onPress={() => setGear(user.uid, id, v).catch(() => {})}
+              style={{ minHeight: 40, minWidth: 52, paddingHorizontal: 10, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: hasGear(player.profile, id) === v ? color.frame : "rgba(159,203,255,0.25)", backgroundColor: hasGear(player.profile, id) === v ? "rgba(159,203,255,0.14)" : "transparent" }}>
+              <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: "#FFFFFF" }}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
       <TextInput value={focus} onChangeText={(v) => { setFocus(v); setState(null); }} placeholder={t.skills.focusPh} placeholderTextColor="#5A6A8A" maxLength={80} accessibilityLabel={t.skills.focusPh} style={input} />
       <TextInput value={limit} onChangeText={(v) => { setLimit(v); setState(null); }} placeholder={t.skills.limitPh} placeholderTextColor="#5A6A8A" maxLength={80} accessibilityLabel={t.skills.limitPh} style={input} />
       {step(t.skills.maxMin, maxMin, (v) => { setMaxMin(v); setState(null); }, t.skills.minUnit, 0, 180, 5)}
@@ -202,10 +214,11 @@ export default function SkillPage({ user, player, id, onBack, onRequest, onOpenC
   const met = items.filter((it) => it.done).length;
   const needsQuests = items.some((it) => it.questId);
 
+  const [sure, setSure] = useState(false);
   async function start() {
     setBusy(true);
     setError(null);
-    try { await startTrial(user.uid, id, target); setPlacement(null); } catch { setError(t.skills.failed); } finally { setBusy(false); }
+    try { await startTrial(user.uid, id, target); setPlacement(null); setSure(false); } catch { setError(t.skills.failed); } finally { setBusy(false); }
   }
   async function stop() {
     setBusy(true);
@@ -317,7 +330,13 @@ export default function SkillPage({ user, player, id, onBack, onRequest, onOpenC
             {unlock ? <Text style={{ fontFamily: font.body, fontSize: 13, color: "#CAD6EC" }}>{fill(t.skills.unlocks, { name: unlock })}</Text> : null}
             <Text style={{ fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.muted }}>{fill(t.skills.proof, { type: t.skills.proofTypes[L.proof] })}</Text>
             {error ? <Text style={{ fontFamily: font.bodyMedium, fontSize: 13, color: color.dangerSoft }}>{error}</Text> : null}
-            {!active && needsQuests ? <SysButton label={t.skills.trialStart} onPress={start} disabled={busy} style={{ marginTop: 6 }} /> : null}
+            {/* Two taps to start, so a mis-tap doesn't start a trial. */}
+            {!active && needsQuests ? <SysButton label={sure ? t.skills.trialSure : t.skills.trialStart} onPress={() => (sure ? start() : setSure(true))} disabled={busy} style={{ marginTop: 6 }} /> : null}
+            {!active && needsQuests && sure ? (
+              <Pressable accessibilityRole="button" onPress={() => setSure(false)} style={{ minHeight: 40, alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ fontFamily: font.bodyBold, fontSize: 13, color: color.muted }}>{t.skills.trialCancel}</Text>
+              </Pressable>
+            ) : null}
             {active ? (
               <Pressable accessibilityRole="button" onPress={stop} disabled={busy} style={{ minHeight: 44, alignItems: "center", justifyContent: "center" }}>
                 <Text style={{ fontFamily: font.bodyBold, fontSize: 14, color: color.muted }}>{t.skills.trialStop}</Text>

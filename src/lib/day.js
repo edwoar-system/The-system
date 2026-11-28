@@ -1,4 +1,5 @@
 import { collection, deleteField, doc, runTransaction, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import { gearQuest } from "../game/gear";
 import { weekToday } from "../game/week";
 import { comebackFor, comebackQuest } from "../game/comeback";
 import { db } from "./firebase";
@@ -24,7 +25,7 @@ import { effectFactor } from "../game/effects";
 import { weatherNow } from "./weather";
 import { DIFF_TIER, difficultyOf } from "../game/difficulty";
 import { trainMuscles } from "./muscles";
-import { CHALLENGE_COINS, CHALLENGE_XP, FULL_MORNING_COINS, FULL_MORNING_XP, isFullMorning } from "../game/morning";
+import { CHALLENGE_COINS, CHALLENGE_XP, FULL_MORNING_COINS, FULL_MORNING_XP, isFullMorning, morningPay } from "../game/morning";
 import { plannedOn } from "../game/weekplan";
 
 export const MAX_GUILD_QUESTS = 6;
@@ -52,7 +53,8 @@ export function getQuest(id, player = null) {
     const x = ((player ?? playerCache)?.todos ?? []).find((i) => `todo:${i.id}` === id);
     return x ? { id, title: x.title, how: "A to-do you made today's side quest.", minutes: 15, difficulty: "easy", stat: "VIT", type: "chore", own: true } : null;
   }
-  return withPrefs(guildQuest(id), (player ?? playerCache)?.profile);
+  const profile = (player ?? playerCache)?.profile;
+  return gearQuest(withPrefs(guildQuest(id), profile), profile);
 }
 
 const rankXp = (from, to) => {
@@ -409,6 +411,7 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
     // The full morning routine (all nine items, every one ticked) pays extra coins and EXP.
     const morningFull = slot === "start" && isFullMorning(player, day);
     if (morningFull) bonus += FULL_MORNING_COINS;
+    if (slot === "start") bonus += morningPay(player, day);
     // Out in bad weather anyway (an outdoor quest while the weather is bad): 25% more.
     const rough = isOutdoor(q) && slot !== "trial" ? weatherNow()?.bad : null;
     if (rough) bonus += Math.round(coins * WEATHER_BONUS);
@@ -474,10 +477,13 @@ export async function completeQuest(uid, questId, slot, log = null, opts = {}) {
       ...(programDone ? { programs: (f.programs ?? 0) + 1 } : {}),
     };
 
+    // A "get the gear" quest done: from now on that skill's real quests come.
+    const gearDone = q.gearFor ? { profile: { gear: { [q.gearFor]: true } } } : {};
     tx.set(ref, {
       day,
       feats,
       ...ownSide,
+      ...gearDone,
       coins: (player.coins ?? 0) + coins + bonus + (loot?.coins ?? 0),
       ...(loot?.shield ? { streakShields: Math.min(MAX_SHIELDS, (player.streakShields ?? 0) + loot.shield) } : {}),
       xp: totalXp,

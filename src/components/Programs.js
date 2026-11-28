@@ -12,6 +12,7 @@ import { Frame, Label, SysButton } from "./sys";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 import SwipeBack from "./SwipeBack";
+import { skillById } from "../game/guild";
 
 const fill = (s, vars) => Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), String(s ?? ""));
 
@@ -186,7 +187,10 @@ export default function ProgramsSection({ user, player }) {
   const [browsing, setBrowsing] = useState(false); // true, or a program id to open on its info page
   const today = todayKey();
   const liked = interestSkills(player.profile);
-  const focusNames = INTERESTS.filter((i) => (player.profile?.interests ?? []).includes(i.id)).map((i) => i.name);
+  // The skills you ticked (or, for older profiles, the groups you picked).
+  const focusNames = Array.isArray(player.profile?.picked)
+    ? player.profile.picked.map((id) => skillById[id]?.name).filter(Boolean).slice(0, 8)
+    : INTERESTS.filter((i) => (player.profile?.interests ?? []).includes(i.id)).map((i) => i.name);
   const outside = widenBy(currentStreak(player));
   const entries = Object.entries(player.programs ?? {});
   const due = dueSessions(player, today);
